@@ -116,7 +116,7 @@ def button_callback(update: Update, context: CallbackContext) -> None:
         query.message.reply_text("يزي بيزي اليك الخطوات1️⃣: قبل ارسال الملف تاكد من وضع التوكن والايدي2️⃣: ارسال ملف بايثون او بي اتش بي فقط3️⃣: بعده ان يقوم البوت برسال ملف مضغوط اليك قم مباشره برساله الى بوت جيتهاب @SERSA1BOT")
 
 def main() -> None:
-    TOKEN = "7105215342:AAG4XYWMw1twnP69cEgGxHLCQKlo2527FnY"
+    TOKEN = "7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo"
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
 
