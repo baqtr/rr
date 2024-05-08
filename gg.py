@@ -1,6 +1,6 @@
 import requests
 import json
-import telebot,webbrowser
+import telebot
 from telebot import types
 
 token = "6838179038:AAHQHYN4xPsbnn12-WsrzzpNwi0wG6HNSaU" 
@@ -25,32 +25,33 @@ headers = {
 
 @bot.message_handler(commands=["start"])
 def welcome(message):
- 
- my = types.InlineKeyboardButton(text='Please join the developer channel',url="t.me/MKOOSH")
- xx = types.InlineKeyboardMarkup()
- xx.add(my)
- name = message.chat.first_name
- 
- bot.reply_to(message,f'''Send a word
-ـ  /Koshovaly''',reply_markup=xx)
+    my = types.InlineKeyboardButton(text='الرجاء الانضمام إلى قناة المطور',url="t.me/MKOOSH")
+    xx = types.InlineKeyboardMarkup()
+    xx.add(my)
+    name = message.chat.first_name
+    bot.reply_to(message, f'''أرسل كلمة
+    ـ  /Koshovaly''', reply_markup=xx)
 
 @bot.message_handler(commands=['Koshovaly'])
 def visa(message):
-     data = {
-     'Type': 'visa',
-     'X-Requested-With': 'XMLHttpRequest',}
-     url = requests.post('https://randommer.io/Card',headers=headers, data=data)
-     data = json.loads(url.content)
-     card = data['cardNumber']
-     name = data['fullName']
-     cvv = data['cvv']
-     pin = data['pin']
-     type = data['type']
-     date = data['date']
-     text =f'{card}\n {cvv}\n {pin}\n {date}\n \n by @AsiacellI2'
-     bot.reply_to(message,text)
-
-
-     
+    data = {
+        'Type': 'visa',
+        'X-Requested-With': 'XMLHttpRequest',
+    }
+    url = requests.post('https://randommer.io/Card', headers=headers, data=data)
+    data = json.loads(url.content)
+    card = data['cardNumber']
+    name = data['fullName']
+    cvv = data['cvv']
+    pin = data['pin']
+    type = data['type']
+    date = data['date']
+    text = f'''بطاقة الفيزا:
+    🏦 رقم البطاقة: {card}
+    🔑 CVV: {cvv}
+    🔒 PIN: {pin}
+    📅 تاريخ الانتهاء: {date}
+    \n بواسطة @AsiacellI2'''
+    bot.reply_to(message, text)
 
 bot.infinity_polling()
