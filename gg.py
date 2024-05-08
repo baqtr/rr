@@ -6,22 +6,18 @@ from heroku3 import from_key
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-TOKEN = "7046309155:AAH6xMJeXTotkeFbE6nYrdIn5nsO1I9lG7A"
+TOKEN = "7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo"
 HEROKU_API_KEYS = [
     "HRKU-a362bdb3-a2a3-4e48-86e5-3d3f56799621",
     "HRKU-5e86e90f-8222-40b2-9b54-302d63a73e32",
-    "HRKU-354b0fc4-1af5-4c26-91a5-9c09166d5eee",
-    "YOUR_HEROKU_API_KEY_4_HERE",
-    "YOUR_HEROKU_API_KEY_5_HERE"
+    "HRKU-354b0fc4-1af5-4c26-91a5-9c09166d5eee"
 ]
-MAX_APPS_DISPLAYED = 5
+MAX_APPS_DISPLAYED = 3
 
 def start(update: Update, context: CallbackContext) -> None:
-    keyboard = [[InlineKeyboardButton("الحساب 1", callback_data="account_0"),
-                 InlineKeyboardButton("الحساب 2", callback_data="account_1"),
-                 InlineKeyboardButton("الحساب 3", callback_data="account_2"),
-                 InlineKeyboardButton("الحساب 4", callback_data="account_3"),
-                 InlineKeyboardButton("الحساب 5", callback_data="account_4")]]
+    keyboard = []
+    for i, account_key in enumerate(HEROKU_API_KEYS):
+        keyboard.append([InlineKeyboardButton(f"حساب {i + 1}", callback_data=f"account_{i}")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text("يرجى اختيار أحد الحسابات:", reply_markup=reply_markup)
