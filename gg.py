@@ -8,8 +8,8 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 TOKEN = "7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo"
 HEROKU_API_KEYS = [
-    "HRKU-a362bdb3-a2a3-4e48-86e5-3d3f56799621",
     "HRKU-5e86e90f-8222-40b2-9b54-302d63a73e32",
+    "HRKU-a362bdb3-a2a3-4e48-86e5-3d3f56799621",
     "HRKU-354b0fc4-1af5-4c26-91a5-9c09166d5eee"
 ]
 MAX_APPS_DISPLAYED = 3
@@ -37,7 +37,7 @@ def button(update: Update, context: CallbackContext) -> None:
         keyboard.append([button])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("يرجى اختيار أحد التطبيقات:", reply_markup=reply_markup)
+    update.callback_query.edit_message_text("يرجى اختيار أحد التطبيقات:", reply_markup=reply_markup)
 
 def app_button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
