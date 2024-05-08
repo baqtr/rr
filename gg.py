@@ -47,9 +47,9 @@ def visa(message):
     type = data['type']
     date = data['date']
     text = f'''بطاقة الفيزا:
-    🏦 رقم البطاقة: {card}
-    🔑 CVV: {cvv}
-    🔒 PIN: {pin}
+    🏦 رقم البطاقة: `{card}`
+    🔑 CVV: `{cvv}`
+    🔒 PIN: `{pin}`
     📅 تاريخ الانتهاء: {date}
     \n بواسطة @AsiacellI2'''
     bot.reply_to(message, text)
