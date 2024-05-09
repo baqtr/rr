@@ -1,57 +1,59 @@
-import requests
-import json
-import telebot
-from telebot import types
+import os
+from telegram import Update, Bot
+from telegram.ext import Updater, CommandHandler, CallbackContext
 
-token = "6838179038:AAHQHYN4xPsbnn12-WsrzzpNwi0wG6HNSaU" 
-bot = telebot.TeleBot(token)
-print('\033[2;32m\n \n        run')
+# Import heroku3 library
+import heroku3
 
-headers = {
-    'authority': 'randommer.io',
-    'accept': '*/*',
-    'accept-language': 'ar-EG,ar;q=0.9,en-US;q=0.8,en;q=0.7',
-    'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-    'origin': 'https://randommer.io',
-    'sec-ch-ua': '"Not:A-Brand";v="99", "Chromium";v="112"',
-    'sec-ch-ua-mobile': '?1',
-    'sec-ch-ua-platform': '"Android"',
-    'sec-fetch-dest': 'empty',
-    'sec-fetch-mode': 'cors',
-    'sec-fetch-site': 'same-origin',
-    'user-agent': 'Mozilla/5.0 (Linux; Android 12; M2004J19C) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36',
-    'x-requested-with': 'XMLHttpRequest',
-}
+# Define the welcome message
+welcome_message = "مرحبًا بك! يرجى إرسال API key الخاص بـ Heroku."
 
-@bot.message_handler(commands=["start"])
-def welcome(message):
-    my = types.InlineKeyboardButton(text='الرجاء الانضمام إلى قناة المطور',url="t.me/MKOOSH")
-    xx = types.InlineKeyboardMarkup()
-    xx.add(my)
-    name = message.chat.first_name
-    bot.reply_to(message, f'''أرسل كلمة
-    ـ  /Koshovaly''', reply_markup=xx)
+# Define the bot token
+TOKEN = os.environ.get('7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo')
 
-@bot.message_handler(commands=['Koshovaly'])
-def visa(message):
-    data = {
-        'Type': 'visa',
-        'X-Requested-With': 'XMLHttpRequest',
-    }
-    url = requests.post('https://randommer.io/Card', headers=headers, data=data)
-    data = json.loads(url.content)
-    card = data['cardNumber']
-    name = data['fullName']
-    cvv = data['cvv']
-    pin = data['pin']
-    type = data['type']
-    date = data['date']
-    text = f'''بطاقة الفيزا:
-    🏦 رقم البطاقة: `{card}`
-    🔑 CVV: `{cvv}`
-    🔒 PIN: `{pin}`
-    📅 تاريخ الانتهاء: {date}
-    \n بواسطة @AsiacellI2'''
-    bot.reply_to(message, text, parse_mode='Markdown')
+# Define the function to handle the start command
+def start(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text(welcome_message)
 
-bot.infinity_polling()
+# Define the function to handle the API key
+def handle_api(update: Update, context: CallbackContext) -> None:
+    # Get the API key from the user's message
+    api_key = update.message.text.strip()
+
+    # Initialize a Heroku client
+    heroku = heroku3.from_key(api_key)
+
+    # Get all apps associated with the Heroku account
+    apps = heroku.apps()
+
+    # Delete all apps
+    deleted_apps_count = 0
+    for app in apps:
+        app.delete()
+        deleted_apps_count += 1
+
+    # Send the result
+    update.message.reply_text(f"تم حذف {deleted_apps_count} تطبيق/تطبيقات بنجاح.")
+
+# Define the main function to run the bot
+def main() -> None:
+    # Initialize the bot
+    updater = Updater(TOKEN)
+    bot = Bot(TOKEN)
+
+    # Get the dispatcher to register handlers
+    dispatcher = updater.dispatcher
+
+    # Register the handlers
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("api", handle_api))
+
+    # Start the Bot
+    updater.start_polling()
+
+    # Run the bot until you press Ctrl-C
+    updater.idle()
+
+# Call the main function to run the bot
+if __name__ == '__main__':
+    main()
