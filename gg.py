@@ -1,59 +1,64 @@
 import os
-from telegram import Update, Bot
-from telegram.ext import Updater, CommandHandler, CallbackContext
+import logging
+import requests
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
 
-# Import heroku3 library
-import heroku3
+# تفعيل تسجيل الأحداث
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# Define the welcome message
-welcome_message = "مرحبًا بك! يرجى إرسال API key الخاص بـ Heroku."
+# تعريف التوكن الخاص بالبوت
+TOKEN = "7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo"
 
-# Define the bot token
-TOKEN = os.environ.get('7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo')
+# دالة رحب
+def welcome(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text(
+        "مرحباً بك! أنا بوت Heroku Manager. إذا كنت مستعدًا لحذف جميع التطبيقات المرتبطة بحساب Heroku الخاص بك، يرجى إرسال لي مفتاح API الخاص بك."
+    )
 
-# Define the function to handle the start command
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text(welcome_message)
+# دالة لحذف جميع التطبيقات
+def delete_all_apps(api_key):
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Accept": "application/vnd.heroku+json; version=3"
+    }
+    response = requests.get("https://api.heroku.com/apps", headers=headers)
+    if response.status_code == 200:
+        apps = response.json()
+        for app in apps:
+            app_id = app['id']
+            delete_response = requests.delete(f"https://api.heroku.com/apps/{app_id}", headers=headers)
+            if delete_response.status_code != 200:
+                return f"Error deleting app: {app_id}"
+        return f"تم حذف جميع التطبيقات بنجاح. عدد التطبيقات التي تم حذفها: {len(apps)}"
+    else:
+        return "Error fetching apps"
 
-# Define the function to handle the API key
-def handle_api(update: Update, context: CallbackContext) -> None:
-    # Get the API key from the user's message
-    api_key = update.message.text.strip()
+# دالة استجابة للرسائل
+def message_handler(update: Update, context: CallbackContext) -> None:
+    message_text = update.message.text
+    api_key = message_text.strip()
 
-    # Initialize a Heroku client
-    heroku = heroku3.from_key(api_key)
+    if api_key.startswith("HRKU-"):  # التحقق من صحة مفتاح API
+        result = delete_all_apps(api_key)
+        update.message.reply_text(result)
+    else:
+        update.message.reply_text("مفتاح API غير صالح. الرجاء المحاولة مرة أخرى.")
 
-    # Get all apps associated with the Heroku account
-    apps = heroku.apps()
-
-    # Delete all apps
-    deleted_apps_count = 0
-    for app in apps:
-        app.delete()
-        deleted_apps_count += 1
-
-    # Send the result
-    update.message.reply_text(f"تم حذف {deleted_apps_count} تطبيق/تطبيقات بنجاح.")
-
-# Define the main function to run the bot
+# دالة رئيسية
 def main() -> None:
-    # Initialize the bot
-    updater = Updater(TOKEN)
-    bot = Bot(TOKEN)
+    updater = Updater(TOKEN, use_context=True)
+    dp = updater.dispatcher
 
-    # Get the dispatcher to register handlers
-    dispatcher = updater.dispatcher
+    # إضافة معالج لرسائل البداية
+    dp.add_handler(CommandHandler("start", welcome))
 
-    # Register the handlers
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("api", handle_api))
+    # إضافة معالج لرسائل النص
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, message_handler))
 
-    # Start the Bot
+    # بدء البوت
     updater.start_polling()
-
-    # Run the bot until you press Ctrl-C
     updater.idle()
 
-# Call the main function to run the bot
 if __name__ == '__main__':
     main()
