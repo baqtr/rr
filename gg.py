@@ -6,6 +6,10 @@ TOKEN = "7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo"
 
 bot = telebot.TeleBot(TOKEN)
 
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.send_message(message.chat.id, "مرحبًا! يرجى إرسال ملف Python.")
+
 @bot.message_handler(content_types=['document'])
 def handle_document(message):
     file_info = bot.get_file(message.document.file_id)
@@ -26,6 +30,6 @@ def handle_document(message):
 
 @bot.message_handler(func=lambda message: True)
 def handle_all_messages(message):
-    bot.send_message(message.chat.id, "مرحبًا! يرجى إرسال ملف Python.")
+    bot.send_message(message.chat.id, "يرجى إرسال ملف Python.")
 
 bot.polling()
