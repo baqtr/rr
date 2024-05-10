@@ -3,7 +3,7 @@ import requests
 from datetime import datetime
 
 TOKEN = "7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo"
-HEROKU_API_KEY = "HRKU-adaf6ee5-26b0-451f-8425-327ad117b05a"
+HEROKU_API_KEY = "HRKU-a362bdb3-a2a3-4e48-86e5-3d3f56799621"
 HEROKU_APPS_URL = "https://api.heroku.com/apps"
 
 bot = telebot.TeleBot(TOKEN)
