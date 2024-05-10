@@ -2,12 +2,18 @@ import telebot
 import requests
 from datetime import datetime
 
+# توكن البوت الخاص بك
 TOKEN = "7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo"
+
+# توكن API الخاص بك من هيروكو
 HEROKU_API_KEY = "HRKU-a362bdb3-a2a3-4e48-86e5-3d3f56799621"
+
+# رابط استعلام التطبيقات على هيروكو
 HEROKU_APPS_URL = "https://api.heroku.com/apps"
 
 bot = telebot.TeleBot(TOKEN)
 
+# استعلام قائمة التطبيقات على هيروكو
 def get_heroku_apps():
     headers = {
         "Accept": "application/vnd.heroku+json; version=3",
@@ -20,35 +26,27 @@ def get_heroku_apps():
     else:
         return None
 
+# تنسيق وقت الإنشاء بالساعات
 def format_creation_time(creation_time):
     now = datetime.now()
     creation_datetime = datetime.strptime(creation_time, "%Y-%m-%dT%H:%M:%SZ")
-    time_diff = now - creation_datetime
-    hours = time_diff.seconds // 3600
-    minutes = (time_diff.seconds % 3600) // 60
-    seconds = time_diff.seconds % 60
-    return f"{hours} ساعة و {minutes} دقيقة و {seconds} ثانية"
+    hours_diff = (now - creation_datetime).seconds // 3600
+    return hours_diff
 
+# عرض تفاصيل التطبيقات
 @bot.message_handler(commands=['apps'])
 def show_apps(message):
     apps = get_heroku_apps()
     if apps:
-        markup = telebot.types.InlineKeyboardMarkup()
         for app in apps:
             app_name = app['name']
             creation_time = format_creation_time(app['created_at'])
-            emoji = "✅" if format_creation_time(app['created_at']) >= 24 else "🕓"
-            response = f"{app_name} {emoji}"
-            markup.add(telebot.types.InlineKeyboardButton(text=response, callback_data=app_name))
-        bot.send_message(message.chat.id, "قائمة التطبيقات:", reply_markup=markup)
+            response = f"اسم التطبيق: {app_name}\nوقت الإنشاء: {creation_time} ساعة\n"
+            bot.send_message(message.chat.id, response)
     else:
         bot.send_message(message.chat.id, "حدث خطأ أثناء جلب معلومات التطبيقات.")
 
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    bot.answer_callback_query(call.id, text=f"تم نسخ اسم التطبيق: {call.data}")
-    bot.send_message(call.message.chat.id, call.data)
-
+# استقبال الأوامر الأخرى
 @bot.message_handler(func=lambda message: True)
 def handle_message(message):
     bot.reply_to(message, "مرحباً بك! لعرض جميع التطبيقات، ارسل /apps")
