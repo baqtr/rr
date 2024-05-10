@@ -1,7 +1,6 @@
 import telebot
 import os
 import ast
-import sys
 import importlib.util
 import inspect
 
@@ -12,20 +11,23 @@ bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(content_types=['document'])
 def handle_document(message):
-    # قم بتنزيل الملف
-    file_info = bot.get_file(message.document.file_id)
-    downloaded_file = bot.download_file(file_info.file_path)
-    file_name = message.document.file_name
+    try:
+        # قم بتنزيل الملف
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        file_name = message.document.file_name
 
-    # احفظ الملف
-    with open(file_name, 'wb') as new_file:
-        new_file.write(downloaded_file)
+        # احفظ الملف
+        with open(file_name, 'wb') as new_file:
+            new_file.write(downloaded_file)
 
-    # قم بتحليل الملف
-    file_info = analyze_python_file(file_name)
+        # قم بتحليل الملف
+        file_info = analyze_python_file(file_name)
 
-    # أرسل نتيجة التحليل
-    bot.reply_to(message, file_info)
+        # أرسل نتيجة التحليل
+        bot.reply_to(message, file_info)
+    except Exception as e:
+        bot.reply_to(message, f"حدث خطأ: {e}")
 
 def analyze_python_file(file_name):
     try:
