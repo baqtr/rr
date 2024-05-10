@@ -37,7 +37,7 @@ def show_apps(message):
         for app in apps:
             app_name = app['name']
             creation_time = format_creation_time(app['created_at'])
-            emoji = "✅" if creation_time >= 24 else "🕓"
+            emoji = "✅" if format_creation_time(app['created_at']) >= 24 else "🕓"
             response = f"{app_name} {emoji}"
             markup.add(telebot.types.InlineKeyboardButton(text=response, callback_data=app_name))
         bot.send_message(message.chat.id, "قائمة التطبيقات:", reply_markup=markup)
