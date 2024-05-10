@@ -25,7 +25,7 @@ def start(message):
     name = message.from_user.first_name
     user_attempts[user_id] = 0
     bot.reply_to(message, f'''اهلا بك عزيزي {name}،
-أرسل الرقم مع رمز الدولة،
+أرسل الرقم مع رقم الدولة،
 لديك {5 - user_attempts[user_id]} من الفرص على كل رقم متبقية اليوم.''', 
     reply_markup=Mak().row(
         Btn('شرح البوت 🔀', callback_data='click'),
@@ -66,8 +66,16 @@ def call_async(number, message):
 محاولة : {5 - user_attempts[user_id]} ♨️
 النتيجة : {'تم الاتصال بل رقم المطلوب✅' if req.get('status') == 1 else 'فشل الاتصال حاول غدا  ❌'}'''
             bot.reply_to(message, text)
+            # اتصل بالرقم وأرسل النتيجة
+            make_call_and_send_result(number, req.get('status'), message)
     else:
         bot.reply_to(message, '❌ لقد نفذت المحاولات على هذا الرقم، جرب رقمًا آخر.')
+
+def make_call_and_send_result(number, status, message):
+    # هنا يمكنك تنفيذ المكالمة وإرسال النتيجة
+    # تجريبي: ارسل النتيجة على أنها نجاح إذا كانت الحالة 1 وفشل في الحالة الأخرى
+    result_text = 'تم الاتصال بنجاح' if status == 1 else 'فشل الاتصال'
+    bot.reply_to(message, f'نتيجة المكالمة: {result_text}')
 
 @bot.message_handler(content_types=['text'])
 def num(message):
