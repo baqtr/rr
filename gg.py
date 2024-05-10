@@ -23,8 +23,11 @@ def get_heroku_apps():
 def format_creation_time(creation_time):
     now = datetime.now()
     creation_datetime = datetime.strptime(creation_time, "%Y-%m-%dT%H:%M:%SZ")
-    hours_diff = (now - creation_datetime).seconds // 3600
-    return hours_diff
+    time_diff = now - creation_datetime
+    hours = time_diff.seconds // 3600
+    minutes = (time_diff.seconds % 3600) // 60
+    seconds = time_diff.seconds % 60
+    return f"{hours} ساعة و {minutes} دقيقة و {seconds} ثانية"
 
 @bot.message_handler(commands=['apps'])
 def show_apps(message):
