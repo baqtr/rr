@@ -32,9 +32,9 @@ def start(message):
         Btn('تقييم البوت', url='https://t.me/TQEEMBOT?start=0007rsflzu')
     ))
 
-def call_async(number):
+def call_async(number, message):
     global user_attempts
-    user_id = number
+    user_id = message.from_user.id
     if user_id not in user_attempts:
         user_attempts[user_id] = 0
     
@@ -57,7 +57,7 @@ def call_async(number):
 
         req = requests.post(url, headers=headers, json=data).json()
         if req.get('status') == 40003:
-            return '❌ رقم الهاتف غير صحيح'
+            bot.reply_to(message, '❌ رقم الهاتف غير صحيح')
         else:
             phonum = req.get('parsedPhoneNumber')
             coucode = req.get('parsedCountryCode')
@@ -65,18 +65,14 @@ def call_async(number):
 رمز البلد  :  {coucode} 🌏
 محاولة : {5 - user_attempts[user_id]} ♨️
 النتيجة : {'تم الاتصال بل رقم المطلوب✅' if req.get('status') == 1 else 'فشل الاتصال حاول غدا  ❌'}'''
-            return text
+            bot.reply_to(message, text)
     else:
-        return '❌ لقد نفذت المحاولات على هذا الرقم، جرب رقمًا آخر.'
+        bot.reply_to(message, '❌ لقد نفذت المحاولات على هذا الرقم، جرب رقمًا آخر.')
 
 @bot.message_handler(content_types=['text'])
 def num(message):
     number = message.text
-    executor.submit(process_request, number, message)
-
-def process_request(number, message):
-    spam = call_async(number)
-    bot.reply_to(message, spam)
+    call_async(number, message)
 
 @bot.callback_query_handler(func=lambda call: call.data == 'click')
 def all(call):
