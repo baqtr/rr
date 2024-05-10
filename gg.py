@@ -1,54 +1,31 @@
 import telebot
-import requests
-from datetime import datetime
+import os
+import importlib_metadata
 
-# توكن البوت الخاص بك
 TOKEN = "7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo"
-
-# توكن API الخاص بك من هيروكو
-HEROKU_API_KEY = "HRKU-a362bdb3-a2a3-4e48-86e5-3d3f56799621"
-
-# رابط استعلام التطبيقات على هيروكو
-HEROKU_APPS_URL = "https://api.heroku.com/apps"
 
 bot = telebot.TeleBot(TOKEN)
 
-# استعلام قائمة التطبيقات على هيروكو
-def get_heroku_apps():
-    headers = {
-        "Accept": "application/vnd.heroku+json; version=3",
-        "Authorization": f"Bearer {HEROKU_API_KEY}"
-    }
-    response = requests.get(HEROKU_APPS_URL, headers=headers)
-    if response.status_code == 200:
-        apps = response.json()
-        return apps
-    else:
-        return None
+@bot.message_handler(content_types=['document'])
+def handle_document(message):
+    file_info = bot.get_file(message.document.file_id)
+    downloaded_file = bot.download_file(file_info.file_path)
+    file_name = message.document.file_name
 
-# تنسيق وقت الإنشاء بالساعات
-def format_creation_time(creation_time):
-    now = datetime.now()
-    creation_datetime = datetime.strptime(creation_time, "%Y-%m-%dT%H:%M:%SZ")
-    hours_diff = (now - creation_datetime).seconds // 3600
-    return hours_diff
+    with open(file_name, 'wb') as new_file:
+        new_file.write(downloaded_file)
 
-# عرض تفاصيل التطبيقات
-@bot.message_handler(commands=['apps'])
-def show_apps(message):
-    apps = get_heroku_apps()
-    if apps:
-        for app in apps:
-            app_name = app['name']
-            creation_time = format_creation_time(app['created_at'])
-            response = f"اسم التطبيق: {app_name}\nوقت الإنشاء: {creation_time} ساعة\n"
-            bot.send_message(message.chat.id, response)
-    else:
-        bot.send_message(message.chat.id, "حدث خطأ أثناء جلب معلومات التطبيقات.")
+    try:
+        module_info = importlib_metadata.metadata(file_name)
+        libraries = "\n".join(f"- {library}" for library in module_info.requires_dist)
+        message_text = f"معلومات الملف: {file_name}\n\nالمكتبات المستخدمة:\n{libraries}"
+    except:
+        message_text = "حدث خطأ أثناء قراءة معلومات الملف."
 
-# استقبال الأوامر الأخرى
+    bot.send_message(message.chat.id, message_text)
+
 @bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    bot.reply_to(message, "مرحباً بك! لعرض جميع التطبيقات، ارسل /apps")
+def handle_all_messages(message):
+    bot.send_message(message.chat.id, "مرحبًا! يرجى إرسال ملف Python.")
 
 bot.polling()
