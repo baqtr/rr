@@ -30,13 +30,23 @@ def delete_all_apps(api_key):
     else:
         return "Error fetching apps"
 
-def create_apps(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text("جارٍ إنشاء 50 تطبيق...")
+def create_apps(api_key, num_apps):
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Accept": "application/vnd.heroku+json; version=3"
+    }
+    app_names = []
+    for _ in range(num_apps):
+        app_name = f"app-{os.urandom(6).hex()}"
+        create_response = requests.post("https://api.heroku.com/apps", headers=headers, json={"name": app_name})
+        if create_response.status_code == 201:
+            app_names.append(app_name)
+    if app_names:
+        return f"تم إنشاء {num_apps} تطبيق بنجاح: {', '.join(app_names)} ✅"
+    else:
+        return "فشل في إنشاء التطبيقات."
 
-    # قم بإضافة رمز لإنشاء 50 تطبيقًا هنا
-
-def show_all_apps(update: Update, context: CallbackContext) -> None:
-    api_key = context.user_data['api_key']
+def list_all_apps(api_key):
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Accept": "application/vnd.heroku+json; version=3"
@@ -44,39 +54,40 @@ def show_all_apps(update: Update, context: CallbackContext) -> None:
     response = requests.get("https://api.heroku.com/apps", headers=headers)
     if response.status_code == 200:
         apps = response.json()
-        app_list = "\n".join([f"{app['name']}: {app['web_url']}" for app in apps])
-        update.message.reply_text(f"جميع التطبيقات الموجودة:\n{app_list}")
+        app_names = [app['name'] for app in apps]
+        return f"التطبيقات الموجودة: {', '.join(app_names)}"
     else:
-        update.message.reply_text("Error fetching apps")
+        return "فشل في جلب قائمة التطبيقات."
 
 def message_handler(update: Update, context: CallbackContext) -> None:
     message_text = update.message.text
     api_key = message_text.strip()
 
     if api_key.startswith("HRKU-"):  # التحقق من صحة مفتاح API
-        context.user_data['api_key'] = api_key
-        keyboard = [
-            [InlineKeyboardButton("حذف جميع التطبيقات", callback_data='delete_all')],
-            [InlineKeyboardButton("إنشاء 50 تطبيق", callback_data='create_apps')],
-            [InlineKeyboardButton("إظهار جميع التطبيقات", callback_data='show_all')]
+        buttons = [
+            [InlineKeyboardButton("حذف جميع التطبيقات", callback_data="delete_all")],
+            [InlineKeyboardButton("إنشاء 50 تطبيق", callback_data="create_apps_50")],
+            [InlineKeyboardButton("عرض جميع التطبيقات", callback_data="list_apps")]
         ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        update.message.reply_text('يرجى اختيار الإجراء المطلوب:', reply_markup=reply_markup)
+        keyboard = InlineKeyboardMarkup(buttons)
+        update.message.reply_text("تم استلام مفتاح API بنجاح. اختر الإجراء الذي ترغب في تنفيذه:", reply_markup=keyboard)
     else:
         update.message.reply_text("مفتاح API غير صالح. الرجاء المحاولة مرة أخرى. ❌")
 
 def button_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
-    query.answer()
+    api_key = query.message.text.split('\n')[0]  # استخراج مفتاح API من الرسالة
+    action = query.data
 
-    if query.data == 'delete_all':
-        api_key = context.user_data['api_key']
+    if action == "delete_all":
         result = delete_all_apps(api_key)
-        query.edit_message_text(result)
-    elif query.data == 'create_apps':
-        create_apps(update, context)
-    elif query.data == 'show_all':
-        show_all_apps(update, context)
+        query.edit_message_text(text=result)
+    elif action == "create_apps_50":
+        result = create_apps(api_key, 50)
+        query.edit_message_text(text=result)
+    elif action == "list_apps":
+        result = list_all_apps(api_key)
+        query.edit_message_text(text=result)
 
 def main() -> None:
     updater = Updater(TOKEN, use_context=True)
