@@ -1,64 +1,54 @@
-import os
-import logging
+import telebot
 import requests
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
+from datetime import datetime
 
-# تفعيل تسجيل الأحداث
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-
-# تعريف التوكن الخاص بالبوت
+# توكن البوت الخاص بك
 TOKEN = "7065007495:AAHubA_qSq69iOSNylbFAdl7kVygHUk5yHo"
 
-# دالة رحب
-def welcome(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text(
-        "مرحباً بك! أنا بوت Heroku Manager. إذا كنت مستعدًا لحذف جميع التطبيقات المرتبطة بحساب Heroku الخاص بك، يرجى إرسال لي مفتاح API الخاص بك."
-    )
+# توكن API الخاص بك من هيروكو
+HEROKU_API_KEY = "HRKU-adaf6ee5-26b0-451f-8425-327ad117b05a"
 
-# دالة لحذف جميع التطبيقات
-def delete_all_apps(api_key):
+# رابط استعلام التطبيقات على هيروكو
+HEROKU_APPS_URL = "https://api.heroku.com/apps"
+
+bot = telebot.TeleBot(TOKEN)
+
+# استعلام قائمة التطبيقات على هيروكو
+def get_heroku_apps():
     headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Accept": "application/vnd.heroku+json; version=3"
+        "Accept": "application/vnd.heroku+json; version=3",
+        "Authorization": f"Bearer {HEROKU_API_KEY}"
     }
-    response = requests.get("https://api.heroku.com/apps", headers=headers)
+    response = requests.get(HEROKU_APPS_URL, headers=headers)
     if response.status_code == 200:
         apps = response.json()
+        return apps
+    else:
+        return None
+
+# تنسيق وقت الإنشاء بالساعات
+def format_creation_time(creation_time):
+    now = datetime.now()
+    creation_datetime = datetime.strptime(creation_time, "%Y-%m-%dT%H:%M:%SZ")
+    hours_diff = (now - creation_datetime).seconds // 3600
+    return hours_diff
+
+# عرض تفاصيل التطبيقات
+@bot.message_handler(commands=['apps'])
+def show_apps(message):
+    apps = get_heroku_apps()
+    if apps:
         for app in apps:
-            app_id = app['id']
-            delete_response = requests.delete(f"https://api.heroku.com/apps/{app_id}", headers=headers)
-            if delete_response.status_code != 200:
-                return f"Error deleting app: {app_id}"
-        return f"تم حذف جميع التطبيقات بنجاح. عدد التطبيقات التي تم حذفها: {len(apps)}"
+            app_name = app['name']
+            creation_time = format_creation_time(app['created_at'])
+            response = f"اسم التطبيق: {app_name}\nوقت الإنشاء: {creation_time} ساعة\n"
+            bot.send_message(message.chat.id, response)
     else:
-        return "Error fetching apps"
+        bot.send_message(message.chat.id, "حدث خطأ أثناء جلب معلومات التطبيقات.")
 
-# دالة استجابة للرسائل
-def message_handler(update: Update, context: CallbackContext) -> None:
-    message_text = update.message.text
-    api_key = message_text.strip()
+# استقبال الأوامر الأخرى
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    bot.reply_to(message, "مرحباً بك! لعرض جميع التطبيقات، ارسل /apps")
 
-    if api_key.startswith("HRKU-"):  # التحقق من صحة مفتاح API
-        result = delete_all_apps(api_key)
-        update.message.reply_text(result)
-    else:
-        update.message.reply_text("مفتاح API غير صالح. الرجاء المحاولة مرة أخرى.")
-
-# دالة رئيسية
-def main() -> None:
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
-
-    # إضافة معالج لرسائل البداية
-    dp.add_handler(CommandHandler("start", welcome))
-
-    # إضافة معالج لرسائل النص
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, message_handler))
-
-    # بدء البوت
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == '__main__':
-    main()
+bot.polling()
