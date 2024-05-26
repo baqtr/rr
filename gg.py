@@ -23,8 +23,6 @@ messages = {
         "send_file": "📤 Send File",
         "change_language": "🌐 Change Language",
         "show_stats": "📊 Show File Statistics",
-        "optimize_code": "🚀 Optimize Code",
-        "analyze_code": "🔍 Analyze Code",
         "conversion_result": "🔄 Conversion Result",
     },
     "ar": {
@@ -37,8 +35,6 @@ messages = {
         "send_file": "📤 إرسال الملف",
         "change_language": "🌐 تغيير اللغة",
         "show_stats": "📊 عرض إحصائيات الملف",
-        "optimize_code": "🚀 تحسين الكود",
-        "analyze_code": "🔍 تحليل الكود",
         "conversion_result": "🔄 نتيجة التحويل",
     }
 }
@@ -62,7 +58,7 @@ def button(update: Update, context: CallbackContext) -> None:
     query.answer()
 
     file_path = context.user_data.get('file_path')
-    if not file_path:
+    if not file_path and query.data not in ['change_language', 'back_to_menu']:
         query.edit_message_text(text=messages[language]["invalid_file"])
         return
 
@@ -74,10 +70,6 @@ def button(update: Update, context: CallbackContext) -> None:
         change_language(query)
     elif query.data == 'show_stats':
         show_stats(query, file_path)
-    elif query.data == 'optimize_code':
-        optimize_code(query, file_path)
-    elif query.data == 'analyze_code':
-        analyze_code(query, file_path)
     elif query.data == 'conversion_result':
         show_conversion_result(query, context)
     elif query.data == 'back_to_menu':
@@ -116,14 +108,6 @@ def show_stats(query, file_path):
     line_count = sum(1 for line in open(file_path))
     query.edit_message_text(text=f"📊 عدد سطور الملف: {line_count}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]]))
 
-def optimize_code(query, file_path):
-    # Placeholder optimization logic
-    query.edit_message_text(text="🚀 تم تحسين الكود.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]]))
-
-def analyze_code(query, file_path):
-    # Placeholder code analysis logic
-    query.edit_message_text(text="🔍 تم تحليل الكود.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]]))
-
 def show_conversion_result(query, context):
     modifications = context.user_data.get('modifications', [])
     file_path = context.user_data['file_path']
@@ -143,8 +127,6 @@ def show_menu(reply_func, message):
         [InlineKeyboardButton("🔄 " + messages[language]["conversion_result"], callback_data='convert')],
         [InlineKeyboardButton(messages[language]["send_file"], callback_data='send_file')],
         [InlineKeyboardButton(messages[language]["show_stats"], callback_data='show_stats')],
-        [InlineKeyboardButton(messages[language]["optimize_code"], callback_data='optimize_code')],
-        [InlineKeyboardButton(messages[language]["analyze_code"], callback_data='analyze_code')],
         [InlineKeyboardButton(messages[language]["change_language"], callback_data='change_language')],
         [InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')],
     ]
