@@ -3,15 +3,13 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFi
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 import os
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelمه)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TOKEN = "6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE"
 
-# Initialize language selection to English
 language = "en"
 
-# Language dictionaries
 messages = {
     "en": {
         "start": "👋 Hello! I am a bot that converts PHP files to Python. Please send a PHP file to start.",
@@ -23,6 +21,7 @@ messages = {
         "send_file": "📤 Send File",
         "change_language": "🌐 Change Language",
         "show_stats": "📊 Show File Statistics",
+        "convert_file": "🔄 Convert File",
         "conversion_result": "🔄 Conversion Result",
     },
     "ar": {
@@ -35,6 +34,7 @@ messages = {
         "send_file": "📤 إرسال الملف",
         "change_language": "🌐 تغيير اللغة",
         "show_stats": "📊 عرض إحصائيات الملف",
+        "convert_file": "🔄 تحويل الملف",
         "conversion_result": "🔄 نتيجة التحويل",
     }
 }
@@ -59,10 +59,10 @@ def button(update: Update, context: CallbackContext) -> None:
 
     file_path = context.user_data.get('file_path')
     if not file_path and query.data not in ['change_language', 'back_to_menu']:
-        query.edit_message_text(text=messages[language]["invalid_file"])
+        query.edit_message_text(text=messages[language]["invalid_file"], reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]]))
         return
 
-    if query.data == 'convert':
+    if query.data == 'convert_file':
         convert_file(query, file_path, context)
     elif query.data == 'send_file':
         send_file(query, context)
@@ -76,7 +76,6 @@ def button(update: Update, context: CallbackContext) -> None:
         back_to_menu(query, context)
 
 def convert_file(query, file_path, context):
-    # Placeholder conversion logic
     with open(file_path, 'r') as f:
         php_code = f.read()
     python_code = php_code.replace("<?php", "").replace("?>", "").replace(";", "\n")  # Simple example conversion
@@ -87,7 +86,11 @@ def convert_file(query, file_path, context):
 
     context.user_data['converted_file_path'] = python_file_path
     context.user_data['modifications'] = ["تحويل الملف من PHP إلى بايثون"]
-    query.edit_message_text(text=messages[language]["convert_success"], reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]]))
+    query.edit_message_text(text=messages[language]["convert_success"], reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')],
+        [InlineKeyboardButton(messages[language]["send_file"], callback_data='send_file')],
+        [InlineKeyboardButton(messages[language]["conversion_result"], callback_data='conversion_result')]
+    ]))
 
 def send_file(query, context):
     converted_file_path = context.user_data.get('converted_file_path')
@@ -97,7 +100,7 @@ def send_file(query, context):
 
         query.edit_message_text(text=messages[language]["send_file"], reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]]))
     else:
-        query.edit_message_text(text="⚠️ لم يتم تحويل الملف بعد. الرجاء تحويل الملف أولاً.")
+        query.edit_message_text(text="⚠️ لم يتم تحويل الملف بعد. الرجاء تحويل الملف أولاً.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]]))
 
 def change_language(query):
     global language
@@ -124,7 +127,7 @@ def back_to_menu(query, context):
 
 def show_menu(reply_func, message):
     keyboard = [
-        [InlineKeyboardButton("🔄 " + messages[language]["conversion_result"], callback_data='convert')],
+        [InlineKeyboardButton(messages[language]["convert_file"], callback_data='convert_file')],
         [InlineKeyboardButton(messages[language]["send_file"], callback_data='send_file')],
         [InlineKeyboardButton(messages[language]["show_stats"], callback_data='show_stats')],
         [InlineKeyboardButton(messages[language]["change_language"], callback_data='change_language')],
