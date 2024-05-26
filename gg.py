@@ -61,11 +61,10 @@ def button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
 
-    if 'file_path' not in context.user_data:
-        query.edit_message_text(text="⚠️ لم يتم استقبال ملف بعد. الرجاء إرسال ملف PHP أولاً.")
+    file_path = context.user_data.get('file_path')
+    if not file_path:
+        query.edit_message_text(text=messages[language]["invalid_file"])
         return
-
-    file_path = context.user_data['file_path']
 
     if query.data == 'convert':
         convert_file(query, file_path, context)
@@ -141,7 +140,7 @@ def back_to_menu(query, context):
 
 def show_menu(reply_func, message):
     keyboard = [
-        [InlineKeyboardButton("🛠️ " + messages[language]["conversion_result"], callback_data='convert')],
+        [InlineKeyboardButton("🔄 " + messages[language]["conversion_result"], callback_data='convert')],
         [InlineKeyboardButton(messages[language]["send_file"], callback_data='send_file')],
         [InlineKeyboardButton(messages[language]["show_stats"], callback_data='show_stats')],
         [InlineKeyboardButton(messages[language]["optimize_code"], callback_data='optimize_code')],
