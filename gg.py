@@ -6,7 +6,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from threading import Thread
 
-bot_token = '6886458052:AAEHAT8j46X2hqgDXsqGUBxPxsVGFI3juRY'
+bot_token = '7119817477:AAE2ri5rB-kt9S4rTeLIAReC5PGv1noe61I'
 bot = telebot.TeleBot(bot_token)
 user_data = {}
 
