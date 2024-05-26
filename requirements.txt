@@ -37,3 +37,4 @@ psutil==5.8.0
 PyGithub
 heroku3
 phonenumbers
+telethon==1.24.0
