@@ -3,7 +3,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFi
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 import os
 import time
-from datetime import datetime
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,7 +43,7 @@ messages = {
 }
 
 def start(update: Update, context: CallbackContext) -> None:
-    show_menu(update.message.reply_text, messages[language]["start"])
+    update.message.reply_text(messages[language]["start"])
 
 def handle_file(update: Update, context: CallbackContext) -> None:
     file = update.message.document
@@ -98,9 +97,9 @@ def convert_file(query, file_path, context):
     elapsed_time = end_time - start_time
 
     query.edit_message_text(text=messages[language]["convert_success"], reply_markup=InlineKeyboardMarkup([
-        [InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')],
         [InlineKeyboardButton(messages[language]["send_file"], callback_data='send_file')],
-        [InlineKeyboardButton(messages[language]["conversion_result"], callback_data='conversion_result')]
+        [InlineKeyboardButton(messages[language]["conversion_result"], callback_data='conversion_result')],
+        [InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]
     ]))
 
     query.message.reply_text(messages[language]["conversion_time"].format(time=round(elapsed_time, 2)))
