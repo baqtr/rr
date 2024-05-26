@@ -1,125 +1,55 @@
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
-import os
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
+import phonenumbers
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TOKEN = "6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE"
 
-language = "ar"
-
-messages = {
-    "ar": {
-        "start": "👋 مرحباً! أنا بوت لتحويل ملفات PHP إلى بايثون. الرجاء إرسال ملف PHP للبدء.",
-        "invalid_file": "❌ الرجاء إرسال ملف PHP بامتداد .php",
-        "file_received": "📂 تم استقبال الملف. اختر خيارًا:",
-        "convert_success": "✅ تم التحويل بنجاح. إليك ملف بايثون.",
-        "choose_language": "الرجاء اختيار اللغة:",
-        "back_to_menu": "🔙 العودة إلى القائمة",
-        "send_file": "📤 إرسال الملف",
-        "show_stats": "📊 عرض إحصائيات الملف",
-        "convert_file": "🔄 تحويل الملف",
-        "conversion_result": "🔄 نتيجة التحويل",
-    }
-}
+users_data = {}
 
 def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text(messages[language]["start"])
+    update.message.reply_text("👋 مرحباً! الرجاء إدخال رقم التليجرام الخاص بك:")
 
-def handle_file(update: Update, context: CallbackContext) -> None:
-    file = update.message.document
-    if file.file_name.endswith('.php'):
-        file_path = file.get_file().download()
-        context.user_data['file_path'] = file_path
-        context.user_data['file_name'] = file.file_name
+def handle_number(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    user_number = update.message.text
 
-        show_menu(update.message.reply_text, messages[language]["file_received"])
+    try:
+        phone_number = phonenumbers.parse(user_number, "IN")
+        if phonenumbers.is_valid_number(phone_number):
+            users_data[user_id] = {'phone_number': user_number}
+            update.message.reply_text("✅ تم استقبال الرقم. الرجاء إدخال رمز التحقق الذي تلقيته:")
+        else:
+            update.message.reply_text("❌ الرقم غير صحيح. الرجاء إدخال رقم صحيح:")
+    except phonenumbers.phonenumberutil.NumberParseException:
+        update.message.reply_text("❌ الرقم غير صحيح. الرجاء إدخال رقم صحيح:")
+
+def handle_code(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    user_code = update.message.text
+
+    if user_id in users_data:
+        users_data[user_id]['verification_code'] = user_code
+        update.message.reply_text("✅ تم استقبال رمز التحقق.")
+        
+        # فحص الرقم هنا (مثال بسيط للتحقق إذا كان الرقم محظورًا)
+        if users_data[user_id]['phone_number'].endswith("1234"):
+            update.message.reply_text("🚫 الرقم محظور.")
+        else:
+            update.message.reply_text("✅ الرقم صالح وغير محظور.")
     else:
-        update.message.reply_text(messages[language]["invalid_file"])
-
-def button(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-
-    file_path = context.user_data.get('file_path')
-    if not file_path and query.data != 'back_to_menu':
-        query.edit_message_text(text=messages[language]["invalid_file"], reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]]))
-        return
-
-    if query.data == 'convert_file':
-        convert_file(query, file_path, context)
-    elif query.data == 'send_file':
-        send_file(query, context)
-    elif query.data == 'show_stats':
-        show_stats(query, file_path)
-    elif query.data == 'conversion_result':
-        show_conversion_result(query, context)
-    elif query.data == 'back_to_menu':
-        back_to_menu(query, context)
-
-def convert_file(query, file_path, context):
-    with open(file_path, 'r') as f:
-        php_code = f.read()
-    python_code = php_code.replace("<?php", "").replace("?>", "").replace(";", "\n")  # Simple example conversion
-
-    python_file_path = file_path.replace('.php', '.py')
-    with open(python_file_path, 'w') as f:
-        f.write(python_code)
-
-    context.user_data['converted_file_path'] = python_file_path
-    context.user_data['modifications'] = ["تحويل الملف من PHP إلى بايثون"]
-    query.edit_message_text(text=messages[language]["convert_success"], reply_markup=InlineKeyboardMarkup([
-        [InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')],
-        [InlineKeyboardButton(messages[language]["send_file"], callback_data='send_file')],
-        [InlineKeyboardButton(messages[language]["conversion_result"], callback_data='conversion_result')]
-    ]))
-
-def send_file(query, context):
-    converted_file_path = context.user_data.get('converted_file_path')
-    if converted_file_path:
-        with open(converted_file_path, 'rb') as f:
-            context.bot.send_document(chat_id=query.message.chat_id, document=InputFile(f, filename=os.path.basename(converted_file_path)))
-
-        query.edit_message_text(text=messages[language]["send_file"], reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]]))
-    else:
-        query.edit_message_text(text="⚠️ لم يتم تحويل الملف بعد. الرجاء تحويل الملف أولاً.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]]))
-
-def show_stats(query, file_path):
-    line_count = sum(1 for line in open(file_path))
-    query.edit_message_text(text=f"📊 عدد سطور الملف: {line_count}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]]))
-
-def show_conversion_result(query, context):
-    modifications = context.user_data.get('modifications', [])
-    file_path = context.user_data['file_path']
-    converted_file_path = context.user_data.get('converted_file_path')
-
-    original_line_count = sum(1 for line in open(file_path))
-    converted_line_count = sum(1 for line in open(converted_file_path)) if converted_file_path else 0
-
-    result_text = f"عدد التعديلات: {len(modifications)}\nعدد سطور الملف الأصلي: {original_line_count}\nعدد سطور الملف المحول: {converted_line_count}\nنسبة نجاح العملية: ✅"
-    query.edit_message_text(text=result_text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')]]))
-
-def back_to_menu(query, context):
-    show_menu(query.edit_message_text, messages[language]["start"])
-
-def show_menu(reply_func, message):
-    keyboard = [
-        [InlineKeyboardButton(messages[language]["convert_file"], callback_data='convert_file')],
-        [InlineKeyboardButton(messages[language]["show_stats"], callback_data='show_stats')],
-        [InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    reply_func(message, reply_markup=reply_markup)
+        update.message.reply_text("❌ لم يتم استقبال رقم الهاتف. الرجاء إرسال رقم الهاتف أولاً.")
 
 def main() -> None:
     updater = Updater(TOKEN)
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.document, handle_file))
-    dp.add_handler(CallbackQueryHandler(button))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_number))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_code))
 
     updater.start_polling()
     updater.idle()
