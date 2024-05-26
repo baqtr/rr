@@ -9,8 +9,8 @@ from telethon.errors import SessionPasswordNeededError, PhoneNumberBannedError
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-API_ID = 'YOUR_TELEGRAM_API_ID'
-API_HASH = 'YOUR_TELEGRAM_API_HASH'
+API_ID = '28803961'
+API_HASH = '4040917ceee8cf48c0ea217fcdc84250'
 TOKEN = '6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE'
 
 users_data = {}
