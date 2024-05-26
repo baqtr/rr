@@ -2,13 +2,15 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 import os
+import time
+from datetime import datetime
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelمه)s - %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 TOKEN = "6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE"
 
-language = "en"
+language = "ar"
 
 messages = {
     "en": {
@@ -23,6 +25,7 @@ messages = {
         "show_stats": "📊 Show File Statistics",
         "convert_file": "🔄 Convert File",
         "conversion_result": "🔄 Conversion Result",
+        "conversion_time": "⏳ Estimated conversion time: {time} seconds",
     },
     "ar": {
         "start": "👋 مرحباً! أنا بوت لتحويل ملفات PHP إلى بايثون. الرجاء إرسال ملف PHP للبدء.",
@@ -36,6 +39,7 @@ messages = {
         "show_stats": "📊 عرض إحصائيات الملف",
         "convert_file": "🔄 تحويل الملف",
         "conversion_result": "🔄 نتيجة التحويل",
+        "conversion_time": "⏳ الوقت المقدر للتحويل: {time} ثواني",
     }
 }
 
@@ -76,9 +80,12 @@ def button(update: Update, context: CallbackContext) -> None:
         back_to_menu(query, context)
 
 def convert_file(query, file_path, context):
+    start_time = time.time()
+    query.edit_message_text(text=messages[language]["conversion_time"].format(time="..."))
+
     with open(file_path, 'r') as f:
         php_code = f.read()
-    python_code = php_code.replace("<?php", "").replace("?>", "").replace(";", "\n")  # Simple example conversion
+    python_code = convert_php_to_python(php_code)
 
     python_file_path = file_path.replace('.php', '.py')
     with open(python_file_path, 'w') as f:
@@ -86,11 +93,25 @@ def convert_file(query, file_path, context):
 
     context.user_data['converted_file_path'] = python_file_path
     context.user_data['modifications'] = ["تحويل الملف من PHP إلى بايثون"]
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+
     query.edit_message_text(text=messages[language]["convert_success"], reply_markup=InlineKeyboardMarkup([
         [InlineKeyboardButton(messages[language]["back_to_menu"], callback_data='back_to_menu')],
         [InlineKeyboardButton(messages[language]["send_file"], callback_data='send_file')],
         [InlineKeyboardButton(messages[language]["conversion_result"], callback_data='conversion_result')]
     ]))
+
+    query.message.reply_text(messages[language]["conversion_time"].format(time=round(elapsed_time, 2)))
+
+def convert_php_to_python(php_code):
+    # Here you would implement a more sophisticated conversion from PHP to Python
+    # This is a placeholder conversion for demonstration purposes
+    python_code = php_code.replace("<?php", "").replace("?>", "").replace(";", "\n")
+    # Add necessary imports or other transformations here
+    python_code = "import necessary_libraries\n" + python_code
+    return python_code
 
 def send_file(query, context):
     converted_file_path = context.user_data.get('converted_file_path')
