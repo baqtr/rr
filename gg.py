@@ -1,95 +1,92 @@
-import logging
+import os
+import time
 import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, CallbackContext
 
-# إعداد السجل
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
+ASKING_API, MANAGING_APPS, ASKING_DELETE_TIME, ASKING_APP_FOR_MAINTENANCE = range(4)
 
-# وضع الـ API الخاص بتيليجرام
-TELEGRAM_BOT_TOKEN = '6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE'
+def start(update: Update, context: CallbackContext) -> int:
+    update.message.reply_text("مرحبًا بك في بوت المساعد لحذف التطبيقات من Heroku. للبدء، أرسل لي API الخاص بك.")
+    return ASKING_API
 
-# تخزين بيانات المستخدمين
-user_data = {}
-
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text("👋 مرحباً! الرجاء إدخال Heroku API الخاص بك:")
-
-def handle_api_key(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    api_key = update.message.text
+def ask_api(update: Update, context: CallbackContext) -> int:
+    api_token = update.message.text
     headers = {
-        'Authorization': f'Bearer {api_key}',
-        'Accept': 'application/vnd.heroku+json; version=3'
-    }
-    response = requests.get('https://api.heroku.com/account', headers=headers)
-
-    if response.status_code == 200:
-        user_data[user_id] = {'api_key': api_key}
-        update.message.reply_text("✅ تم التحقق من الـ API بنجاح. يمكنك الآن التحكم بتطبيقاتك.",
-                                  reply_markup=main_menu())
-    else:
-        update.message.reply_text("❌ الـ API غير صحيح. الرجاء إدخال API صالح:")
-
-def main_menu() -> InlineKeyboardMarkup:
-    keyboard = [
-        [InlineKeyboardButton("عرض التطبيقات", callback_data='list_apps')],
-        [InlineKeyboardButton("وضع الصيانة", callback_data='maintenance')],
-        [InlineKeyboardButton("حذف ذاتي", callback_data='self_delete')]
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-def list_apps(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-    user_id = query.from_user.id
-
-    # التحقق من وجود الـ API في البيانات المخزنة
-    if user_id not in user_data or 'api_key' not in user_data[user_id]:
-        query.edit_message_text("❌ لم يتم إدخال API صالح. الرجاء إدخال API صالح.")
-        return
-
-    api_key = user_data[user_id]['api_key']
-    headers = {
-        'Authorization': f'Bearer {api_key}',
+        'Authorization': f'Bearer {api_token}',
         'Accept': 'application/vnd.heroku+json; version=3'
     }
     response = requests.get('https://api.heroku.com/apps', headers=headers)
-    apps = response.json()
-
+    
     if response.status_code == 200:
-        if apps:
-            keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'copy_{app["name"]}') for app in apps]]
-            query.edit_message_text("📦 التطبيقات الموجودة على حسابك:", reply_markup=InlineKeyboardMarkup(keyboard))
-        else:
-            query.edit_message_text("لا توجد تطبيقات على حسابك.", reply_markup=main_menu())
+        context.user_data['api_token'] = api_token
+        update.message.reply_text("تم استقبال API بنجاح! جاري جلب التطبيقات...")
+        return manage_apps(update, context)
     else:
-        query.edit_message_text("حدث خطأ أثناء جلب التطبيقات.", reply_markup=main_menu())
+        update.message.reply_text("API غير صالح. تأكد من صحته وأعد إرساله.")
+        return ASKING_API
 
-def copy_app_name(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-    app_name = query.data.split('_', 1)[1]
-    query.edit_message_text(f"📋 تم نسخ اسم التطبيق: `{app_name}`", parse_mode='Markdown')
-
-def maintenance(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-    query.edit_message_text("الرجاء إدخال اسم التطبيق الذي ترغب في وضعه في وضع الصيانة:")
-
-def handle_maintenance(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-
-    # التحقق من وجود الـ API في البيانات المخزنة
-    if user_id not in user_data or 'api_key' not in user_data[user_id]:
-        update.message.reply_text("❌ لم يتم إدخال API صالح. الرجاء إدخال API صالح.")
-        return
-
-    app_name = update.message.text
-    api_key = user_data[user_id]['api_key']
+def manage_apps(update: Update, context: CallbackContext) -> int:
+    api_token = context.user_data.get('api_token')
     headers = {
-        'Authorization': f'Bearer {api_key}',
+        'Authorization': f'Bearer {api_token}',
+        'Accept': 'application/vnd.heroku+json; version=3'
+    }
+    response = requests.get('https://api.heroku.com/apps', headers=headers)
+    
+    if response.status_code == 200:
+        apps = response.json()
+        keyboard = [[InlineKeyboardButton(app['name'], callback_data=app['id'])] for app in apps]
+        keyboard.append([InlineKeyboardButton("حذف الكل", callback_data='delete_all')])
+        keyboard.append([InlineKeyboardButton("تبديل API", callback_data='switch_api')])
+        keyboard.append([InlineKeyboardButton("وضع الصيانة", callback_data='maintenance')])
+        keyboard.append([InlineKeyboardButton("حذف ذاتي", callback_data='self_delete')])
+        keyboard.append([InlineKeyboardButton("👨‍💻 مطور البوت", url='https://t.me/xx44g')])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text("اختر التطبيق لحذفه أو إدارة التطبيقات:", reply_markup=reply_markup)
+        return MANAGING_APPS
+    else:
+        update.message.reply_text("حدث خطأ في جلب التطبيقات.")
+        return ASKING_API
+
+def button(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    query.answer()
+    
+    if query.data == 'switch_api':
+        query.edit_message_text(text="تم تسجيل الخروج. أرسل API للتسجيل مرة أخرى.")
+        return ASKING_API
+    elif query.data == 'delete_all':
+        return delete_all_apps(query, context)
+    elif query.data == 'maintenance':
+        query.edit_message_text("الرجاء إدخال اسم التطبيق الذي ترغب في وضعه في وضع الصيانة:")
+        return ASKING_APP_FOR_MAINTENANCE
+    elif query.data == 'self_delete':
+        query.edit_message_text("الرجاء إدخال اسم التطبيق الذي ترغب في حذفه ذاتياً:")
+        return ASKING_DELETE_TIME
+    else:
+        api_token = context.user_data.get('api_token')
+        app_id = query.data
+        headers = {
+            'Authorization': f'Bearer {api_token}',
+            'Accept': 'application/vnd.heroku+json; version=3'
+        }
+        response = requests.delete(f'https://api.heroku.com/apps/{app_id}', headers=headers)
+        
+        keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data='back')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        if response.status_code == 202:
+            query.edit_message_text(text=f"تم حذف التطبيق بنجاح! (ID: {app_id})", reply_markup=reply_markup)
+        else:
+            query.edit_message_text(text="حدث خطأ أثناء حذف التطبيق.", reply_markup=reply_markup)
+
+def handle_maintenance(update: Update, context: CallbackContext) -> int:
+    app_name = update.message.text
+    api_token = context.user_data.get('api_token')
+    headers = {
+        'Authorization': f'Bearer {api_token}',
         'Accept': 'application/vnd.heroku+json; version=3',
         'Content-Type': 'application/json'
     }
@@ -99,25 +96,15 @@ def handle_maintenance(update: Update, context: CallbackContext) -> None:
     response = requests.patch(f'https://api.heroku.com/apps/{app_name}', headers=headers, json=data)
 
     if response.status_code == 200:
-        update.message.reply_text(f"✅ تم وضع التطبيق {app_name} في وضع الصيانة.", reply_markup=main_menu())
+        update.message.reply_text(f"✅ تم وضع التطبيق {app_name} في وضع الصيانة.")
     else:
-        update.message.reply_text(f"❌ حدث خطأ أثناء وضع التطبيق {app_name} في وضع الصيانة. تأكد من اسم التطبيق وحاول مرة أخرى.", reply_markup=main_menu())
+        update.message.reply_text(f"❌ حدث خطأ أثناء وضع التطبيق {app_name} في وضع الصيانة. تأكد من اسم التطبيق وحاول مرة أخرى.")
+    
+    return manage_apps(update, context)
 
-def self_delete(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-    query.edit_message_text("الرجاء إدخال اسم التطبيق الذي ترغب في حذفه ذاتياً:")
-
-def handle_self_delete(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-
-    # التحقق من وجود الـ API في البيانات المخزنة
-    if user_id not in user_data or 'api_key' not in user_data[user_id]:
-        update.message.reply_text("❌ لم يتم إدخال API صالح. الرجاء إدخال API صالح.")
-        return
-
+def handle_self_delete(update: Update, context: CallbackContext) -> int:
     app_name = update.message.text
-    user_data[user_id]['app_to_delete'] = app_name
+    context.user_data['app_to_delete'] = app_name
 
     keyboard = [
         [InlineKeyboardButton("بعد ساعة", callback_data='delete_1_hour')],
@@ -127,19 +114,14 @@ def handle_self_delete(update: Update, context: CallbackContext) -> None:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text("اختر وقت الحذف:", reply_markup=reply_markup)
+    
+    return MANAGING_APPS
 
-def schedule_delete(update: Update, context: CallbackContext) -> None:
+def schedule_delete(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     query.answer()
-    user_id = query.from_user.id
-
-    # التحقق من وجود الـ API في البيانات المخزنة
-    if user_id not in user_data or 'api_key' not in user_data[user_id]:
-        query.edit_message_text("❌ لم يتم إدخال API صالح. الرجاء إدخال API صالح.")
-        return
-
-    api_key = user_data[user_id]['api_key']
-    app_name = user_data[user_id]['app_to_delete']
+    api_token = context.user_data.get('api_token')
+    app_name = context.user_data.get('app_to_delete')
     time_option = query.data
 
     if time_option == 'delete_1_hour':
@@ -151,38 +133,72 @@ def schedule_delete(update: Update, context: CallbackContext) -> None:
 
     query.edit_message_text(f"سيتم حذف التطبيق {app_name} بعد {time_option}.")
     
-    context.job_queue.run_once(delete_app, delay, context=(api_key, app_name, user_id))
+    context.job_queue.run_once(delete_app, delay, context=(api_token, app_name, query.message.chat_id))
+    
+    return MANAGING_APPS
 
 def delete_app(context: CallbackContext) -> None:
     job = context.job
-    api_key, app_name, user_id = job.context
+    api_token, app_name, chat_id = job.context
     headers = {
-        'Authorization': f'Bearer {api_key}',
+        'Authorization': f'Bearer {api_token}',
         'Accept': 'application/vnd.heroku+json; version=3'
     }
     response = requests.delete(f'https://api.heroku.com/apps/{app_name}', headers=headers)
 
     if response.status_code == 202:
-        context.bot.send_message(chat_id=user_id, text=f"✅ تم حذف التطبيق {app_name}.")
+        context.bot.send_message(chat_id=chat_id, text=f"✅ تم حذف التطبيق {app_name}.")
     else:
-        context.bot.send_message(chat_id=user_id, text=f"❌ حدث خطأ أثناء حذف التطبيق {app_name}.")
+        context.bot.send_message(chat_id=chat_id, text=f"❌ حدث خطأ أثناء حذف التطبيق {app_name}.")
 
-def main() -> None:
-    updater = Updater(TELEGRAM_BOT_TOKEN)
+def delete_all_apps(query: Update, context: CallbackContext) -> int:
+    api_token = context.user_data.get('api_token')
+    headers = {
+        'Authorization': f'Bearer {api_token}',
+        'Accept': 'application/vnd.heroku+json; version=3'
+    }
+    response = requests.get('https://api.heroku.com/apps', headers=headers)
+    
+    if response.status_code == 200:
+        apps = response.json()
+        deleted_count = 0
+        
+        for app in apps:
+            app_id = app['id']
+            del_response = requests.delete(f'https://api.heroku.com/apps/{app_id}', headers=headers)
+            if del_response.status_code == 202:
+                deleted_count += 1
+        
+        keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data='back')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(text=f"تم حذف جميع التطبيقات بنجاح! (عدد التطبيقات المحذوفة: {deleted_count})", reply_markup=reply_markup)
+    else:
+        query.edit_message_text("حدث خطأ أثناء جلب التطبيقات.")
+
+def cancel(update: Update, context: CallbackContext) -> int:
+    update.message.reply_text('تم إنهاء الجلسة.')
+    return ConversationHandler.END
+
+def main():
+    TOKEN = '6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE'
+    
+    updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
-
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_api_key))
-    dp.add_handler(CallbackQueryHandler(list_apps, pattern='list_apps'))
-    dp.add_handler(CallbackQueryHandler(copy_app_name, pattern=r'copy_'))
-    dp.add_handler(CallbackQueryHandler(maintenance, pattern='maintenance'))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_maintenance))
-    dp.add_handler(CallbackQueryHandler(self_delete, pattern='self_delete'))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_self_delete))
-    dp.add_handler(CallbackQueryHandler(schedule_delete, pattern='delete_1_hour'))
-    dp.add_handler(CallbackQueryHandler(schedule_delete, pattern='delete_1_day'))
-    dp.add_handler(CallbackQueryHandler(schedule_delete, pattern='delete_1_week'))
-
+    
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler('start', start)],
+        states={
+            ASKING_API: [MessageHandler(Filters.text & ~Filters.command, ask_api)],
+            MANAGING_APPS: [CallbackQueryHandler(button)],
+            ASKING_DELETE_TIME: [MessageHandler(Filters.text & ~Filters.command, handle_self_delete)],
+            ASKING_APP_FOR_MAINTENANCE: [MessageHandler(Filters.text & ~Filters.command, handle_maintenance)]
+        },
+        fallbacks=[CommandHandler('cancel', cancel)]
+    )
+    
+    dp.add_handler(conv_handler)
+    dp.add_handler(CallbackQueryHandler(schedule_delete, pattern='delete_1_hour|delete_1_day|delete_1_week'))
+    
     updater.start_polling()
     updater.idle()
 
