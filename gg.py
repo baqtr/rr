@@ -36,13 +36,14 @@ def manage_apps(update: Update, context: CallbackContext) -> int:
     
     if response.status_code == 200:
         apps = response.json()
-        keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'delete_{app["id"]}') for app in apps]]
+        keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'delete_{app["id"]}')] for app in apps]
         keyboard.append([InlineKeyboardButton("حذف الكل", callback_data='delete_all')])
         keyboard.append([InlineKeyboardButton("تغيير ترتيب الأزرار", callback_data='change_display_style')])
         keyboard.append([InlineKeyboardButton("وضع الصيانة", callback_data='maintenance')])
         keyboard.append([InlineKeyboardButton("عرض تطبيقات الصيانة", callback_data='show_maintenance')])
         keyboard.append([InlineKeyboardButton("حذف ذاتي", callback_data='self_delete')])
         keyboard.append([InlineKeyboardButton("👨‍💻 مطور البوت", url='https://t.me/xx44g')])
+        keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='back')])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text("اختر التطبيق لحذفه أو إدارة التطبيقات:", reply_markup=reply_markup)
@@ -70,6 +71,8 @@ def button(update: Update, context: CallbackContext) -> int:
     elif query.data.startswith('delete_'):
         app_id = query.data.split('_')[1]
         return delete_app(update, context, app_id)
+    elif query.data == 'back':
+        return manage_apps(update, context)
 
 def choose_display_style(update: Update, context: CallbackContext) -> int:
     keyboard = [
@@ -86,9 +89,10 @@ def handle_display_style(update: Update, context: CallbackContext) -> int:
     query.answer()
     style = query.data
     
-    # Handle the chosen display style
+    # حفظ النمط المختار في user_data
+    context.user_data['display_style'] = style
     
-    return MANAGING_APPS
+    return manage_apps(update, context)
 
 def handle_maintenance(update: Update, context: CallbackContext) -> int:
     app_name = update.message.text
@@ -108,7 +112,7 @@ def handle_maintenance(update: Update, context: CallbackContext) -> int:
     else:
         update.message.reply_text(f"❌ حدث خطأ أثناء وضع التطبيق {app_name} في وضع الصيانة. تأكد من اسم التطبيق وحاول مرة أخرى.")
     
-    return MANAGING_APPS
+    return manage_apps(update, context)
 
 def handle_self_delete(update: Update, context: CallbackContext) -> int:
     app_name = update.message.text
@@ -185,9 +189,10 @@ def delete_all_apps(query: Update, context: CallbackContext) -> int:
         
         keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data='back')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(text=f"تم حذف جميع التطبيقات بنجاح! (عدد التطبيقات المحذوفة: {deleted_count})", reply_markup=reply_markup)
+        query.edit_message_text(text=f"تم حذف جميع التطبيقات بنجاح! (عدد التطبيقات المحذوفة:deleted_count})", reply_markup=reply_markup)
     else:
         query.edit_message_text("حدث خطأ أثناء جلب التطبيقات.")
+        return manage_apps(query, context)
 
 def show_maintenance_apps(query: Update, context: CallbackContext) -> int:
     api_token = context.user_data.get('api_token')
@@ -202,7 +207,7 @@ def show_maintenance_apps(query: Update, context: CallbackContext) -> int:
         maintenance_apps = [app for app in apps if app.get('maintenance')]
         
         if maintenance_apps:
-            keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'cancel_maintenance_{app["id"]}') for app in maintenance_apps]]
+            keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'cancel_maintenance_{app["id"]}')] for app in maintenance_apps]
             keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='back')])
             reply_markup = InlineKeyboardMarkup(keyboard)
             query.edit_message_text(text="اختر التطبيق لإلغاء وضع الصيانة:", reply_markup=reply_markup)
@@ -216,14 +221,13 @@ def show_maintenance_apps(query: Update, context: CallbackContext) -> int:
 def cancel_maintenance(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     query.answer()
-    app_id = query.data.split('_')[1]
+    app_id = query.data.split('_')[2]
 
     api_token = context.user_data.get('api_token')
     headers = {
         'Authorization': f'Bearer {api_token}',
         'Accept': 'application/vnd.heroku+json; version=3'
     }
-    app_id = query.data.split('_')[-1]
     response = requests.patch(f'https://api.heroku.com/apps/{app_id}', headers=headers, json={'maintenance': False})
     
     if response.status_code == 200:
@@ -231,7 +235,7 @@ def cancel_maintenance(update: Update, context: CallbackContext) -> int:
     else:
         query.edit_message_text("حدث خطأ أثناء إلغاء وضع الصيانة.")
     
-    return MANAGING_APPS
+    return manage_apps(query, context)
 
 def cancel(update: Update, context: CallbackContext) -> int:
     update.message.reply_text('تم إنهاء الجلسة.')
@@ -263,4 +267,4 @@ def main():
     updater.idle()
 
 if __name__ == '__main__':
-    main() 
+    main()
