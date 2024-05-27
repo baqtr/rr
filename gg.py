@@ -1,82 +1,161 @@
-import websocket
-import ssl
-import os
-import json
-import gzip
+import logging
 import requests
-from time import sleep
-import random
-import concurrent.futures
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
-created = 0
-failed = 0
+# إعداد السجل
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-G = '\033[1;32m'
-L = '\033[1;31m'
+# وضع الـ API الخاص بتيليجرام
+TELEGRAM_BOT_TOKEN = '6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE'
 
-own_id = 7013440973
-tele_bot = '6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE'
-ch = 'qwertyuiopasdfghjklzxcvbnm1234567890.-'
+# تخزين بيانات المستخدمين
+user_data = {}
 
+def start(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text("👋 مرحباً! الرجاء إدخال Heroku API الخاص بك:")
 
-def create():
-    global created
-    global failed
-    user = str(random.choice('qwertyuioplkjhgfdsazxcvbnm')[0]) + str(''.join(random.choice(ch) for i in range(8)))
-
+def handle_api_key(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    api_key = update.message.text
     headers = {
-        "app": "com.safeum.android",
-        "host": None,
-        "remoteIp": "195.13.182.217",
-        "remotePort": str(8080),
-        "sessionId": "b6cbb22d-06ca-41ff-8fda-c0ddeb148195",
-        "time": "2023-04-30 12:13:32",
-        "url": "wss://195.13.182.217/Auth"
+        'Authorization': f'Bearer {api_key}',
+        'Accept': 'application/vnd.heroku+json; version=3'
     }
+    response = requests.get('https://api.heroku.com/account', headers=headers)
 
-    data0 = {"action": "Register", "subaction": "Desktop", "locale": "en_GB", "gmt": "+02",
-             "password": {"m1x": "503c73d12b354f86ff9706b2114704380876f59f1444133e62ca27b5ee8127cc",
-                          "m1y": "6387ae32b7087257452ae27fc8a925ddd6ba31d955639838249c02b3de175dfc",
-                          "m2": "219d1d9b049550f26a6c7b7914a44da1b5c931eff8692dbfe3127eeb1a922fcf",
-                          "iv": "e38cb9e83aef6ceb60a7a71493317903",
-                          "message": "0d99759f972c527722a18a74b3e0b3c6060fe1be3ad53581a7692ff67b7bb651a18cde40552972d6d0b1482e119abde6203f5ab4985940da19bb998bb73f523806ed67cc6c9dbd310fd59fedee420f32"},
-             "magicword": {"m1x": "04eb364e4ef79f31f3e95df2a956e9c72ddc7b8ed4bf965f4cea42739dbe8a4a",
-                           "m1y": "ef1608faa151cb7989b0ba7f57b39822d7b282511a77c4d7a33afe8165bdc1ab",
-                           "m2": "4b4d1468bfaf01a82c574ea71c44052d3ecb7c2866a2ced102d0a1a55901c94b",
-                           "iv": "b31d0165dde6b3d204263d6ea4b96789",
-                           "message": "8c6ec7ce0b9108d882bb076be6e49fe2"},
-             "magicwordhint": "0000"
-             , "login": str(user), "devicename": "Xiaomi Redmi Note 8 Pro",
-             "softwareversion": "1.1.0.1380", "nickname": "hvtctchnjvfxfx"
-             , "os": "AND"
-             , "deviceuid": "c72d110c1ae40d50",
-             "devicepushuid": "*dxT6B6Solm0:APA91bHqL8wxzlyKHckKxMDz66HmUqmxCPAVKBDrs8KcxCAjwdpxIPTCfRmeEw8Jks_q13vOSFsOVjCVhb-CkkKmTUsaiS7YOYHQS_pbH1g6P4N-jlnRzySQwGvqMP1gxRVksHiOXKKP",
-             "osversion": "and_11.0.0", "id": "1734805704"}
-
-    ws = websocket.create_connection("wss://195.13.182.217/Auth", header=headers,
-                                     sslopt={"cert_reqs": ssl.CERT_NONE})
-    ws.send(json.dumps(data0))
-    result = ws.recv()
-    decoded_data = gzip.decompress(result)
-    decoded_str = decoded_data.decode('utf-8')
-
-    if '"comment":"Exists"' in decoded_str:
-        failed += 1
-    elif '"status":"Success"' in decoded_str:
-        created += 1
-        phone_number = f"Phone number= {actual_phone_number}"  # Replace {actual_phone_number} with the actual phone number used in account creation
-        message = f"New user created: `{user}`\n{phone_number}"
-        requests.post(f'https://api.telegram.org/bot{tele_bot}/sendmessage?chat_id={own_id}&text={message}&parse_mode=markdown')
-    elif '"comment":"Retry"' in decoded_str:
-        failed += 1
+    if response.status_code == 200:
+        user_data[user_id] = {'api_key': api_key}
+        update.message.reply_text("✅ تم التحقق من الـ API بنجاح. يمكنك الآن التحكم بتطبيقاتك.",
+                                  reply_markup=main_menu())
     else:
-        print(decoded_str)
+        update.message.reply_text("❌ الـ API غير صحيح. الرجاء إدخال API صالح:")
 
+def main_menu() -> InlineKeyboardMarkup:
+    keyboard = [
+        [InlineKeyboardButton("عرض التطبيقات", callback_data='list_apps')],
+        [InlineKeyboardButton("وضع الصيانة", callback_data='maintenance')],
+        [InlineKeyboardButton("حذف ذاتي", callback_data='self_delete')]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
-executor = concurrent.futures.ThreadPoolExecutor(max_workers=600)
+def list_apps(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+    user_id = query.from_user.id
+    api_key = user_data[user_id]['api_key']
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Accept': 'application/vnd.heroku+json; version=3'
+    }
+    response = requests.get('https://api.heroku.com/apps', headers=headers)
+    apps = response.json()
 
-while True:
-    executor.submit(create)
-    os.system('clear')
-    print(G + 'Created : ' + str(created))
-    print(L + 'Failed : ' + str(failed))
+    if response.status_code == 200:
+        if apps:
+            message = "📦 التطبيقات الموجودة على حسابك:\n\n"
+            for app in apps:
+                message += f"- {app['name']}\n"
+            query.edit_message_text(message, reply_markup=main_menu())
+        else:
+            query.edit_message_text("لا توجد تطبيقات على حسابك.", reply_markup=main_menu())
+    else:
+        query.edit_message_text("حدث خطأ أثناء جلب التطبيقات.", reply_markup=main_menu())
+
+def maintenance(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+    query.edit_message_text("الرجاء إدخال اسم التطبيق الذي ترغب في وضعه في وضع الصيانة:")
+
+def handle_maintenance(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    app_name = update.message.text
+    api_key = user_data[user_id]['api_key']
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Accept': 'application/vnd.heroku+json; version=3',
+        'Content-Type': 'application/json'
+    }
+    data = {
+        'maintenance': True
+    }
+    response = requests.patch(f'https://api.heroku.com/apps/{app_name}', headers=headers, json=data)
+
+    if response.status_code == 200:
+        update.message.reply_text(f"✅ تم وضع التطبيق {app_name} في وضع الصيانة.", reply_markup=main_menu())
+    else:
+        update.message.reply_text(f"❌ حدث خطأ أثناء وضع التطبيق {app_name} في وضع الصيانة. تأكد من اسم التطبيق وحاول مرة أخرى.", reply_markup=main_menu())
+
+def self_delete(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+    query.edit_message_text("الرجاء إدخال اسم التطبيق الذي ترغب في حذفه ذاتياً:")
+
+def handle_self_delete(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    app_name = update.message.text
+    user_data[user_id]['app_to_delete'] = app_name
+
+    keyboard = [
+        [InlineKeyboardButton("بعد ساعة", callback_data='delete_1_hour')],
+        [InlineKeyboardButton("بعد يوم", callback_data='delete_1_day')],
+        [InlineKeyboardButton("بعد أسبوع", callback_data='delete_1_week')],
+        [InlineKeyboardButton("وضع الصيانة", callback_data='maintenance_app')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text("اختر وقت الحذف:", reply_markup=reply_markup)
+
+def schedule_delete(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+    user_id = query.from_user.id
+    api_key = user_data[user_id]['api_key']
+    app_name = user_data[user_id]['app_to_delete']
+    time_option = query.data
+
+    if time_option == 'delete_1_hour':
+        delay = 3600
+    elif time_option == 'delete_1_day':
+        delay = 86400
+    elif time_option == 'delete_1_week':
+        delay = 604800
+
+    query.edit_message_text(f"سيتم حذف التطبيق {app_name} بعد {time_option}.")
+    
+    context.job_queue.run_once(delete_app, delay, context=(api_key, app_name, user_id))
+
+def delete_app(context: CallbackContext) -> None:
+    job = context.job
+    api_key, app_name, user_id = job.context
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Accept': 'application/vnd.heroku+json; version=3'
+    }
+    response = requests.delete(f'https://api.heroku.com/apps/{app_name}', headers=headers)
+
+    if response.status_code == 202:
+        context.bot.send_message(chat_id=user_id, text=f"✅ تم حذف التطبيق {app_name}.")
+    else:
+        context.bot.send_message(chat_id=user_id, text=f"❌ حدث خطأ أثناء حذف التطبيق {app_name}.")
+
+def main() -> None:
+    updater = Updater(TELEGRAM_BOT_TOKEN)
+    dp = updater.dispatcher
+
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_api_key))
+    dp.add_handler(CallbackQueryHandler(list_apps, pattern='list_apps'))
+    dp.add_handler(CallbackQueryHandler(maintenance, pattern='maintenance'))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_maintenance))
+    dp.add_handler(CallbackQueryHandler(self_delete, pattern='self_delete'))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_self_delete))
+    dp.add_handler(CallbackQueryHandler(schedule_delete, pattern='delete_1_hour'))
+    dp.add_handler(CallbackQueryHandler(schedule_delete, pattern='delete_1_day'))
+    dp.add_handler(CallbackQueryHandler(schedule_delete, pattern='delete_1_week'))
+
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    main()
