@@ -4,7 +4,7 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, CallbackContext
 
-ASKING_API, MANAGING_APPS, ASKING_DELETE_TIME, ASKING_APP_FOR_MAINTENANCE = range(4)
+ASKING_API, MANAGING_APPS, ASKING_DELETE_TIME, ASKING_APP_FOR_MAINTENANCE, ASKING_APP_NAME_FOR_SELF_DELETE = range(5)
 
 def start(update: Update, context: CallbackContext) -> int:
     update.message.reply_text("مرحبًا بك في بوت المساعد لحذف التطبيقات من Heroku. للبدء، أرسل لي API الخاص بك.")
@@ -36,10 +36,11 @@ def manage_apps(update: Update, context: CallbackContext) -> int:
     
     if response.status_code == 200:
         apps = response.json()
-        keyboard = [[InlineKeyboardButton(app['name'], callback_data=app['id'])] for app in apps]
+        keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'delete_{app["id"]}') for app in apps]]
         keyboard.append([InlineKeyboardButton("حذف الكل", callback_data='delete_all')])
         keyboard.append([InlineKeyboardButton("تبديل API", callback_data='switch_api')])
         keyboard.append([InlineKeyboardButton("وضع الصيانة", callback_data='maintenance')])
+        keyboard.append([InlineKeyboardButton("عرض تطبيقات الصيانة", callback_data='show_maintenance')])
         keyboard.append([InlineKeyboardButton("حذف ذاتي", callback_data='self_delete')])
         keyboard.append([InlineKeyboardButton("👨‍💻 مطور البوت", url='https://t.me/xx44g')])
         
@@ -64,23 +65,14 @@ def button(update: Update, context: CallbackContext) -> int:
         return ASKING_APP_FOR_MAINTENANCE
     elif query.data == 'self_delete':
         query.edit_message_text("الرجاء إدخال اسم التطبيق الذي ترغب في حذفه ذاتياً:")
-        return ASKING_DELETE_TIME
-    else:
-        api_token = context.user_data.get('api_token')
-        app_id = query.data
-        headers = {
-            'Authorization': f'Bearer {api_token}',
-            'Accept': 'application/vnd.heroku+json; version=3'
-        }
-        response = requests.delete(f'https://api.heroku.com/apps/{app_id}', headers=headers)
-        
-        keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data='back')]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        if response.status_code == 202:
-            query.edit_message_text(text=f"تم حذف التطبيق بنجاح! (ID: {app_id})", reply_markup=reply_markup)
-        else:
-            query.edit_message_text(text="حدث خطأ أثناء حذف التطبيق.", reply_markup=reply_markup)
+        return ASKING_APP_NAME_FOR_SELF_DELETE
+    elif query.data == 'show_maintenance':
+        return show_maintenance_apps(query, context)
+    elif query.data.startswith('delete_'):
+        app_id = query.data.split('_')[1]
+        return delete_app(update, context, app_id)
+    elif query.data == 'back':
+        return manage_apps(update, context)
 
 def handle_maintenance(update: Update, context: CallbackContext) -> int:
     app_name = update.message.text
@@ -110,7 +102,8 @@ def handle_self_delete(update: Update, context: CallbackContext) -> int:
         [InlineKeyboardButton("بعد ساعة", callback_data='delete_1_hour')],
         [InlineKeyboardButton("بعد يوم", callback_data='delete_1_day')],
         [InlineKeyboardButton("بعد أسبوع", callback_data='delete_1_week')],
-        [InlineKeyboardButton("وضع الصيانة", callback_data='maintenance_app')]
+        [InlineKeyboardButton("عرض الوقت المتبقي", callback_data='show_remaining_time')],
+        [InlineKeyboardButton("🔙 رجوع", callback_data='back')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text("اختر وقت الحذف:", reply_markup=reply_markup)
@@ -137,19 +130,24 @@ def schedule_delete(update: Update, context: CallbackContext) -> int:
     
     return MANAGING_APPS
 
-def delete_app(context: CallbackContext) -> None:
-    job = context.job
-    api_token, app_name, chat_id = job.context
+def delete_app(context: CallbackContext, app_id=None) -> None:
+    if app_id:
+        api_token = context.user_data.get('api_token')
+        chat_id = context.job.context[2] if context.job else context.job_queue._dispatcher.bot_data['chat_id']
+    else:
+        job = context.job
+        api_token, app_name, chat_id = job.context
+    
     headers = {
         'Authorization': f'Bearer {api_token}',
         'Accept': 'application/vnd.heroku+json; version=3'
     }
-    response = requests.delete(f'https://api.heroku.com/apps/{app_name}', headers=headers)
+    response = requests.delete(f'https://api.heroku.com/apps/{app_id}', headers=headers)
 
     if response.status_code == 202:
-        context.bot.send_message(chat_id=chat_id, text=f"✅ تم حذف التطبيق {app_name}.")
+        context.bot.send_message(chat_id=chat_id, text=f"✅ تم حذف التطبيق {app_id}.")
     else:
-        context.bot.send_message(chat_id=chat_id, text=f"❌ حدث خطأ أثناء حذف التطبيق {app_name}.")
+        context.bot.send_message(chat_id=chat_id, text=f"❌ حدث خطأ أثناء حذف التطبيق {app_id}.")
 
 def delete_all_apps(query: Update, context: CallbackContext) -> int:
     api_token = context.user_data.get('api_token')
@@ -175,6 +173,50 @@ def delete_all_apps(query: Update, context: CallbackContext) -> int:
     else:
         query.edit_message_text("حدث خطأ أثناء جلب التطبيقات.")
 
+def show_maintenance_apps(query: Update, context: CallbackContext) -> int:
+    api_token = context.user_data.get('api_token')
+    headers = {
+        'Authorization': f'Bearer {api_token}',
+        'Accept': 'application/vnd.heroku+json; version=3'
+    }
+    response = requests.get('https://api.heroku.com/apps', headers=headers)
+    
+    if response.status_code == 200:
+        apps = response.json()
+        maintenance_apps = [app for app in apps if app.get('maintenance')]
+        
+        if maintenance_apps:
+            keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'cancel_maintenance_{app["id"]}') for app in maintenance_apps]]
+            keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='back')])
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            query.edit_message_text(text="اختر التطبيق لإلغاء وضع الصيانة:", reply_markup=reply_markup)
+        else:
+            query.edit_message_text(text="لا توجد تطبيقات في وضع الصيانة.")
+    else:
+        query.edit_message_text(text="حدث خطأ أثناء جلب التطبيقات.")
+    
+    return MANAGING_APPS
+
+def cancel_maintenance(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    query.answer()
+    app_id = query.data.split('_')[1]
+
+    api_token = context.user_data.get('api_token')
+    headers = {
+        'Authorization': f'Bearer {api_token}',
+        'Accept': 'application/vnd.heroku+json; version=3'
+    }
+    app_id = query.data.split('_')[-1]
+    response = requests.patch(f'https://api.heroku.com/apps/{app_id}', headers=headers, json={'maintenance': False})
+    
+    if response.status_code == 200:
+        query.edit_message_text(f"تم إلغاء وضع الصيانة للتطبيق رقم {app_id}.")
+    else:
+        query.edit_message_text("حدث خطأ أثناء إلغاء وضع الصيانة.")
+    
+    return MANAGING_APPS
+
 def cancel(update: Update, context: CallbackContext) -> int:
     update.message.reply_text('تم إنهاء الجلسة.')
     return ConversationHandler.END
@@ -190,14 +232,15 @@ def main():
         states={
             ASKING_API: [MessageHandler(Filters.text & ~Filters.command, ask_api)],
             MANAGING_APPS: [CallbackQueryHandler(button)],
-            ASKING_DELETE_TIME: [MessageHandler(Filters.text & ~Filters.command, handle_self_delete)],
-            ASKING_APP_FOR_MAINTENANCE: [MessageHandler(Filters.text & ~Filters.command, handle_maintenance)]
+            ASKING_APP_FOR_MAINTENANCE: [MessageHandler(Filters.text & ~Filters.command, handle_maintenance)],
+            ASKING_APP_NAME_FOR_SELF_DELETE: [MessageHandler(Filters.text & ~Filters.command, handle_self_delete)]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
     
     dp.add_handler(conv_handler)
-    dp.add_handler(CallbackQueryHandler(schedule_delete, pattern='delete_1_hour|delete_1_day|delete_1_week'))
+    dp.add_handler(CallbackQueryHandler(schedule_delete, pattern='delete_1_hour|delete_1_day|delete_1_week|show_remaining_time'))
+    dp.add_handler(CallbackQueryHandler(cancel_maintenance, pattern='cancel_maintenance_.*'))
     
     updater.start_polling()
     updater.idle()
