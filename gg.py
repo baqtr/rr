@@ -44,6 +44,12 @@ def list_apps(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
     user_id = query.from_user.id
+
+    # التحقق من وجود الـ API في البيانات المخزنة
+    if user_id not in user_data or 'api_key' not in user_data[user_id]:
+        query.edit_message_text("❌ لم يتم إدخال API صالح. الرجاء إدخال API صالح.")
+        return
+
     api_key = user_data[user_id]['api_key']
     headers = {
         'Authorization': f'Bearer {api_key}',
@@ -54,14 +60,18 @@ def list_apps(update: Update, context: CallbackContext) -> None:
 
     if response.status_code == 200:
         if apps:
-            message = "📦 التطبيقات الموجودة على حسابك:\n\n"
-            for app in apps:
-                message += f"- {app['name']}\n"
-            query.edit_message_text(message, reply_markup=main_menu())
+            keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'copy_{app["name"]}') for app in apps]]
+            query.edit_message_text("📦 التطبيقات الموجودة على حسابك:", reply_markup=InlineKeyboardMarkup(keyboard))
         else:
             query.edit_message_text("لا توجد تطبيقات على حسابك.", reply_markup=main_menu())
     else:
         query.edit_message_text("حدث خطأ أثناء جلب التطبيقات.", reply_markup=main_menu())
+
+def copy_app_name(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    query.answer()
+    app_name = query.data.split('_', 1)[1]
+    query.edit_message_text(f"📋 تم نسخ اسم التطبيق: `{app_name}`", parse_mode='Markdown')
 
 def maintenance(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -70,6 +80,12 @@ def maintenance(update: Update, context: CallbackContext) -> None:
 
 def handle_maintenance(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
+
+    # التحقق من وجود الـ API في البيانات المخزنة
+    if user_id not in user_data or 'api_key' not in user_data[user_id]:
+        update.message.reply_text("❌ لم يتم إدخال API صالح. الرجاء إدخال API صالح.")
+        return
+
     app_name = update.message.text
     api_key = user_data[user_id]['api_key']
     headers = {
@@ -94,6 +110,12 @@ def self_delete(update: Update, context: CallbackContext) -> None:
 
 def handle_self_delete(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
+
+    # التحقق من وجود الـ API في البيانات المخزنة
+    if user_id not in user_data or 'api_key' not in user_data[user_id]:
+        update.message.reply_text("❌ لم يتم إدخال API صالح. الرجاء إدخال API صالح.")
+        return
+
     app_name = update.message.text
     user_data[user_id]['app_to_delete'] = app_name
 
@@ -110,6 +132,12 @@ def schedule_delete(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     query.answer()
     user_id = query.from_user.id
+
+    # التحقق من وجود الـ API في البيانات المخزنة
+    if user_id not in user_data or 'api_key' not in user_data[user_id]:
+        query.edit_message_text("❌ لم يتم إدخال API صالح. الرجاء إدخال API صالح.")
+        return
+
     api_key = user_data[user_id]['api_key']
     app_name = user_data[user_id]['app_to_delete']
     time_option = query.data
@@ -146,6 +174,7 @@ def main() -> None:
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_api_key))
     dp.add_handler(CallbackQueryHandler(list_apps, pattern='list_apps'))
+    dp.add_handler(CallbackQueryHandler(copy_app_name, pattern=r'copy_'))
     dp.add_handler(CallbackQueryHandler(maintenance, pattern='maintenance'))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_maintenance))
     dp.add_handler(CallbackQueryHandler(self_delete, pattern='self_delete'))
