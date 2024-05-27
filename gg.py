@@ -43,7 +43,6 @@ def manage_apps(update: Update, context: CallbackContext) -> int:
         keyboard.append([InlineKeyboardButton("عرض تطبيقات الصيانة", callback_data='show_maintenance')])
         keyboard.append([InlineKeyboardButton("حذف ذاتي", callback_data='self_delete')])
         keyboard.append([InlineKeyboardButton("👨‍💻 مطور البوت", url='https://t.me/xx44g')])
-        keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='back')])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text("اختر التطبيق لحذفه أو إدارة التطبيقات:", reply_markup=reply_markup)
@@ -72,7 +71,7 @@ def button(update: Update, context: CallbackContext) -> int:
         app_id = query.data.split('_')[1]
         return delete_app(update, context, app_id)
     elif query.data == 'back':
-        return manage_apps(update, context)
+        return manage_apps(query, context)
 
 def choose_display_style(update: Update, context: CallbackContext) -> int:
     keyboard = [
@@ -89,10 +88,9 @@ def handle_display_style(update: Update, context: CallbackContext) -> int:
     query.answer()
     style = query.data
     
-    # حفظ النمط المختار في user_data
-    context.user_data['display_style'] = style
+    # Handle the chosen display style
     
-    return manage_apps(update, context)
+    return manage_apps(query, context)
 
 def handle_maintenance(update: Update, context: CallbackContext) -> int:
     app_name = update.message.text
@@ -189,7 +187,7 @@ def delete_all_apps(query: Update, context: CallbackContext) -> int:
         
         keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data='back')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        query.edit_message_text(text=f"تم حذف جميع التطبيقات بنجاح! (عدد التطبيقات المحذوفة:deleted_count})", reply_markup=reply_markup)
+        query.edit_message_text(text=f"تم حذف جميع التطبيقات بنجاح! (عدد التطبيقات المحذوفة: {deleted_count})", reply_markup=reply_markup)
     else:
         query.edit_message_text("حدث خطأ أثناء جلب التطبيقات.")
         return manage_apps(query, context)
@@ -206,8 +204,7 @@ def show_maintenance_apps(query: Update, context: CallbackContext) -> int:
         apps = response.json()
         maintenance_apps = [app for app in apps if app.get('maintenance')]
         
-        if maintenance_apps:
-            keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'cancel_maintenance_{app["id"]}')] for app in maintenance_apps]
+        if maintenance_apps:keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'cancel_maintenance_{app["id"]}') for app in maintenance_apps]]
             keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='back')])
             reply_markup = InlineKeyboardMarkup(keyboard)
             query.edit_message_text(text="اختر التطبيق لإلغاء وضع الصيانة:", reply_markup=reply_markup)
