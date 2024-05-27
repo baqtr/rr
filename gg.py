@@ -4,7 +4,7 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, CallbackContext
 
-ASKING_API, MANAGING_APPS, ASKING_DELETE_TIME, ASKING_APP_FOR_MAINTENANCE, ASKING_APP_NAME_FOR_SELF_DELETE = range(5)
+ASKING_API, MANAGING_APPS, ASKING_DELETE_TIME, ASKING_APP_FOR_MAINTENANCE, ASKING_APP_NAME_FOR_SELF_DELETE, CHOOSING_DISPLAY_STYLE = range(6)
 
 def start(update: Update, context: CallbackContext) -> int:
     update.message.reply_text("مرحبًا بك في بوت المساعد لحذف التطبيقات من Heroku. للبدء، أرسل لي API الخاص بك.")
@@ -38,7 +38,7 @@ def manage_apps(update: Update, context: CallbackContext) -> int:
         apps = response.json()
         keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'delete_{app["id"]}') for app in apps]]
         keyboard.append([InlineKeyboardButton("حذف الكل", callback_data='delete_all')])
-        keyboard.append([InlineKeyboardButton("تبديل API", callback_data='switch_api')])
+        keyboard.append([InlineKeyboardButton("تغيير ترتيب الأزرار", callback_data='change_display_style')])
         keyboard.append([InlineKeyboardButton("وضع الصيانة", callback_data='maintenance')])
         keyboard.append([InlineKeyboardButton("عرض تطبيقات الصيانة", callback_data='show_maintenance')])
         keyboard.append([InlineKeyboardButton("حذف ذاتي", callback_data='self_delete')])
@@ -55,9 +55,8 @@ def button(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     query.answer()
     
-    if query.data == 'switch_api':
-        query.edit_message_text(text="تم تسجيل الخروج. أرسل API للتسجيل مرة أخرى.")
-        return ASKING_API
+    if query.data == 'change_display_style':
+        return choose_display_style(update, context)
     elif query.data == 'delete_all':
         return delete_all_apps(query, context)
     elif query.data == 'maintenance':
@@ -71,8 +70,25 @@ def button(update: Update, context: CallbackContext) -> int:
     elif query.data.startswith('delete_'):
         app_id = query.data.split('_')[1]
         return delete_app(update, context, app_id)
-    elif query.data == 'back':
-        return manage_apps(update, context)
+
+def choose_display_style(update: Update, context: CallbackContext) -> int:
+    keyboard = [
+        [InlineKeyboardButton("عمودي", callback_data='vertical_display')],
+        [InlineKeyboardButton("أفقي", callback_data='horizontal_display')],
+        [InlineKeyboardButton("🔙 رجوع", callback_data='back')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.callback_query.edit_message_text("اختر ترتيب الأزرار:", reply_markup=reply_markup)
+    return CHOOSING_DISPLAY_STYLE
+
+def handle_display_style(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    query.answer()
+    style = query.data
+    
+    # Handle the chosen display style
+    
+    return MANAGING_APPS
 
 def handle_maintenance(update: Update, context: CallbackContext) -> int:
     app_name = update.message.text
@@ -92,7 +108,7 @@ def handle_maintenance(update: Update, context: CallbackContext) -> int:
     else:
         update.message.reply_text(f"❌ حدث خطأ أثناء وضع التطبيق {app_name} في وضع الصيانة. تأكد من اسم التطبيق وحاول مرة أخرى.")
     
-    return manage_apps(update, context)
+    return MANAGING_APPS
 
 def handle_self_delete(update: Update, context: CallbackContext) -> int:
     app_name = update.message.text
@@ -233,7 +249,8 @@ def main():
             ASKING_API: [MessageHandler(Filters.text & ~Filters.command, ask_api)],
             MANAGING_APPS: [CallbackQueryHandler(button)],
             ASKING_APP_FOR_MAINTENANCE: [MessageHandler(Filters.text & ~Filters.command, handle_maintenance)],
-            ASKING_APP_NAME_FOR_SELF_DELETE: [MessageHandler(Filters.text & ~Filters.command, handle_self_delete)]
+            ASKING_APP_NAME_FOR_SELF_DELETE: [MessageHandler(Filters.text & ~Filters.command, handle_self_delete)],
+            CHOOSING_DISPLAY_STYLE: [CallbackQueryHandler(handle_display_style)]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
@@ -246,4 +263,4 @@ def main():
     updater.idle()
 
 if __name__ == '__main__':
-    main()
+    main() 
