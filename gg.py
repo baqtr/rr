@@ -36,13 +36,14 @@ def manage_apps(update: Update, context: CallbackContext) -> int:
     
     if response.status_code == 200:
         apps = response.json()
-        keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'delete_{app["id"]}')] for app in apps]
+        keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'delete_{app["id"]}') for app in apps]]
         keyboard.append([InlineKeyboardButton("حذف الكل", callback_data='delete_all')])
         keyboard.append([InlineKeyboardButton("تغيير ترتيب الأزرار", callback_data='change_display_style')])
         keyboard.append([InlineKeyboardButton("وضع الصيانة", callback_data='maintenance')])
         keyboard.append([InlineKeyboardButton("عرض تطبيقات الصيانة", callback_data='show_maintenance')])
         keyboard.append([InlineKeyboardButton("حذف ذاتي", callback_data='self_delete')])
         keyboard.append([InlineKeyboardButton("👨‍💻 مطور البوت", url='https://t.me/xx44g')])
+        keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='back')])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text("اختر التطبيق لحذفه أو إدارة التطبيقات:", reply_markup=reply_markup)
@@ -67,11 +68,11 @@ def button(update: Update, context: CallbackContext) -> int:
         return ASKING_APP_NAME_FOR_SELF_DELETE
     elif query.data == 'show_maintenance':
         return show_maintenance_apps(query, context)
+    elif query.data == 'back':
+        return manage_apps(update, context)
     elif query.data.startswith('delete_'):
         app_id = query.data.split('_')[1]
         return delete_app(update, context, app_id)
-    elif query.data == 'back':
-        return manage_apps(query, context)
 
 def choose_display_style(update: Update, context: CallbackContext) -> int:
     keyboard = [
@@ -87,10 +88,10 @@ def handle_display_style(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     query.answer()
     style = query.data
+
+    context.user_data['display_style'] = style
     
-    # Handle the chosen display style
-    
-    return manage_apps(query, context)
+    return manage_apps(update, context)
 
 def handle_maintenance(update: Update, context: CallbackContext) -> int:
     app_name = update.message.text
@@ -110,7 +111,7 @@ def handle_maintenance(update: Update, context: CallbackContext) -> int:
     else:
         update.message.reply_text(f"❌ حدث خطأ أثناء وضع التطبيق {app_name} في وضع الصيانة. تأكد من اسم التطبيق وحاول مرة أخرى.")
     
-    return manage_apps(update, context)
+    return MANAGING_APPS
 
 def handle_self_delete(update: Update, context: CallbackContext) -> int:
     app_name = update.message.text
@@ -190,7 +191,6 @@ def delete_all_apps(query: Update, context: CallbackContext) -> int:
         query.edit_message_text(text=f"تم حذف جميع التطبيقات بنجاح! (عدد التطبيقات المحذوفة: {deleted_count})", reply_markup=reply_markup)
     else:
         query.edit_message_text("حدث خطأ أثناء جلب التطبيقات.")
-        return manage_apps(query, context)
 
 def show_maintenance_apps(query: Update, context: CallbackContext) -> int:
     api_token = context.user_data.get('api_token')
@@ -202,64 +202,43 @@ def show_maintenance_apps(query: Update, context: CallbackContext) -> int:
     
     if response.status_code == 200:
         apps = response.json()
-        maintenance_apps = [app for app in apps if app.get('maintenance')]
+        maintenance_apps = [app for app in apps if app['maintenance']]
         
-        if maintenance_apps:keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'cancel_maintenance_{app["id"]}') for app in maintenance_apps]]
-            keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='back')])
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            query.edit_message_text(text="اختر التطبيق لإلغاء وضع الصيانة:", reply_markup=reply_markup)
+        if maintenance_apps:
+            message = "تطبيقات في وضع الصيانة:\n"
+            for app in maintenance_apps:
+                message += f"- {app['name']}\n"
         else:
-            query.edit_message_text(text="لا توجد تطبيقات في وضع الصيانة.")
+            message = "لا توجد تطبيقات في وضع الصيانة حالياً."
+        
+        keyboard = [[InlineKeyboardButton("🔙 رجوع", callback_data='back')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.edit_message_text(text=message, reply_markup=reply_markup)
     else:
-        query.edit_message_text(text="حدث خطأ أثناء جلب التطبيقات.")
+        query.edit_message_text("حدث خطأ أثناء جلب التطبيقات.")
     
     return MANAGING_APPS
 
-def cancel_maintenance(update: Update, context: CallbackContext) -> int:
-    query = update.callback_query
-    query.answer()
-    app_id = query.data.split('_')[2]
+def main() -> None:
+    updater = Updater(os.getenv("6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE"))
 
-    api_token = context.user_data.get('api_token')
-    headers = {
-        'Authorization': f'Bearer {api_token}',
-        'Accept': 'application/vnd.heroku+json; version=3'
-    }
-    response = requests.patch(f'https://api.heroku.com/apps/{app_id}', headers=headers, json={'maintenance': False})
-    
-    if response.status_code == 200:
-        query.edit_message_text(f"تم إلغاء وضع الصيانة للتطبيق رقم {app_id}.")
-    else:
-        query.edit_message_text("حدث خطأ أثناء إلغاء وضع الصيانة.")
-    
-    return manage_apps(query, context)
+    dispatcher = updater.dispatcher
 
-def cancel(update: Update, context: CallbackContext) -> int:
-    update.message.reply_text('تم إنهاء الجلسة.')
-    return ConversationHandler.END
-
-def main():
-    TOKEN = '6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE'
-    
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
-    
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
             ASKING_API: [MessageHandler(Filters.text & ~Filters.command, ask_api)],
             MANAGING_APPS: [CallbackQueryHandler(button)],
+            ASKING_DELETE_TIME: [MessageHandler(Filters.text & ~Filters.command, schedule_delete)],
             ASKING_APP_FOR_MAINTENANCE: [MessageHandler(Filters.text & ~Filters.command, handle_maintenance)],
             ASKING_APP_NAME_FOR_SELF_DELETE: [MessageHandler(Filters.text & ~Filters.command, handle_self_delete)],
             CHOOSING_DISPLAY_STYLE: [CallbackQueryHandler(handle_display_style)]
         },
-        fallbacks=[CommandHandler('cancel', cancel)]
+        fallbacks=[CommandHandler('start', start)]
     )
-    
-    dp.add_handler(conv_handler)
-    dp.add_handler(CallbackQueryHandler(schedule_delete, pattern='delete_1_hour|delete_1_day|delete_1_week|show_remaining_time'))
-    dp.add_handler(CallbackQueryHandler(cancel_maintenance, pattern='cancel_maintenance_.*'))
-    
+
+    dispatcher.add_handler(conv_handler)
+
     updater.start_polling()
     updater.idle()
 
