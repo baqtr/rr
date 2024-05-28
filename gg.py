@@ -7,7 +7,7 @@ import base64
 # إعدادات البوت
 bot_token =input( "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20 = ")
 heroku_api_key = input('HRKU-bffcce5a-db84-4c17-97ed-160f04745271 = ')  # استبدل توكن هيروكو هنا
-github_token =input("GITHUB TOKEN = ")
+github_token =input("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 = ")
 
 bot = telebot.TeleBot(bot_token)
 
