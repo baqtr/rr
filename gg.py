@@ -154,14 +154,16 @@ def schedule_delete(update: Update, context: CallbackContext) -> int:
 
     if time_option == 'delete_1_hour':
         delay = 3600
+        delay_text = "ساعة"
     elif time_option == 'delete_1_day':
         delay = 86400
+        delay_text = "يوم"
 
     # تسجيل وقت الحذف
     delete_time = time.time() + delay
     self_delete_jobs[app_name] = (delete_time, context.job_queue.run_once(delete_app, delay, context=(api_token, app_name, query.message.chat_id)))
     
-    query.edit_message_text(f"⏰ سيتم حذف التطبيق {app_name} بعد {time_option}.")
+    query.edit_message_text(f"⏰ سيتم حذف التطبيق {app_name} بعد {delay_text}.")
     
     return manage_apps(update, context)
 
@@ -180,8 +182,9 @@ def delete_app(context: CallbackContext) -> None:
     else:
         context.bot.send_message(chat_id=chat_id, text=f"❌ حدث خطأ أثناء حذف التطبيق {app_name}.")
     
-    # إزالة التطبيق من قائمة الحذف الذاتي
-    if app_name in self_delete_jobs:del self_delete_jobs[app_name]
+    # إزالة التطبيق من قائمةالحذف الذاتي
+    if app_name in self_delete_jobs:
+        del self_delete_jobs[app_name]
 
 def check_delete_time(update: Update, context: CallbackContext) -> int:
     message = "🕒 الأوقات المتبقية للتطبيقات في الحذف الذاتي:\n"
