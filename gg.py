@@ -4,12 +4,15 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, CallbackContext
 
+# Constants for conversation states
 ASKING_API, MANAGING_APPS, ASKING_APP_FOR_MAINTENANCE, ASKING_APP_FOR_SELF_DELETE, SCHEDULING_DELETE, CHOOSING_DISPLAY_STYLE = range(6)
 
+# Start function to initiate the conversation
 def start(update: Update, context: CallbackContext) -> int:
     update.message.reply_text("مرحبًا بك في بوت المساعد لحذف التطبيقات من Heroku. للبدء، أرسل لي API الخاص بك.")
     return ASKING_API
 
+# Function to ask for the API token
 def ask_api(update: Update, context: CallbackContext) -> int:
     api_token = update.message.text
     headers = {
@@ -26,6 +29,7 @@ def ask_api(update: Update, context: CallbackContext) -> int:
         update.message.reply_text("API غير صالح. تأكد من صحته وأعد إرساله.")
         return ASKING_API
 
+# Function to manage apps
 def manage_apps(update: Update, context: CallbackContext) -> int:
     api_token = context.user_data.get('api_token')
     headers = {
@@ -50,6 +54,7 @@ def manage_apps(update: Update, context: CallbackContext) -> int:
         update.message.reply_text("حدث خطأ في جلب التطبيقات.")
         return ASKING_API
 
+# Function to handle button clicks
 def button(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     query.answer()
@@ -75,6 +80,7 @@ def button(update: Update, context: CallbackContext) -> int:
     elif query.data == 'back':
         return manage_apps(update, context)
 
+# Function to toggle API
 def toggle_api(update: Update, context: CallbackContext) -> int:
     api_enabled = context.user_data.get('api_enabled', False)
     context.user_data['api_enabled'] = not api_enabled
@@ -86,6 +92,7 @@ def toggle_api(update: Update, context: CallbackContext) -> int:
 
     return MANAGING_APPS
 
+# Function to display information
 def info(update: Update, context: CallbackContext) -> int:
     api_token = context.user_data.get('api_token')
     headers = {
@@ -107,6 +114,7 @@ def info(update: Update, context: CallbackContext) -> int:
 
     return MANAGING_APPS
 
+# Function to create inline keyboard buttons for apps
 def get_apps_buttons(context: CallbackContext, action: str) -> InlineKeyboardMarkup:
     api_token = context.user_data.get('api_token')
     headers = {
@@ -119,6 +127,7 @@ def get_apps_buttons(context: CallbackContext, action: str) -> InlineKeyboardMar
     keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='back')])
     return InlineKeyboardMarkup(keyboard)
 
+# Function to create inline keyboard buttons for delete time options
 def get_delete_time_buttons() -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton("بعد ساعة", callback_data='delete_1_hour')],
@@ -127,7 +136,9 @@ def get_delete_time_buttons() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def set_maintenance(update: Update, context: CallbackContext, app_name: str) -> int:api_token = context.user_data.get('api_token')
+# Function to set maintenance mode for an app
+def set_maintenance(update: Update, context: CallbackContext, app_name: str) -> int:
+    api_token = context.user_data.get('api_token')
     headers = {
         'Authorization': f'Bearer {api_token}',
         'Accept': 'application/vnd.heroku+json; version=3',
@@ -143,6 +154,7 @@ def set_maintenance(update: Update, context: CallbackContext, app_name: str) -> 
     
     return manage_apps(update, context)
 
+# Function to unset maintenance mode for an app
 def unset_maintenance(update: Update, context: CallbackContext, app_name: str) -> int:
     api_token = context.user_data.get('api_token')
     headers = {
@@ -160,6 +172,7 @@ def unset_maintenance(update: Update, context: CallbackContext, app_name: str) -
     
     return manage_apps(update, context)
 
+# Function to schedule app deletion
 def schedule_delete(update: Update, context: CallbackContext) -> int:
     query = update.callback_query
     query.answer()
@@ -178,6 +191,7 @@ def schedule_delete(update: Update, context: CallbackContext) -> int:
     
     return manage_apps(update, context)
 
+# Function to delete an app
 def delete_app(context: CallbackContext) -> None:
     job = context.job
     api_token, app_name, chat_id = job.context
@@ -193,10 +207,12 @@ def delete_app(context: CallbackContext) -> None:
     else:
         context.bot.send_message(chat_id=chat_id, text=f"❌ حدث خطأ أثناء حذف التطبيق {app_name}.")
 
+# Function to cancel the conversation
 def cancel(update: Update, context: CallbackContext) -> int:
     update.message.reply_text('تم إنهاء الجلسة.')
     return ConversationHandler.END
 
+# Main function to run the bot
 def main():
     TOKEN = '7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20'
     
