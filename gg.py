@@ -7,7 +7,7 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Conversa
 ASKING_API, MANAGING_APPS, ASKING_APP_FOR_MAINTENANCE, ASKING_APP_FOR_SELF_DELETE, SCHEDULING_DELETE, SHOW_REMAINING_TIME = range(6)
 
 def start(update: Update, context: CallbackContext) -> int:
-    update.message.reply_text("👋 مرحبًا بك في بوت المساعد لحذف التطبيقات من Heroku. للبدء، أرسل لي API الخاص بك.")
+    update.message.reply_text("مرحبًا بك في بوت المساعد لحذف التطبيقات من Heroku. للبدء، أرسل لي API الخاص بك.")
     return ASKING_API
 
 def ask_api(update: Update, context: CallbackContext) -> int:
@@ -20,10 +20,10 @@ def ask_api(update: Update, context: CallbackContext) -> int:
     
     if response.status_code == 200:
         context.user_data['api_token'] = api_token
-        update.message.reply_text("✅ تم استقبال API بنجاح! جاري جلب التطبيقات...")
+        update.message.reply_text("تم استقبال API بنجاح! جاري جلب التطبيقات...")
         return manage_apps(update, context)
     else:
-        update.message.reply_text("❌ API غير صالح. تأكد من صحته وأعد إرساله.")
+        update.message.reply_text("API غير صالح. تأكد من صحته وأعد إرساله.")
         return ASKING_API
 
 def manage_apps(update: Update, context: CallbackContext) -> int:
@@ -36,18 +36,18 @@ def manage_apps(update: Update, context: CallbackContext) -> int:
     
     if response.status_code == 200:
         apps = response.json()
-        keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'choose_{app["name"]}') for app in apps]]
-        keyboard.append([InlineKeyboardButton("⚙️ وضع الصيانة", callback_data='maintenance')])
+        keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'choose_{app["name"]}')] for app in apps]
+        keyboard.append([InlineKeyboardButton("🛠️ وضع الصيانة", callback_data='maintenance')])
         keyboard.append([InlineKeyboardButton("🚫 إلغاء وضع الصيانة", callback_data='cancel_maintenance')])
         keyboard.append([InlineKeyboardButton("🗑️ الحذف الذاتي", callback_data='self_delete')])
-        keyboard.append([InlineKeyboardButton("⏳ الوقت المتبقي للحذف", callback_data='remaining_time')])
+        keyboard.append([InlineKeyboardButton("⏰ الوقت المتبقي للحذف الذاتي", callback_data='remaining_time')])
         keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='back')])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text("اختر التطبيق لإدارته أو اختيار الخيارات الأخرى:", reply_markup=reply_markup)
         return MANAGING_APPS
     else:
-        update.message.reply_text("❌ حدث خطأ في جلب التطبيقات.")
+        update.message.reply_text("حدث خطأ في جلب التطبيقات.")
         return ASKING_API
 
 def button(update: Update, context: CallbackContext) -> int:
@@ -89,14 +89,14 @@ def get_apps_buttons(context: CallbackContext, action: str) -> InlineKeyboardMar
     }
     response = requests.get('https://api.heroku.com/apps', headers=headers)
     apps = response.json()
-    keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'{action}_{app["name"]}') for app in apps]]
+    keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'{action}_{app["name"]}')] for app in apps]
     keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='back')])
     return InlineKeyboardMarkup(keyboard)
 
 def get_delete_time_buttons() -> InlineKeyboardMarkup:
     keyboard = [
-        [InlineKeyboardButton("⏳ بعد ساعة", callback_data='delete_1_hour')],
-        [InlineKeyboardButton("⏳ بعد يوم", callback_data='delete_1_day')],
+        [InlineKeyboardButton("بعد ساعة", callback_data='delete_1_hour')],
+        [InlineKeyboardButton("بعد يوم", callback_data='delete_1_day')],
         [InlineKeyboardButton("🔙 رجوع", callback_data='back')]
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -144,20 +144,18 @@ def schedule_delete(update: Update, context: CallbackContext) -> int:
 
     if time_option == 'delete_1_hour':
         delay = 3600
-        time_label = "بعد ساعة"
     elif time_option == 'delete_1_day':
         delay = 86400
-        time_label = "بعد يوم"
 
-    query.edit_message_text(f"⏳ سيتم حذف التطبيق {app_name} {time_label}.")
+    query.edit_message_text(f"سيتم حذف التطبيق {app_name} بعد {time_option}.")
     
-    context.job_queue.run_once(delete_app, delay, context=(api_token, app_name, query.message.chat_id, time.time() + delay))
+    context.job_queue.run_once(delete_app, delay, context=(api_token, app_name, query.message.chat_id))
     
     return manage_apps(update, context)
 
 def delete_app(context: CallbackContext) -> None:
     job = context.job
-    api_token, app_name, chat_id, _ = job.context
+    api_token, app_name, chat_id = job.context
     
     headers = {
         'Authorization': f'Bearer {api_token}',
@@ -171,16 +169,14 @@ def delete_app(context: CallbackContext) -> None:
         context.bot.send_message(chat_id=chat_id, text=f"❌ حدث خطأ أثناء حذف التطبيق {app_name}.")
 
 def show_remaining_time(update: Update, context: CallbackContext) -> int:
-    job_queue = context.job_queue.jobs()
-    remaining_times = [(job.name, max(0, int(job.next_t - time.time()))) for job in job_queue if job.name.startswith('delete_')]
-    
-    if remaining_times:
-        messages = [f"التطبيق: {name}, الوقت المتبقي: {remaining // 3600} ساعة و {remaining % 3600 // 60} دقيقة" for name, remaining in remaining_times]
-        update.callback_query.edit_message_text("\n".join(messages))
+    jobs = context.job_queue.get_jobs_by_name('delete_app')
+    if jobs:
+        remaining_times = [f"{job.context[1]}: {time.strftime('%H:%M:%S', time.gmtime(job.next_t - time.time()))}" for job in jobs]
+        message = "\n".join(remaining_times)
     else:
-        update.callback_query.edit_message_text("لا يوجد تطبيقات في قائمة الحذف الذاتي.")
-    
-    return manage_apps(update, context)
+        message = "لا يوجد عمليات حذف مجدولة."
+    update.callback_query.edit_message_text(message, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 رجوع", callback_data='back')]]))
+    return MANAGING_APPS
 
 def cancel(update: Update, context: CallbackContext) -> int:
     update.message.reply_text('تم إنهاء الجلسة.')
