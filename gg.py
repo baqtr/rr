@@ -127,8 +127,7 @@ def get_delete_time_buttons() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def set_maintenance(update: Update, context: CallbackContext, app_name: str) -> int:
-    api_token = context.user_data.get('api_token')
+def set_maintenance(update: Update, context: CallbackContext, app_name: str) -> int:api_token = context.user_data.get('api_token')
     headers = {
         'Authorization': f'Bearer {api_token}',
         'Accept': 'application/vnd.heroku+json; version=3',
