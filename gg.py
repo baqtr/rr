@@ -39,7 +39,7 @@ def manage_apps(update: Update, context: CallbackContext) -> int:
     
     if response.status_code == 200:
         apps = response.json()
-        keyboard = [[InlineKeyboardButton(f"📱 {app['name']}", callback_data=f'choose_{app["name"]}') for app in apps]]
+        keyboard = [[InlineKeyboardButton(f"📱 {app['name']}", callback_data=f'choose_{app["name"]}')] for app in apps]
         keyboard.append([InlineKeyboardButton("🔧 وضع الصيانة", callback_data='maintenance')])
         keyboard.append([InlineKeyboardButton("🚫 إلغاء وضع الصيانة", callback_data='cancel_maintenance')])
         keyboard.append([InlineKeyboardButton("🗑 الحذف الذاتي", callback_data='self_delete')])
@@ -99,7 +99,7 @@ def get_apps_buttons(context: CallbackContext, action: str) -> InlineKeyboardMar
     }
     response = requests.get('https://api.heroku.com/apps', headers=headers)
     apps = response.json()
-    keyboard = [[InlineKeyboardButton(f"📱 {app['name']}", callback_data=f'{action}_{app["name"]}') for app in apps]]
+    keyboard = [[InlineKeyboardButton(f"📱 {app['name']}", callback_data=f'{action}_{app["name"]}')] for app in apps]
     keyboard.append([InlineKeyboardButton("🔙 رجوع", callback_data='back')])
     return InlineKeyboardMarkup(keyboard)
 
@@ -181,8 +181,7 @@ def delete_app(context: CallbackContext) -> None:
         context.bot.send_message(chat_id=chat_id, text=f"❌ حدث خطأ أثناء حذف التطبيق {app_name}.")
     
     # إزالة التطبيق من قائمة الحذف الذاتي
-    if app_name in self_delete_jobs:
-        del self_delete_jobs[app_name]
+    if app_name in self_delete_jobs:del self_delete_jobs[app_name]
 
 def check_delete_time(update: Update, context: CallbackContext) -> int:
     message = "🕒 الأوقات المتبقية للتطبيقات في الحذف الذاتي:\n"
