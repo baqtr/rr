@@ -7,7 +7,7 @@ import base64
 # إعدادات البوت
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"  # توكن البوت في تليجرام
 heroku_api_key = "HRKU-bffcce5a-db84-4c17-97ed-160f04745271"  # مفتاح API الخاص بـ Heroku
-github_token = "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"  # توكن GitHub
+github_token = "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"  # توكن GitHub
 
 bot = telebot.TeleBot(bot_token)
 
