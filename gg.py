@@ -226,7 +226,9 @@ def process_delete_github_repo_step(message):
     if response.status_code == 204:
         bot.send_message(message.chat.id, f"تم حذف المستودع `{repo_name}` بنجاح من GitHub.", parse_mode='Markdown', reply_markup=create_back_button())
     else:
-        bot.send_message(message.chat.id, "حدث خطأ أثناء حذف المستودع من GitHub.", reply_markup=create_back_button())def prompt_for_github_repo_for_upload(message):
+        bot.send_message(message.chat.id, "حدث خطأ أثناء حذف المستودع من GitHub.", reply_markup=create_back_button())
+
+def prompt_for_github_repo_for_upload(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد تحميل الملفات إليه:", reply_markup=create_back_button())
     bot.register_next_step_handler(msg, process_upload_files_step)
 
