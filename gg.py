@@ -39,7 +39,7 @@ def manage_apps(update: Update, context: CallbackContext) -> int:
     
     if response.status_code == 200:
         apps = response.json()
-        keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'self_delete_{app["name"]}') for app in apps]]
+        keyboard = [[InlineKeyboardButton(app['name'], callback_data=f'self_delete_{app["name"]}')] for app in apps]
         keyboard.append([InlineKeyboardButton("عرض الوقت المتبقي للحذف الذاتي", callback_data='check_delete_time')])
         keyboard.append([InlineKeyboardButton("تسجيل خروج", callback_data='logout')])
         
