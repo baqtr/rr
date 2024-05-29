@@ -1,11 +1,14 @@
 import os
 import time
 import requests
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, CallbackContext
 
+# تعريف الحالات
 ASKING_API, MANAGING_APPS, ASKING_APP_FOR_SELF_DELETE, SCHEDULING_DELETE, CHECK_DELETE_TIME = range(5)
 
+# حافظات للمهام المجدولة
 self_delete_jobs = {}
 
 def start(update: Update, context: CallbackContext) -> int:
@@ -99,6 +102,7 @@ def schedule_delete(update: Update, context: CallbackContext) -> int:
         self_delete_jobs[app_name][1].schedule_removal()
     self_delete_jobs[app_name] = (delete_time, context.job_queue.run_once(delete_app, delay, context=(api_token, app_name, query.message.chat_id)))
     
+    # نقوم بإعادة بناء الزر "رجوع" مع كل زر حذف جديد لضمان ظهوره في كل مرة
     keyboard = [
         [InlineKeyboardButton("🔙 رجوع", callback_data='back')]
     ]
@@ -120,8 +124,8 @@ def delete_app(context: CallbackContext) -> None:
     if response.status_code == 202:
         context.bot.send_message(chat_id=chat_id, text=f"✅ تم حذف التطبيق {app_name}.")
     else:
-        context.bot.send_message(chat_id=chat_id, text=f"❌ حدث خطأ أثناء حذف التطبيق {app_name}.")
-    
+        context.bot.send_message(chat_id=chat_id, text=f"❌ حدث خطأ أثناء حذف التطبيك {app_name}.")
+
     if app_name in self_delete_jobs:
         del self_delete_jobs[app_name]
 
@@ -165,7 +169,20 @@ def main():
     )
     
     dp.add_handler(conv_handler)
+
+    # تكوين سجل الأخطاء
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    # إعلام المستخدم عن توقف البوت
+    def stop_and_notify():
+        updater.stop()
+        print("توقف البوت عن العمل.")
     
+    # تسجيل الدالة التنفيذية للاشتراك
+    updater.dispatcher.add_error_handler(stop_and_notify)
+
+    # بدء التشغيل
     updater.start_polling()
     updater.idle()
 
