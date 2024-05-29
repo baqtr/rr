@@ -136,7 +136,7 @@ def check_delete_time(update: Update, context: CallbackContext) -> int:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.callback_query.edit_message_text(message, reply_markup=reply_markup)
-    return MANAGING_APPS
+    return CHECK_DELETE_TIME
 
 def cancel(update: Update, context: CallbackContext) -> int:
     update.message.reply_text('تم إنهاء الجلسة.')
@@ -153,7 +153,8 @@ def main():
         states={
             ASKING_API: [MessageHandler(Filters.text & ~Filters.command, ask_api)],
             MANAGING_APPS: [CallbackQueryHandler(button)],
-            SCHEDULING_DELETE: [CallbackQueryHandler(schedule_delete)],
+            SCHEDULING_DELETE: [CallbackQueryHandler(button)],
+            CHECK_DELETE_TIME: [CallbackQueryHandler(button)]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
