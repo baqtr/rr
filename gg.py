@@ -6,7 +6,6 @@ from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, Conversa
 
 ASKING_API, MANAGING_APPS, ASKING_APP_FOR_SELF_DELETE, SCHEDULING_DELETE, CHECK_DELETE_TIME = range(5)
 
-# حافظات للمهام المجدولة
 self_delete_jobs = {}
 
 def start(update: Update, context: CallbackContext) -> int:
@@ -44,16 +43,10 @@ def manage_apps(update: Update, context: CallbackContext) -> int:
         keyboard.append([InlineKeyboardButton("تسجيل خروج", callback_data='logout')])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        if update.message:
-            update.message.reply_text("اختر التطبيق للحذف الذاتي أو عرض الوقت المتبقي أو تسجيل الخروج:", reply_markup=reply_markup)
-        else:
-            update.callback_query.edit_message_text("اختر التطبيق للحذف الذاتي أو عرض الوقت المتبقي أو تسجيل الخروج:", reply_markup=reply_markup)
+        update.message.reply_text("اختر التطبيق للحذف الذاتي أو عرض الوقت المتبقي أو تسجيل الخروج:", reply_markup=reply_markup)
         return MANAGING_APPS
     else:
-        if update.message:
-            update.message.reply_text("حدث خطأ في جلب التطبيقات.")
-        else:
-            update.callback_query.edit_message_text("حدث خطأ في جلب التطبيقات.")
+        update.message.reply_text("حدث خطأ في جلب التطبيقات.")
         return ASKING_API
 
 def button(update: Update, context: CallbackContext) -> int:
@@ -102,6 +95,8 @@ def schedule_delete(update: Update, context: CallbackContext) -> int:
         delay = 1500
 
     delete_time = time.time() + delay
+    if app_name in self_delete_jobs:
+        self_delete_jobs[app_name][1].schedule_removal()
     self_delete_jobs[app_name] = (delete_time, context.job_queue.run_once(delete_app, delay, context=(api_token, app_name, query.message.chat_id)))
     
     query.edit_message_text(f"⏰ سيتم حذف التطبيق {app_name} بعد الوقت المحدد.")
@@ -159,8 +154,8 @@ def main():
         states={
             ASKING_API: [MessageHandler(Filters.text & ~Filters.command, ask_api)],
             MANAGING_APPS: [CallbackQueryHandler(button)],
-            SCHEDULING_DELETE: [CallbackQueryHandler(button)],
-            CHECK_DELETE_TIME: [CallbackQueryHandler(button)]
+            SCHEDULING_DELETE: [CallbackQueryHandler(schedule_delete)],
+            CHECK_DELETE_TIME: [CallbackQueryHandler(check_delete_time)]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
