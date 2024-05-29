@@ -77,7 +77,7 @@ def ask_delete_time(update: Update, context: CallbackContext, app_name: str) -> 
         [InlineKeyboardButton("🕒 بعد ساعة", callback_data='delete_1_hour')],
         [InlineKeyboardButton("🕒 بعد يوم", callback_data='delete_1_day')],
         [InlineKeyboardButton("🕒 بعد 25 دقيقة", callback_data='delete_25_minutes')],
-        [InlineKeyboardButton("🔙 رجوع", callback_data='back')]
+        [InlineKeyboardButton("🔙 رجوع", callback_data='back_to_main')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.callback_query.edit_message_text(f"اختر وقت الحذف لتطبيق {app_name}:", reply_markup=reply_markup)
