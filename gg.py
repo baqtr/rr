@@ -11,6 +11,7 @@ github_token = "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"  # توكن GitHub
 
 bot = telebot.TeleBot(bot_token)
 
+self_delete_jobs = {}
 # الهيروكو API
 HEROKU_BASE_URL = 'https://api.heroku.com'
 HEROKU_HEADERS = {
@@ -36,12 +37,30 @@ def create_main_menu():
     itembtn7 = telebot.types.InlineKeyboardButton('تحميل ملفات إلى مستودع GitHub', callback_data='upload_files_to_github')
     itembtn8 = telebot.types.InlineKeyboardButton('حذف ملفات من مستودع GitHub', callback_data='delete_files_from_github')
     itembtn9 = telebot.types.InlineKeyboardButton('نشر كود إلى هيروكو', callback_data='deploy_to_heroku')
-    itembtn10 = telebot.types.InlineKeyboardButton('الحذف الذاتي ', callback_data='deploy_to_heroku')
+    itembtn10 = telebot.types.InlineKeyboardButton('الحذف الذاتي ', callback_data='check_delete_time')
     itembtn11 = telebot.types.InlineKeyboardButton('المطور', url='https://t.me/q_w_c')
     markup.add(itembtn1, itembtn2, itembtn3, itembtn4, itembtn5, itembtn6, itembtn7, itembtn8, itembtn9)
     markup.add(itembtn10)
     markup.add(itembtn11)
     return markup
+
+update.callback_query.edit_message_text("اختر التطبيق للحذف الذاتي أو عرض الوقت المتبقي أو تسجيل الخروج:", reply_markup=reply_markup)
+        return MANAGING_APPS
+    else:
+        update.message.reply_text("حدث خطأ في جلب التطبيقات.")
+        return ASKING_API
+
+def button(update: Update, context: CallbackContext) -> int:
+    query = update.callback_query
+    query.answer()
+    
+    if query.data.startswith('self_delete_'):
+        app_name = query.data.split('_')[2]
+        context.user_data['app_to_delete'] = app_name
+        return ask_delete_time(update, context, app_name)
+    
+    elif query.data == 'check_delete_time':
+        return check_delete_time(update, context)
 
 def create_back_button():
     markup = telebot.types.InlineKeyboardMarkup(row_width=1)
