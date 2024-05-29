@@ -114,7 +114,8 @@ def callback_query(call):
         prompt_for_self_delete_app(call.message)
 
 def list_heroku_apps(message):
-    response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)if response.status_code == 200:
+    response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
+if response.status_code == 200:
         apps = response.json()
         apps_list = "\n".join([f"`{app['name']}`" for app in apps])
         bot.send_message(message.chat.id, f"التطبيقات المتاحة في هيروكو:\n{apps_list}", parse_mode='Markdown', reply_markup=create_back_button())
