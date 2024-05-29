@@ -42,10 +42,9 @@ main_buttons = [
 def create_main_menu():
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
     shuffled_buttons = random.sample(main_buttons, len(main_buttons))
-    for _ in range(4):
-        for button in shuffled_buttons:
-            itembtn = telebot.types.InlineKeyboardButton(button['text'], callback_data=button['callback_data'])
-            markup.add(itembtn)
+    for button in shuffled_buttons:
+        itembtn = telebot.types.InlineKeyboardButton(button['text'], callback_data=button['callback_data'])
+        markup.add(itembtn)
     dev_btn = telebot.types.InlineKeyboardButton('👨‍💻 المطور', url='https://t.me/q_w_c')
     markup.add(dev_btn)
     return markup
@@ -86,15 +85,15 @@ def callback_query(call):
     elif call.data == 'deploy_to_heroku':
         prompt_for_github_repo_for_deploy(call.message)
     elif call.data == 'shuffle_buttons':
-        bot.send_message(
+        bot.edit_message_reply_markup(
             call.message.chat.id, 
-            "تم تبديل ترتيب الأزرار!", 
+            call.message.message_id, 
             reply_markup=create_main_menu()
         )
     elif call.data == 'back_to_main':
-        bot.send_message(
+        bot.edit_message_reply_markup(
             call.message.chat.id, 
-            "مرحبًا! يمكنك التحكم في حساب هيروكو ومستودعات GitHub باستخدام الأوامر التالية:", 
+            call.message.message_id, 
             reply_markup=create_main_menu()
         )
 
@@ -189,29 +188,43 @@ def prompt_for_github_repo_for_upload(message):
 def process_upload_files_step(message):
     global repo_name
     repo_name = message.text
-    msg = bot.send_message(message.chat.id, "أرسل الملفات التي تريد تحميلها:", reply_markup=create_back_button())
-    bot.register_next_step_handler(msg, receive_files)
+    msg = bot.send_message(message.chat.id, "أرسل الملف المضغوط (zip) الذي تريد تحميله:", reply_markup=create_back_button())
+    bot.register_next_step_handler(msg, receive_zip_file)
 
-def receive_files(message):
-    if message.document:
+def receive_zip_file(message):
+    if message.document and message.document.mime_type == 'application/zip':
         file_info = bot.get_file(message.document.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
         file_name = message.document.file_name
-        encoded_content = base64.b64encode(downloaded_file).decode()
-        response = requests.put(
-            f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/contents/{file_name}',
-            headers=GITHUB_HEADERS,
-            json={
-                "message": f"Uploading {file_name}",
-                "content": encoded_content
-            }
-        )
-        if response.status_code == 201:
-            bot.send_message(message.chat.id, f"تم تحميل الملف `{file_name}` بنجاح إلى المستودع `{repo_name}`.", parse_mode='Markdown', reply_markup=create_back_button())
-        else:
-            bot.send_message(message.chat.id, "حدث خطأ أثناء تحميل الملف إلى GitHub.", reply_markup=create_back_button())
+        with open(file_name, 'wb') as f:
+            f.write(downloaded_file)
+        with zipfile.ZipFile(file_name, 'r') as zip_ref:
+            zip_ref.extractall('temp_files')
+        os.remove(file_name)
+        upload_extracted_files('temp_files', message)
     else:
-        bot.send_message(message.chat.id, "يرجى إرسال ملف صحيح.", reply_markup=create_back_button())
+        bot.send_message(message.chat.id, "يرجى إرسال ملف مضغوط (zip) صالح.", reply_markup=create_back_button())
+
+def upload_extracted_files(directory, message):
+    for root, _, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            with open(file_path, 'rb') as f:
+                content = f.read()
+            encoded_content = base64.b64encode(content).decode()
+            github_path = os.path.relpath(file_path, directory)
+            response = requests.put(
+                f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/contents/{github_path}',
+                headers=GITHUB_HEADERS,
+                json={
+                    "message": f"Uploading {github_path}",
+                    "content": encoded_content
+                }
+            )
+            if response.status_code != 201:
+                bot.send_message(message.chat.id, f"حدث خطأ أثناء تحميل الملف `{github_path}` إلى GitHub.", reply_markup=create_back_button())
+                return
+    bot.send_message(message.chat.id, f"تم تحميل جميع الملفات بنجاح إلى المستودع `{repo_name}`.", parse_mode='Markdown', reply_markup=create_back_button())
 
 def prompt_for_github_repo_for_delete(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم المستودع:", reply_markup=create_back_button())
@@ -263,4 +276,4 @@ def process_deploy_step(message):
     else:
         bot.send_message(message.chat.id, "حدث خطأ أثناء تنزيل المستودع من GitHub.", reply_markup=create_back_button())
 
-bot.polling() 
+bot.polling()
