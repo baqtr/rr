@@ -4,8 +4,10 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, Filters, CallbackContext
 
+# تعريف الحالات
 ASKING_API, MANAGING_APPS, ASKING_APP_FOR_SELF_DELETE, SCHEDULING_DELETE, CHECK_DELETE_TIME = range(5)
 
+# حافظات للمهام المجدولة
 self_delete_jobs = {}
 
 def start(update: Update, context: CallbackContext) -> int:
@@ -127,8 +129,13 @@ def delete_app(context: CallbackContext) -> None:
         del self_delete_jobs[app_name]
 
 def check_delete_time(update: Update, context: CallbackContext) -> int:
-    message = "🕒 الأوقات المتبقية للتطبيقات في الحذف الذاتي:\n"
-    for app_name, (delete_time, job) in self_deletemessage += f"📱 {app_name}: {int(hours)} ساعة, {int(minutes)} دقيقة, {int(seconds)} ثانية\n"
+    message = "🕒 الأوقات المتبقية للتطبيقيات في الحذف الذاتي:\n"
+    for app_name, (delete_time, job) in self_delete_jobs.items():
+        remaining_time = delete_time - time.time()
+        if remaining_time > 0:
+            hours, remainder = divmod(remaining_time, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            message += f"📱 {app_name}: {int(hours)} ساعة, {int(minutes)} دقيقة, {int(seconds)} ثانية\n"
         else:
             message += f"📱 {app_name}: يتم الحذف الآن.\n"
     
