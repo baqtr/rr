@@ -95,7 +95,7 @@ def schedule_delete(update: Update, context: CallbackContext) -> int:
     elif time_option == 'delete_1_day':
         delay = 86400
     elif time_option == 'delete_25_minutes':
-        delay = 1500
+        delay= 1500
 
     delete_time = time.time() + delay
     if app_name in self_delete_jobs:
@@ -175,12 +175,12 @@ def main():
     logger = logging.getLogger(__name__)
 
     # إعلام المستخدم عن توقف البوت
-    def stop_and_notify():
+    def stop_and_notify(update, context):
+        update.message.reply_text("حدث خطأ غير متوقع، توقف البوت.")
         updater.stop()
-        print("توقف البوت عن العمل.")
-    
+
     # تسجيل الدالة التنفيذية للاشتراك
-    updater.dispatcher.add_error_handler(stop_and_notify)
+    dp.add_error_handler(stop_and_notify)
 
     # بدء التشغيل
     updater.start_polling()
