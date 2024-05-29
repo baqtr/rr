@@ -99,7 +99,12 @@ def schedule_delete(update: Update, context: CallbackContext) -> int:
         self_delete_jobs[app_name][1].schedule_removal()
     self_delete_jobs[app_name] = (delete_time, context.job_queue.run_once(delete_app, delay, context=(api_token, app_name, query.message.chat_id)))
     
-    query.edit_message_text(f"⏰ سيتم حذف التطبيق {app_name} بعد الوقت المحدد.")
+    # نقوم بإعادة بناء الزر "رجوع" مع كل زر حذف جديد لضمان ظهوره في كل مرة
+    keyboard = [
+        [InlineKeyboardButton("🔙 رجوع", callback_data='back')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.edit_message_text(f"⏰ سيتم حذف التطبيق {app_name} بعد الوقت المحدد.", reply_markup=reply_markup)
     
     return manage_apps(update, context)
 
@@ -123,12 +128,7 @@ def delete_app(context: CallbackContext) -> None:
 
 def check_delete_time(update: Update, context: CallbackContext) -> int:
     message = "🕒 الأوقات المتبقية للتطبيقات في الحذف الذاتي:\n"
-    for app_name, (delete_time, job) in self_delete_jobs.items():
-        remaining_time = delete_time - time.time()
-        if remaining_time > 0:
-            hours, remainder = divmod(remaining_time, 3600)
-            minutes, seconds = divmod(remainder, 60)
-            message += f"📱 {app_name}: {int(hours)} ساعة, {int(minutes)} دقيقة, {int(seconds)} ثانية\n"
+    for app_name, (delete_time, job) in self_deletemessage += f"📱 {app_name}: {int(hours)} ساعة, {int(minutes)} دقيقة, {int(seconds)} ثانية\n"
         else:
             message += f"📱 {app_name}: يتم الحذف الآن.\n"
     
@@ -140,7 +140,7 @@ def check_delete_time(update: Update, context: CallbackContext) -> int:
     return CHECK_DELETE_TIME
 
 def cancel(update: Update, context: CallbackContext) -> int:
-    update.message.reply_text('تم إنهاء الجلسة.')
+    update.callback_query.message.reply_text('تم إلغاء العملية.')
     return ConversationHandler.END
 
 def main():
