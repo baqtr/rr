@@ -4,6 +4,8 @@ import os
 import zipfile
 import base64
 import random
+import time
+import threading
 
 # إعدادات البوت
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"  # توكن البوت في تليجرام
@@ -36,8 +38,11 @@ main_buttons = [
     {'text': '📤 تحميل ملفات إلى مستودع GitHub', 'callback_data': 'upload_files_to_github'},
     {'text': '🗑 حذف ملفات من مستودع GitHub', 'callback_data': 'delete_files_from_github'},
     {'text': '🚀 نشر كود إلى هيروكو', 'callback_data': 'deploy_to_heroku'},
-    {'text': '🔄 تبديل ترتيب الأزرار', 'callback_data': 'shuffle_buttons'}
+    {'text': '🔄 تبديل ترتيب الأزرار', 'callback_data': 'shuffle_buttons'},
+    {'text': '🗑 حذف ذاتي', 'callback_data': 'self_delete_menu'},
 ]
+
+self_delete_apps = {}
 
 def create_main_menu():
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
@@ -54,6 +59,13 @@ def create_back_button():
     back_btn = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
     dev_btn = telebot.types.InlineKeyboardButton('👨‍💻 المطور', url='https://t.me/q_w_c')
     markup.add(back_btn, dev_btn)
+    return markup
+
+def create_self_delete_menu():
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    self_delete_btn = telebot.types.InlineKeyboardButton('🗑 حذف ذاتي', callback_data='self_delete_app')
+    back_btn = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
+    markup.add(self_delete_btn, back_btn)
     return markup
 
 @bot.message_handler(commands=['start'])
@@ -96,6 +108,10 @@ def callback_query(call):
             call.message.message_id, 
             reply_markup=create_main_menu()
         )
+    elif call.data == 'self_delete_menu':
+        list_self_delete_apps(call.message)
+    elif call.data == 'self_delete_app':
+        prompt_for_self_delete_app(call.message)
 
 def list_heroku_apps(message):
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
@@ -206,74 +222,92 @@ def receive_zip_file(message):
         bot.send_message(message.chat.id, "يرجى إرسال ملف مضغوط (zip) صالح.", reply_markup=create_back_button())
 
 def upload_extracted_files(directory, message):
-    for root, _, files in os.walk(directory):
+    for root, _, files in os.listdir(directory):
         for file in files:
-            file_path = os.path.join(root, file)
-            with open(file_path, 'rb') as f:
-                content = f.read()
-            encoded_content = base64.b64encode(content).decode()
-            github_path = os.path.relpath(file_path, directory)
-            response = requests.put(
-                f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/contents/{github_path}',
-                headers=GITHUB_HEADERS,
-                json={
-                    "message": f"Uploading {github_path}",
-                    "content": encoded_content
-                }
-            )
-            if response.status_code != 201:
-                bot.send_message(message.chat.id, f"حدث خطأ أثناء تحميل الملف `{github_path}` إلى GitHub.", reply_markup=create_back_button())
-                return
-    bot.send_message(message.chat.id, f"تم تحميل جميع الملفات بنجاح إلى المستودع `{repo_name}`.", parse_mode='Markdown', reply_markup=create_back_button())
+            upload_file_to_github(directory, file, message)
+
+def upload_file_to_github(directory, file, message):
+    file_path = os.path.join(directory, file)
+    with open(file_path, 'rb') as f:
+        content = f.read()
+    encoded_content = base64.b64encode(content).decode('utf-8')
+    response = requests.put(
+        f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/contents/{file}',
+        headers=GITHUB_HEADERS,
+        json={"message": "Upload file", "content": encoded_content, "branch": "main"}
+    )
+    if response.status_code == 201:
+        bot.send_message(message.chat.id, f"تم رفع الملف `{file}` بنجاح إلى المستودع `{repo_name}` في GitHub.", parse_mode='Markdown', reply_markup=create_back_button())
+    else:
+        bot.send_message(message.chat.id, f"حدث خطأ أثناء رفع الملف `{file}` إلى المستودع في GitHub.", reply_markup=create_back_button())
 
 def prompt_for_github_repo_for_delete(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع:", reply_markup=create_back_button())
+    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد حذف الملفات منه في GitHub:", reply_markup=create_back_button())
     bot.register_next_step_handler(msg, process_delete_files_step)
 
 def process_delete_files_step(message):
     global repo_name
     repo_name = message.text
-    msg = bot.send_message(message.chat.id, "أدخل مسار الملف الذي تريد حذفه:", reply_markup=create_back_button())
-    bot.register_next_step_handler(msg, confirm_delete_file)
+    msg = bot.send_message(message.chat.id, "أدخل اسم الملف الذي تريد حذفه:", reply_markup=create_back_button())
+    bot.register_next_step_handler(msg, delete_file_from_github)
 
-def confirm_delete_file(message):
-    file_path = message.text
-    response = requests.get(f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/contents/{file_path}', headers=GITHUB_HEADERS)
+def delete_file_from_github(message):
+    file_name = message.text
+    response = requests.get(
+        f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/contents/{file_name}',
+        headers=GITHUB_HEADERS
+    )
     if response.status_code == 200:
-        file_sha = response.json()['sha']
+        file_content = response.json()
         response = requests.delete(
-            f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/contents/{file_path}',
+            f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/contents/{file_name}?sha={file_content["sha"]}',
             headers=GITHUB_HEADERS,
-            json={"message": f"Deleting {file_path}", "sha": file_sha}
+            json={"message": "Delete file", "branch": "main"}
         )
         if response.status_code == 200:
-            bot.send_message(message.chat.id, f"تم حذف الملف `{file_path}` بنجاح من المستودع `{repo_name}`.", parse_mode='Markdown', reply_markup=create_back_button())
+            bot.send_message(message.chat.id, f"تم حذف الملف `{file_name}` بنجاح من المستودع `{repo_name}` في GitHub.", parse_mode='Markdown', reply_markup=create_back_button())
         else:
-            bot.send_message(message.chat.id, "حدث خطأ أثناء حذف الملف من GitHub.", reply_markup=create_back_button())
+            bot.send_message(message.chat.id, f"حدث خطأ أثناء حذف الملف `{file_name}` من المستودع في GitHub.", reply_markup=create_back_button())
     else:
-        bot.send_message(message.chat.id, "لم يتم العثور على الملف، يرجى التأكد من المسار الصحيح.", reply_markup=create_back_button())
+        bot.send_message(message.chat.id, f"الملف `{file_name}` غير موجود في المستودع `{repo_name}` في GitHub.", parse_mode='Markdown', reply_markup=create_back_button())
 
 def prompt_for_github_repo_for_deploy(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع المراد نشره:", reply_markup=create_back_button())
-    bot.register_next_step_handler(msg, process_deploy_step)
+    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد نشره على هيروكو:", reply_markup=create_back_button())
+    bot.register_next_step_handler(msg, deploy_to_heroku)
 
-def process_deploy_step(message):
+def deploy_to_heroku(message):
     repo_name = message.text
-    response = requests.get(f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/zipball', headers=GITHUB_HEADERS)
-    if response.status_code == 200:
-        zip_data = response.content
-        tmp_dir = f'/tmp/{repo_name}'
-        with open(f'{tmp_dir}.zip', 'wb') as f:
-            f.write(zip_data)
-        with zipfile.ZipFile(f'{tmp_dir}.zip', 'r') as zip_ref:
-            zip_ref.extractall(tmp_dir)
-        app_name = repo_name
-        os.system(f'heroku git:remote -a {app_name}')
-        os.system('git add .')
-        os.system('git commit -m "Deploying to Heroku"')
-        os.system('git push heroku master')
-        bot.send_message(message.chat.id, f"تم نشر المستودع `{repo_name}` بنجاح إلى هيروكو.", parse_mode='Markdown', reply_markup=create_back_button())
+    response = requests.post(
+        f'{HEROKU_BASE_URL}/apps/{repo_name}/builds',
+        headers=HEROKU_HEADERS
+    )
+    if response.status_code == 202:
+        bot.send_message(message.chat.id, f"جارٍ نشر الكود من المستودع `{repo_name}` إلى هيروكو.", parse_mode='Markdown', reply_markup=create_back_button())
     else:
-        bot.send_message(message.chat.id, "حدث خطأ أثناء تنزيل المستودع من GitHub.", reply_markup=create_back_button())
+        bot.send_message(message.chat.id, f"حدث خطأ أثناء نشر الكود من المستودع `{repo_name}` إلى هيروكو.", parse_mode='Markdown', reply_markup=create_back_button())
 
-bot.polling()
+def list_self_delete_apps(message):
+    if not self_delete_apps:
+        bot.send_message(message.chat.id, "لا توجد تطبيقات مفعلة للحذف الذاتي.", reply_markup=create_back_button())
+    else:
+        apps_list = "\n".join([f"`{app}`" for app in self_delete_apps.keys()])
+        bot.send_message(message.chat.id, f"التطبيقات المفعلة للحذف الذاتي:\n{apps_list}", parse_mode='Markdown', reply_markup=create_self_delete_menu())
+
+def prompt_for_self_delete_app(message):
+    msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الذي تريد تفعيل حذفه الذاتي:", reply_markup=create_back_button())
+    bot.register_next_step_handler(msg, process_self_delete_app_step)
+
+def process_self_delete_app_step(message):
+    app_name = message.text
+    self_delete_apps[app_name] = threading.Timer(86400, delete_heroku_app, args=[app_name])
+    self_delete_apps[app_name].start()
+    bot.send_message(message.chat.id, f"تم تفعيل حذف التطبيق `{app_name}` بنجاح بعد 24 ساعة.", parse_mode='Markdown', reply_markup=create_self_delete_menu())
+
+def delete_heroku_app(app_name):
+    response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
+    if response.status_code == 200 or response.status_code == 202:
+        bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح من هيروكو بناءً على طلب حذف ذاتي.", parse_mode='Markdown')
+    else:
+        bot.send_message(message.chat.id, f"حدث خطأ أثناء حذف التطبيق `{app_name}` من هيروكو بناءً على طلب حذف ذاتي.", parse_mode='Markdown')
+
+bot.polling() 
