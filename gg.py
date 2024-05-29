@@ -44,10 +44,16 @@ def manage_apps(update: Update, context: CallbackContext) -> int:
         keyboard.append([InlineKeyboardButton("تسجيل خروج", callback_data='logout')])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        update.message.reply_text("اختر التطبيق للحذف الذاتي أو عرض الوقت المتبقي أو تسجيل الخروج:", reply_markup=reply_markup)
+        if update.message:
+            update.message.reply_text("اختر التطبيق للحذف الذاتي أو عرض الوقت المتبقي أو تسجيل الخروج:", reply_markup=reply_markup)
+        else:
+            update.callback_query.edit_message_text("اختر التطبيق للحذف الذاتي أو عرض الوقت المتبقي أو تسجيل الخروج:", reply_markup=reply_markup)
         return MANAGING_APPS
     else:
-        update.message.reply_text("حدث خطأ في جلب التطبيقات.")
+        if update.message:
+            update.message.reply_text("حدث خطأ في جلب التطبيقات.")
+        else:
+            update.callback_query.edit_message_text("حدث خطأ في جلب التطبيقات.")
         return ASKING_API
 
 def button(update: Update, context: CallbackContext) -> int:
