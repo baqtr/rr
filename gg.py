@@ -3,6 +3,7 @@ import requests
 import os
 import zipfile
 import base64
+import random
 
 # إعدادات البوت
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"  # توكن البوت في تليجرام
@@ -25,20 +26,28 @@ GITHUB_HEADERS = {
     'Accept': 'application/vnd.github.v3+json'
 }
 
+main_buttons = [
+    {'text': '📱 عرض التطبيقات في هيروكو', 'callback_data': 'list_heroku_apps'},
+    {'text': '📂 عرض مستودعات GitHub', 'callback_data': 'list_github_repos'},
+    {'text': '🆕 إنشاء تطبيق جديد في هيروكو', 'callback_data': 'create_heroku_app'},
+    {'text': '❌ حذف تطبيق في هيروكو', 'callback_data': 'delete_heroku_app'},
+    {'text': '🆕 إنشاء مستودع جديد في GitHub', 'callback_data': 'create_github_repo'},
+    {'text': '❌ حذف مستودع في GitHub', 'callback_data': 'delete_github_repo'},
+    {'text': '📤 تحميل ملفات إلى مستودع GitHub', 'callback_data': 'upload_files_to_github'},
+    {'text': '🗑 حذف ملفات من مستودع GitHub', 'callback_data': 'delete_files_from_github'},
+    {'text': '🚀 نشر كود إلى هيروكو', 'callback_data': 'deploy_to_heroku'},
+    {'text': '🔄 تبديل ترتيب الأزرار', 'callback_data': 'shuffle_buttons'}
+]
+
 def create_main_menu():
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-    itembtn1 = telebot.types.InlineKeyboardButton('📱 عرض التطبيقات في هيروكو', callback_data='list_heroku_apps')
-    itembtn2 = telebot.types.InlineKeyboardButton('📂 عرض مستودعات GitHub', callback_data='list_github_repos')
-    itembtn3 = telebot.types.InlineKeyboardButton('🆕 إنشاء تطبيق جديد في هيروكو', callback_data='create_heroku_app')
-    itembtn4 = telebot.types.InlineKeyboardButton('❌ حذف تطبيق في هيروكو', callback_data='delete_heroku_app')
-    itembtn5 = telebot.types.InlineKeyboardButton('🆕 إنشاء مستودع جديد في GitHub', callback_data='create_github_repo')
-    itembtn6 = telebot.types.InlineKeyboardButton('❌ حذف مستودع في GitHub', callback_data='delete_github_repo')
-    itembtn7 = telebot.types.InlineKeyboardButton('📤 تحميل ملفات إلى مستودع GitHub', callback_data='upload_files_to_github')
-    itembtn8 = telebot.types.InlineKeyboardButton('🗑 حذف ملفات من مستودع GitHub', callback_data='delete_files_from_github')
-    itembtn9 = telebot.types.InlineKeyboardButton('🚀 نشر كود إلى هيروكو', callback_data='deploy_to_heroku')
-    itembtn10 = telebot.types.InlineKeyboardButton('👨‍💻 المطور', url='https://t.me/q_w_c')
-    markup.add(itembtn1, itembtn2, itembtn3, itembtn4, itembtn5, itembtn6, itembtn7, itembtn8, itembtn9)
-    markup.add(itembtn10)
+    shuffled_buttons = random.sample(main_buttons, len(main_buttons))
+    for _ in range(4):
+        for button in shuffled_buttons:
+            itembtn = telebot.types.InlineKeyboardButton(button['text'], callback_data=button['callback_data'])
+            markup.add(itembtn)
+    dev_btn = telebot.types.InlineKeyboardButton('👨‍💻 المطور', url='https://t.me/q_w_c')
+    markup.add(dev_btn)
     return markup
 
 def create_back_button():
@@ -76,6 +85,12 @@ def callback_query(call):
         prompt_for_github_repo_for_delete(call.message)
     elif call.data == 'deploy_to_heroku':
         prompt_for_github_repo_for_deploy(call.message)
+    elif call.data == 'shuffle_buttons':
+        bot.send_message(
+            call.message.chat.id, 
+            "تم تبديل ترتيب الأزرار!", 
+            reply_markup=create_main_menu()
+        )
     elif call.data == 'back_to_main':
         bot.send_message(
             call.message.chat.id, 
@@ -147,8 +162,7 @@ def process_create_github_repo_step(message, repo_name):
         response = requests.post(
             f'{GITHUB_BASE_URL}/user/repos',
             headers=GITHUB_HEADERS,
-            json={"name": repo_name, "private": is_private}
-        )
+            json={"name": repo_name, "private": is_private})
         if response.status_code == 201:
             bot.send_message(message.chat.id, f"تم إنشاء المستودع `{repo_name}` بنجاح في GitHub.", parse_mode='Markdown', reply_markup=create_back_button())
         else:
@@ -249,4 +263,4 @@ def process_deploy_step(message):
     else:
         bot.send_message(message.chat.id, "حدث خطأ أثناء تنزيل المستودع من GitHub.", reply_markup=create_back_button())
 
-bot.polling()
+bot.polling() 
