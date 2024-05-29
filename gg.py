@@ -40,6 +40,8 @@ main_buttons = [
     {'text': '🚀 نشر كود إلى هيروكو', 'callback_data': 'deploy_to_heroku'},
     {'text': '🔄 تبديل ترتيب الأزرار', 'callback_data': 'shuffle_buttons'},
     {'text': '🗑 حذف ذاتي', 'callback_data': 'self_delete_menu'},
+    {'text': '🔚 إلغاء الحذف الذاتي', 'callback_data': 'cancel_self_delete'},
+    {'text': '🕒 عرض الوقت المتبقي للحذف', 'callback_data': 'show_self_delete_time'},
 ]
 
 self_delete_apps = {}
@@ -66,6 +68,19 @@ def create_self_delete_menu():
     self_delete_btn = telebot.types.InlineKeyboardButton('🗑 حذف ذاتي', callback_data='self_delete_app')
     back_btn = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
     markup.add(self_delete_btn, back_btn)
+    return markup
+
+def create_heroku_section_button():
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    heroku_btn = telebot.types.InlineKeyboardButton('قسم هيروكو', callback_data='heroku_section')
+    markupheroku_btn = telebot.types.InlineKeyboardButton('قسم هيروكو', callback_data='heroku_section')
+    markup.add(heroku_btn)
+    return markup
+
+def create_github_section_button():
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    github_btn = telebot.types.InlineKeyboardButton('قسم جيتهاب', callback_data='github_section')
+    markup.add(github_btn)
     return markup
 
 @bot.message_handler(commands=['start'])
@@ -112,10 +127,22 @@ def callback_query(call):
         list_self_delete_apps(call.message)
     elif call.data == 'self_delete_app':
         prompt_for_self_delete_app(call.message)
+    elif call.data == 'cancel_self_delete':
+        bot.edit_message_reply_markup(
+            call.message.chat.id,
+            call.message.message_id,
+            reply_markup=create_main_menu()
+        )
+    elif call.data == 'show_self_delete_time':
+        show_self_delete_time(call.message)
+    elif call.data == 'heroku_section':
+        bot.send_message(call.message.chat.id, "قسم هيروكو", reply_markup=create_main_menu())
+    elif call.data == 'github_section':
+        bot.send_message(call.message.chat.id, "قسم جيتهاب", reply_markup=create_main_menu())
 
 def list_heroku_apps(message):
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
-if response.status_code == 200:
+    if response.status_code == 200:
         apps = response.json()
         apps_list = "\n".join([f"`{app['name']}`" for app in apps])
         bot.send_message(message.chat.id, f"التطبيقات المتاحة في هيروكو:\n{apps_list}", parse_mode='Markdown', reply_markup=create_back_button())
@@ -135,6 +162,7 @@ def prompt_for_heroku_app_name(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الجديد في هيروكو:", reply_markup=create_back_button())
     bot.register_next_step_handler(msg, process_create_heroku_app_step)
 
+# الدالة لإنشاء التطبيق في هيروكو
 def process_create_heroku_app_step(message):
     app_name = message.text
     response = requests.post(
@@ -153,6 +181,7 @@ def prompt_for_heroku_app_to_delete(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الذي تريد حذفه من هيروكو:", reply_markup=create_back_button())
     bot.register_next_step_handler(msg, process_delete_heroku_app_step)
 
+# الدالة لحذف التطبيق في هيروكو
 def process_delete_heroku_app_step(message):
     app_name = message.text
     response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
@@ -165,6 +194,7 @@ def prompt_for_github_repo_name(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الجديد في GitHub:", reply_markup=create_back_button())
     bot.register_next_step_handler(msg, process_github_repo_visibility_step)
 
+# الدالة لإنشاء المستودع في جيتهاب
 def process_github_repo_visibility_step(message):
     repo_name = message.text
     msg = bot.send_message(message.chat.id, "هل تريد أن يكون المستودع خاصًا؟ (نعم/لا):", reply_markup=create_back_button())
@@ -189,18 +219,18 @@ def prompt_for_github_repo_to_delete(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد حذفه من GitHub:", reply_markup=create_back_button())
     bot.register_next_step_handler(msg, process_delete_github_repo_step)
 
+# الدالة لحذف المستودع في جيتهاب
 def process_delete_github_repo_step(message):
     repo_name = message.text
     response = requests.delete(f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}', headers=GITHUB_HEADERS)
     if response.status_code == 204:
         bot.send_message(message.chat.id, f"تم حذف المستودع `{repo_name}` بنجاح من GitHub.", parse_mode='Markdown', reply_markup=create_back_button())
     else:
-        bot.send_message(message.chat.id, "حدث خطأ أثناء حذف المستودع من GitHub.", reply_markup=create_back_button())
-
-def prompt_for_github_repo_for_upload(message):
+        bot.send_message(message.chat.id, "حدث خطأ أثناء حذف المستودع من GitHub.", reply_markup=create_back_button())def prompt_for_github_repo_for_upload(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد تحميل الملفات إليه:", reply_markup=create_back_button())
     bot.register_next_step_handler(msg, process_upload_files_step)
 
+# الدالة لتحميل الملفات إلى مستودع جيتهاب
 def process_upload_files_step(message):
     global repo_name
     repo_name = message.text
@@ -209,7 +239,8 @@ def process_upload_files_step(message):
 
 def receive_zip_file(message):
     if message.document and message.document.mime_type == 'application/zip':
-        file_info = bot.get_file(message.document.file_id)downloaded_file = bot.download_file(file_info.file_path)
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
         file_name = message.document.file_name
         with open(file_name, 'wb') as f:
             f.write(downloaded_file)
@@ -221,7 +252,7 @@ def receive_zip_file(message):
         bot.send_message(message.chat.id, "يرجى إرسال ملف مضغوط (zip) صالح.", reply_markup=create_back_button())
 
 def upload_extracted_files(directory, message):
-    for root, _, files in os.walk(directory):
+    for root, _, files in os.listdir(directory):
         for file in files:
             upload_file_to_github(directory, file, message)
 
@@ -298,109 +329,31 @@ def prompt_for_self_delete_app(message):
 
 def process_self_delete_app_step(message):
     app_name = message.text
-    msg = bot.send_message(message.chat.id, "أدخل عدد الأيام قبل حذف التطبيق ذاتيا:", reply_markup=create_back_button())
-    bot.register_next_step_handler(msg, process_self_delete_days_step, app_name)
-
-def process_self_delete_days_step(message, app_name):
-    try:
-        days = int(message.text)
-        if days <= 0:
-            bot.send_message(message.chat.id, "يرجى إدخال عدد أيام صالح (أكبر من صفر).", reply_markup=create_back_button())
-            return
-        self_delete_apps[app_name] = threading.Timer(days * 86400, delete_heroku_app, args=[app_name])
-        self_delete_apps[app_name].start()
-        bot.send_message(message.chat.id, f"تم تفعيل حذف التطبيق `{app_name}` بنجاح بعد {days} يوم/أيام.", parse_mode='Markdown', reply_markup=create_self_delete_menu())
-    except ValueError:
-        bot.send_message(message.chat.id, "يرجى إدخال عدد أيام صالح (أكبر من صفر).", reply_markup=create_back_button())def delete_heroku_app(app_name):
-    response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
-    if response.status_code == 200 or response.status_code == 202:
-        bot.send_message(app_name, f"تم حذف التطبيق `{app_name}` بنجاح من هيروكو بناءً على طلب حذف ذاتي.", parse_mode='Markdown')
-    else:
-        bot.send_message(app_name, f"حدث خطأ أثناء حذف التطبيق `{app_name}` من هيروكو بناءً على طلب حذف ذاتي.", parse_mode='Markdown')
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    if call.data == 'list_heroku_apps':
-        list_heroku_apps(call.message)
-    elif call.data == 'list_github_repos':
-        list_github_repos(call.message)
-    elif call.data == 'create_heroku_app':
-        prompt_for_heroku_app_name(call.message)
-    elif call.data == 'delete_heroku_app':
-        prompt_for_heroku_app_to_delete(call.message)
-    elif call.data == 'create_github_repo':
-        prompt_for_github_repo_name(call.message)
-    elif call.data == 'delete_github_repo':
-        prompt_for_github_repo_to_delete(call.message)
-    elif call.data == 'upload_files_to_github':
-        prompt_for_github_repo_for_upload(call.message)
-    elif call.data == 'delete_files_from_github':
-        prompt_for_github_repo_for_delete(call.message)
-    elif call.data == 'deploy_to_heroku':
-        prompt_for_github_repo_for_deploy(call.message)
-    elif call.data == 'shuffle_buttons':
-        bot.edit_message_reply_markup(
-            call.message.chat.id, 
-            call.message.message_id, 
-            reply_markup=create_main_menu()
-        )
-    elif call.data == 'back_to_main':
-        bot.edit_message_reply_markup(
-            call.message.chat.id, 
-            call.message.message_id, 
-            reply_markup=create_main_menu()
-        )
-    elif call.data == 'self_delete_menu':
-        list_self_delete_apps(call.message)
-    elif call.data == 'self_delete_app':
-        prompt_for_self_delete_app(call.message)
-    elif call.data == 'cancel_self_delete':
-        bot.edit_message_reply_markup(
-            call.message.chat.id, 
-            call.message.message_id, 
-            reply_markup=create_main_menu()
-        )
-        bot.send_message(call.message.chat.id, "تم إلغاء حذف التطبيق ذاتيًا.", reply_markup=create_main_menu())
-
-def create_self_delete_menu():
-    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
-    self_delete_btn = telebot.types.InlineKeyboardButton('🗑 حذف ذاتي', callback_data='self_delete_app')
-    back_btn = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
-    markup.add(self_delete_btn, back_btn)
-    return markup
-
-def prompt_for_self_delete_app(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الذي تريد تفعيل حذفه الذاتي:", reply_markup=create_back_button())
-    bot.register_next_step_handler(msg, process_self_delete_app_step)
-
-def process_self_delete_app_step(message):
-    app_name = message.text
-    msg = bot.send_message(message.chat.id, "أدخل عدد الأيام قبل حذف التطبيق ذاتيا:", reply_markup=create_back_button())
-    bot.register_next_step_handler(msg, process_self_delete_days_step, app_name)
-
-def process_self_delete_days_step(message, app_name):
-    try:
-        days = int(message.text)
-        if days <= 0:
-            bot.send_message(message.chat.id, "يرجى إدخال عدد أيام صالح (أكبر من صفر).", reply_markup=create_back_button())
-            return
-        self_delete_apps[app_name] = threading.Timer(days * 86400, delete_heroku_app, args=[app_name])
-        self_delete_apps[app_name].start()
-        bot.send_message(message.chat.id, f"تم تفعيل حذف التطبيق `{app_name}` بنجاح بعد {days} يوم/أيام.", parse_mode='Markdown', reply_markup=create_self_delete_menu())
-    except ValueError:
-        bot.send_message(message.chat.id, "يرجى إدخال عدد أيام صالح (أكبر من صفر).", reply_markup=create_back_button())
+    self_delete_apps[app_name] = threading.Timer(86400, delete_heroku_app, args=[app_name])
+    self_delete_apps[app_name].start()
+    bot.send_message(message.chat.id, f"تم تفعيل حذف التطبيق `{app_name}` بنجاح بعد 24 ساعة.", parse_mode='Markdown', reply_markup=create_self_delete_menu())
 
 def delete_heroku_app(app_name):
     response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
     if response.status_code == 200 or response.status_code == 202:
-        bot.send_message(app_name, f"تم حذف التطبيق `{app_name}` بنجاح من هيروكو بناءً على طلب حذف ذاتي.", parse_mode='Markdown')
+        bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح من هيروكو بناءً على طلب حذف ذاتي.", parse_mode='Markdown')
     else:
-        bot.send_message(app_name, f"حدث خطأ أثناء حذف التطبيق `{app_name}` من هيروكو بناءً على طلب حذف ذاتي.", parse_mode='Markdown')
+        bot.send_message(message.chat.id, f"حدث خطأ أثناء حذف التطبيق `{app_name}` من هيروكو بناءً على طلب حذف ذاتي.", parse_mode='Markdown')
 
-def create_cancel_self_delete_button():
-    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
-    cancel_btn = telebot.types.InlineKeyboardButton('❌ إلغاء الحذف الذاتي', callback_data='cancel_self_delete')
-    markup.add(cancel_btn)
-    return markup
+# زر لعرض الوقت المتبقي للحذف الذاتي
+@bot.callback_query_handler(func=lambda call: call.data == 'self_delete_menu')
+def self_delete_menu_callback(call):
+    list_self_delete_apps(call.message)
 
+# زر لعرض قسم هيروكو
+@bot.message_handler(commands=['heroku'])
+def show_heroku_menu(message):
+    bot.send_message(message.chat.id, "قسم هيروكو", reply_markup=create_main_menu())
+
+# زر لعرض قسم جيتهاب
+@bot.message_handler(commands=['github'])
+def show_github_menu(message):
+    bot.send_message(message.chat.id, "قسم جيتهاب", reply_markup=create_main_menu())
+
+# تشغيل البوت
 bot.polling()
