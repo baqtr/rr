@@ -176,7 +176,8 @@ def main():
 
     # إعلام المستخدم عن توقف البوت
     def stop_and_notify(update, context):
-        update.message.reply_text("حدث خطأ غير متوقع، توقف البوت.")
+        if update:
+            update.message.reply_text("حدث خطأ غير متوقع، توقف البوت.")
         updater.stop()
 
     # تسجيل الدالة التنفيذية للاشتراك
@@ -187,4 +188,4 @@ def main():
     updater.idle()
 
 if __name__ == '__main__':
-    main() 
+    main()
