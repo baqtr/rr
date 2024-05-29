@@ -129,7 +129,7 @@ def delete_app(context: CallbackContext) -> None:
         del self_delete_jobs[app_name]
 
 def check_delete_time(update: Update, context: CallbackContext) -> int:
-    message = "🕒 الأوقات المتبقية للتطبيقيات في الحذف الذاتي:\n"
+    message = "🕒 الأوقات المتبقية للتطبيقات في الحذف الذاتي:\n"
     for app_name, (delete_time, job) in self_delete_jobs.items():
         remaining_time = delete_time - time.time()
         if remaining_time > 0:
