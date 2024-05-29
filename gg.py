@@ -5,9 +5,9 @@ import zipfile
 import base64
 
 # إعدادات البوت
-bot_token =input( "TOKEN = ")
-heroku_api_key = input('HEROKU API KEY = ')  # استبدل توكن هيروكو هنا
-github_token =input("GITHUB TOKEN = ")
+bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"  # توكن البوت في تليجرام
+heroku_api_key = "HRKU-bffcce5a-db84-4c17-97ed-160f04745271"  # مفتاح API الخاص بـ Heroku
+github_token = "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"  # توكن GitHub
 
 bot = telebot.TeleBot(bot_token)
 
@@ -36,9 +36,11 @@ def create_main_menu():
     itembtn7 = telebot.types.InlineKeyboardButton('تحميل ملفات إلى مستودع GitHub', callback_data='upload_files_to_github')
     itembtn8 = telebot.types.InlineKeyboardButton('حذف ملفات من مستودع GitHub', callback_data='delete_files_from_github')
     itembtn9 = telebot.types.InlineKeyboardButton('نشر كود إلى هيروكو', callback_data='deploy_to_heroku')
-    itembtn10 = telebot.types.InlineKeyboardButton('المطور', url='https://t.me/q_w_c')
+    itembtn10 = telebot.types.InlineKeyboardButton('الحذف الذاتي ', callback_data='deploy_to_heroku')
+    itembtn11 = telebot.types.InlineKeyboardButton('المطور', url='https://t.me/q_w_c')
     markup.add(itembtn1, itembtn2, itembtn3, itembtn4, itembtn5, itembtn6, itembtn7, itembtn8, itembtn9)
     markup.add(itembtn10)
+    markup.add(itembtn11)
     return markup
 
 def create_back_button():
