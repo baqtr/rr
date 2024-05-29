@@ -66,6 +66,9 @@ def button(update: Update, context: CallbackContext) -> int:
         context.user_data.clear()
         query.edit_message_text("تم تسجيل الخروج. أرسل API جديد للبدء.")
         return ASKING_API
+    
+    elif query.data == 'back':
+        return manage_apps(update, context)
 
 def ask_delete_time(update: Update, context: CallbackContext, app_name: str) -> int:
     keyboard = [
@@ -127,9 +130,13 @@ def check_delete_time(update: Update, context: CallbackContext) -> int:
             message += f"📱 {app_name}: {int(hours)} ساعة, {int(minutes)} دقيقة, {int(seconds)} ثانية\n"
         else:
             message += f"📱 {app_name}: يتم الحذف الآن.\n"
-
-    update.callback_query.edit_message_text(message)
-    return manage_apps(update, context)
+    
+    keyboard = [
+        [InlineKeyboardButton("🔙 رجوع", callback_data='back')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.callback_query.edit_message_text(message, reply_markup=reply_markup)
+    return CHECK_DELETE_TIME
 
 def cancel(update: Update, context: CallbackContext) -> int:
     update.message.reply_text('تم إنهاء الجلسة.')
@@ -147,6 +154,7 @@ def main():
             ASKING_API: [MessageHandler(Filters.text & ~Filters.command, ask_api)],
             MANAGING_APPS: [CallbackQueryHandler(button)],
             SCHEDULING_DELETE: [CallbackQueryHandler(schedule_delete)],
+            CHECK_DELETE_TIME: [CallbackQueryHandler(button)],
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
