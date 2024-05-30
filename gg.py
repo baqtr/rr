@@ -68,9 +68,19 @@ def send_welcome(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     if call.data == 'heroku_section':
-        bot.send_message(call.message.chat.id, "قسم هيروكو:", reply_markup=create_heroku_menu())
+        bot.edit_message_text(
+            "قسم هيروكو:", 
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=create_heroku_menu()
+        )
     elif call.data == 'github_section':
-        bot.send_message(call.message.chat.id, "قسم GitHub:", reply_markup=create_github_menu())
+        bot.edit_message_text(
+            "قسم GitHub:", 
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=create_github_menu()
+        )
     elif call.data == 'list_heroku_apps':
         list_heroku_apps(call.message)
     elif call.data == 'list_github_repos':
@@ -90,9 +100,10 @@ def callback_query(call):
     elif call.data == 'deploy_to_heroku':
         prompt_for_github_repo_for_deploy(call.message)
     elif call.data == 'back_to_main':
-        bot.send_message(
-            call.message.chat.id, 
+        bot.edit_message_text(
             "مرحبًا! يمكنك التحكم في حساب هيروكو ومستودعات GitHub باستخدام الأوامر التالية:", 
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
             reply_markup=create_main_menu()
         )
 
@@ -101,7 +112,7 @@ def list_heroku_apps(message):
     if (response.status_code == 200):
         apps = response.json()
         apps_list = "\n".join([f"`{app['name']}`" for app in apps])
-        bot.send_message(message.chat.id, f"التطبيقات المتاحة في هيروكو:\n{apps_list}", parse_mode='Markdown', reply_markup=create_heroku_menu())
+        bot.send_message(message.chat.id, f"التطبيقات المتاحة في هيروكو:\{apps_list}", parse_mode='Markdown', reply_markup=create_heroku_menu())
     else:
         bot.send_message(message.chat.id, "حدث خطأ في جلب التطبيقات من هيروكو.", reply_markup=create_heroku_menu())
 
@@ -115,7 +126,7 @@ def list_github_repos(message):
         bot.send_message(message.chat.id, "حدث خطأ في جلب المستودعات من GitHub.", reply_markup=create_github_menu())
 
 def prompt_for_heroku_app_name(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الجديد في هيروكو:", reply_markup=create_heroku_menu())
+    msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الجديد في هيروكو:")
     bot.register_next_step_handler(msg, process_create_heroku_app_step)
 
 def process_create_heroku_app_step(message):
@@ -133,7 +144,7 @@ def process_create_heroku_app_step(message):
         bot.send_message(message.chat.id, "حدث خطأ أثناء إنشاء التطبيق في هيروكو.", reply_markup=create_heroku_menu())
 
 def prompt_for_heroku_app_to_delete(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الذي تريد حذفه من هيروكو:", reply_markup=create_heroku_menu())
+    msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الذي تريد حذفه من هيروكو:")
     bot.register_next_step_handler(msg, process_delete_heroku_app_step)
 
 def process_delete_heroku_app_step(message):
@@ -145,12 +156,12 @@ def process_delete_heroku_app_step(message):
         bot.send_message(message.chat.id, "حدث خطأ أثناء حذف التطبيق من هيروكو.", reply_markup=create_heroku_menu())
 
 def prompt_for_github_repo_name(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الجديد في GitHub:",reply_markup=create_github_menu())
+    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الجديد في GitHub:")
     bot.register_next_step_handler(msg, process_github_repo_visibility_step)
 
 def process_github_repo_visibility_step(message):
     repo_name = message.text
-    msg = bot.send_message(message.chat.id, "هل تريد أن يكون المستودع خاصًا؟ (نعم/لا):", reply_markup=create_github_menu())
+    msg = bot.send_message(message.chat.id, "هل تريد أن يكون المستودع خاصًا؟ (نعم/لا):")
     bot.register_next_step_handler(msg, process_create_github_repo_step, repo_name)
 
 def process_create_github_repo_step(message, repo_name):
@@ -170,7 +181,7 @@ def process_create_github_repo_step(message, repo_name):
         bot.send_message(message.chat.id, "اسم المستودع موجود بالفعل، يرجى اختيار اسم آخر.", reply_markup=create_github_menu())
 
 def prompt_for_github_repo_to_delete(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد حذفه من GitHub:", reply_markup=create_github_menu())
+    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد حذفه من GitHub:")
     bot.register_next_step_handler(msg, process_delete_github_repo_step)
 
 def process_delete_github_repo_step(message):
@@ -182,13 +193,13 @@ def process_delete_github_repo_step(message):
         bot.send_message(message.chat.id, "حدث خطأ أثناء حذف المستودع من GitHub.", reply_markup=create_github_menu())
 
 def prompt_for_github_repo_for_upload(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد تحميل الملفات إليه:", reply_markup=create_github_menu())
+    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد تحميل الملفات إليه:")
     bot.register_next_step_handler(msg, process_upload_files_step)
 
 def process_upload_files_step(message):
     global repo_name
     repo_name = message.text
-    msg = bot.send_message(message.chat.id, "أرسل الملفات التي تريد تحميلها:", reply_markup=create_github_menu())
+    msg = bot.send_message(message.chat.id, "أرسل الملفات التي تريد تحميلها:")
     bot.register_next_step_handler(msg, receive_files)
 
 def receive_files(message):
@@ -205,21 +216,20 @@ def receive_files(message):
                 "content": encoded_content
             }
         )
-        if response.status_code == 201:
-            bot.send_message(message.chat.id, f"تم تحميل الملف `{file_name}` بنجاح إلى المستودع `{repo_name}`.", parse_mode='Markdown', reply_markup=create_github_menu())
+        if response.status_code == 201:bot.send_message(message.chat.id, f"تم تحميل الملف `{file_name}` بنجاح إلى المستودع `{repo_name}`.", parse_mode='Markdown', reply_markup=create_github_menu())
         else:
             bot.send_message(message.chat.id, "حدث خطأ أثناء تحميل الملف إلى GitHub.", reply_markup=create_github_menu())
     else:
         bot.send_message(message.chat.id, "يرجى إرسال ملف صحيح.", reply_markup=create_github_menu())
 
 def prompt_for_github_repo_for_delete(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع:", reply_markup=create_github_menu())
+    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع:")
     bot.register_next_step_handler(msg, process_delete_files_step)
 
 def process_delete_files_step(message):
     global repo_name
     repo_name = message.text
-    msg = bot.send_message(message.chat.id, "أدخل مسار الملف الذي تريد حذفه:", reply_markup=create_github_menu())
+    msg = bot.send_message(message.chat.id, "أدخل مسار الملف الذي تريد حذفه:")
     bot.register_next_step_handler(msg, confirm_delete_file)
 
 def confirm_delete_file(message):
@@ -240,7 +250,7 @@ def confirm_delete_file(message):
         bot.send_message(message.chat.id, "لم يتم العثور على الملف، يرجى التأكد من المسار الصحيح.", reply_markup=create_github_menu())
 
 def prompt_for_github_repo_for_deploy(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع المراد نشره:", reply_markup=create_heroku_menu())
+    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع المراد نشره:")
     bot.register_next_step_handler(msg, process_deploy_step)
 
 def process_deploy_step(message):
@@ -262,4 +272,4 @@ def process_deploy_step(message):
     else:
         bot.send_message(message.chat.id, "حدث خطأ أثناء تنزيل المستودع من GitHub.", reply_markup=create_heroku_menu())
 
-bot.polling() 
+bot.polling()
