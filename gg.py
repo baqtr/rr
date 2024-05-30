@@ -10,7 +10,7 @@ from telebot import types
 bot_token = '7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20'  # استبدل بـ توكن البوت الخاص بك
 heroku_api_key = 'HRKU-9c7ef067-cae2-4294-876e-4d91accff033'  # استبدل بـ API key الخاص بـ Heroku
 github_api_key = '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'  # استبدل بـ API key الخاص بـ GitHub
-admin_id = '6876315705'  # استبدل بـ Telegram ID الخاص بك
+admin_id = '7013440973'  # استبدل بـ Telegram ID الخاص بك
 
 allowed_users = {admin_id}
 
