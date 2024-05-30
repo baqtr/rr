@@ -30,9 +30,8 @@ def create_main_menu():
     itembtn1 = telebot.types.InlineKeyboardButton('⚙️ قسم هيروكو', callback_data='heroku_section')
     itembtn2 = telebot.types.InlineKeyboardButton('🗃️ قسم GitHub', callback_data='github_section')
     itembtn3 = telebot.types.InlineKeyboardButton('👨‍💻 المطور', url='https://t.me/q_w_c')
-    itembtn4 = telebot.types.InlineKeyboardButton('🔑 إضافة حساب هيروكو جديد', callback_data='add_heroku_account')
     markup.add(itembtn1, itembtn2)
-    markup.add(itembtn3, itembtn4)
+    markup.add(itembtn3)
     return markup
 
 def create_heroku_menu():
@@ -41,10 +40,9 @@ def create_heroku_menu():
     itembtn2 = telebot.types.InlineKeyboardButton('➕ إنشاء تطبيق جديد في هيروكو', callback_data='create_heroku_app')
     itembtn3 = telebot.types.InlineKeyboardButton('🗑️ حذف تطبيق في هيروكو', callback_data='delete_heroku_app')
     itembtn4 = telebot.types.InlineKeyboardButton('🚀 نشر كود إلى هيروكو', callback_data='deploy_to_heroku')
-    itembtn5 = telebot.types.InlineKeyboardButton('🔄 تبديل الحسابات', callback_data='switch_accounts')
-    itembtn6 = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
-    markup.add(itembtn1, itembtn2, itembtn3)
-    markup.add(itembtn4, itembtn5, itembtn6)
+    itembtn5 = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
+    markup.add(itembtn1, itembtn2, itembtn3, itembtn4)
+    markup.add(itembtn5)
     return markup
 
 def create_github_menu():
@@ -55,8 +53,8 @@ def create_github_menu():
     itembtn4 = telebot.types.InlineKeyboardButton('📤 تحميل ملفات إلى مستودع GitHub', callback_data='upload_files_to_github')
     itembtn5 = telebot.types.InlineKeyboardButton('🗑️ حذف ملفات من مستودع GitHub', callback_data='delete_files_from_github')
     itembtn6 = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
-    markup.add(itembtn1, itembtn2, itembtn3)
-    markup.add(itembtn4, itembtn5, itembtn6)
+    markup.add(itembtn1, itembtn2, itembtn3, itembtn4, itembtn5)
+    markup.add(itembtn6)
     return markup
 
 @bot.message_handler(commands=['start'])
@@ -70,11 +68,9 @@ def send_welcome(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     if call.data == 'heroku_section':
-        bot.edit_message_text("قسم هيروكو:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_heroku_menu())
+        bot.send_message(call.message.chat.id, "قسم هيروكو:", reply_markup=create_heroku_menu())
     elif call.data == 'github_section':
-        bot.edit_message_text("قسم GitHub:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_menu())
-    elif call.data == 'add_heroku_account':
-        add_heroku_account(call.message)
+        bot.send_message(call.message.chat.id, "قسم GitHub:", reply_markup=create_github_menu())
     elif call.data == 'list_heroku_apps':
         list_heroku_apps(call.message)
     elif call.data == 'list_github_repos':
@@ -93,60 +89,30 @@ def callback_query(call):
         prompt_for_github_repo_for_delete(call.message)
     elif call.data == 'deploy_to_heroku':
         prompt_for_github_repo_for_deploy(call.message)
-    elif call.data == 'switch_accounts':
-        switch_heroku_accounts(call.message)
     elif call.data == 'back_to_main':
-        bot.edit_message_text(
+        bot.send_message(
+            call.message.chat.id, 
             "مرحبًا! يمكنك التحكم في حساب هيروكو ومستودعات GitHub باستخدام الأوامر التالية:", 
-            chat_id=call.message.chat.id, message_id=call.message.message_id, 
-            reply_markup=createmarkup()
+            reply_markup=create_main_menu()
         )
-
-def add_heroku_account(message):
-    msg = bot.send_message(message.chat.id, "قم بإدخال مفتاح API الجديد الخاص بـ Heroku:", reply_markup=create_main_menu())
-    bot.register_next_step_handler(msg, verify_heroku_api_key)
-
-def verify_heroku_api_key(message):
-    new_api_key = message.text
-    response = requests.get(f'{HEROKU_BASE_URL}/account', headers={'Authorization': f'Bearer {new_api_key}'})
-    if response.status_code == 200:
-        bot.edit_message_text("تم إضافة حساب Heroku بنجاح!", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_main_menu())
-    else:
-        bot.edit_message_text("حدث خطأ أثناء التحقق من صحة مفتاح API.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_main_menu())
-
-def switch_heroku_accounts(message):
-    response = requests.get(f'{HEROKU_BASE_URL}/account', headers=HEROKU_HEADERS)
-    if response.status_code == 200:
-        accounts = response.json()
-        markup = telebot.types.InlineKeyboardMarkup()
-        for account in accounts:
-            markup.add(telebot.types.InlineKeyboardButton(account['email'], callback_data=f'switch_to_account_{account["id"]}'))
-        bot.edit_message_text(
-            "اختر الحساب الذي ترغب في التبديل إليه:", 
-            chat_id=message.chat.id, 
-            message_id=message.message_id, 
-            reply_markup=markup
-        )
-    else:
-        bot.edit_message_text("حدث خطأ أثناء جلب الحسابات من Heroku.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_main_menu())
 
 def list_heroku_apps(message):
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
     if (response.status_code == 200):
         apps = response.json()
         apps_list = "\n".join([f"`{app['name']}`" for app in apps])
-        bot.edit_message_text(f"التطبيقات المتاحة في هيروكو:\n{apps_list}", chat_id=message.chat.id, message_id=message.message_id, parse_mode='Markdown', reply_markup=create_heroku_menu())
+        bot.send_message(message.chat.id, f"التطبيقات المتاحة في هيروكو:\n{apps_list}", parse_mode='Markdown', reply_markup=create_heroku_menu())
     else:
-        bot.edit_message_text("حدث خطأ في جلب التطبيقات من هيروكو.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_heroku_menu())
+        bot.send_message(message.chat.id, "حدث خطأ في جلب التطبيقات من هيروكو.", reply_markup=create_heroku_menu())
 
 def list_github_repos(message):
     response = requests.get(f'{GITHUB_BASE_URL}/user/repos', headers=GITHUB_HEADERS)
     if response.status_code == 200:
         repos = response.json()
         repos_list = "\n".join([f"`{repo['name']}`" for repo in repos])
-        bot.edit_message_text(f"المستودعات المتاحة في GitHub:\n{repos_list}", chat_id=message.chat.id, message_id=message.message_id, parse_mode='Markdown', reply_markup=create_github_menu())
+        bot.send_message(message.chat.id, f"المستودعات المتاحة في GitHub:\n{repos_list}", parse_mode='Markdown', reply_markup=create_github_menu())
     else:
-        bot.edit_message_text("حدث خطأ في جلب المستودعات من GitHub.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_github_menu())
+        bot.send_message(message.chat.id, "حدث خطأ في جلب المستودعات من GitHub.", reply_markup=create_github_menu())
 
 def prompt_for_heroku_app_name(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الجديد في هيروكو:", reply_markup=create_heroku_menu())
@@ -160,11 +126,11 @@ def process_create_heroku_app_step(message):
         json={"name": app_name, "region": "eu"}
     )
     if response.status_code == 201:
-        bot.edit_message_text(f"تم إنشاء التطبيق `{app_name}` بنجاح في هيروكو.", chat_id=message.chat.id, message_id=message.message_id, parse_mode='Markdown', reply_markup=create_heroku_menu())
+        bot.send_message(message.chat.id, f"تم إنشاء التطبيق `{app_name}` بنجاح في هيروكو.", parse_mode='Markdown', reply_markup=create_heroku_menu())
     elif response.status_code == 422:
-        bot.edit_message_text("الاسم موجود بالفعل، يرجى اختيار اسم آخر.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_heroku_menu())
+        bot.send_message(message.chat.id, "الاسم موجود بالفعل، يرجى اختيار اسم آخر.", reply_markup=create_heroku_menu())
     else:
-        bot.edit_message_text("حدث خطأ أثناء إنشاء التطبيق في هيروكو.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_heroku_menu())
+        bot.send_message(message.chat.id, "حدث خطأ أثناء إنشاء التطبيق في هيروكو.", reply_markup=create_heroku_menu())
 
 def prompt_for_heroku_app_to_delete(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الذي تريد حذفه من هيروكو:", reply_markup=create_heroku_menu())
@@ -173,30 +139,35 @@ def prompt_for_heroku_app_to_delete(message):
 def process_delete_heroku_app_step(message):
     app_name = message.text
     response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
-    if response.status_code == 204:
-        bot.edit_message_text(f"تم حذف التطبيق `{app_name}` بنجاح من هيروكو.", chat_id=message.chat.id, message_id=message.message_id, parse_mode='Markdown', reply_markup=create_heroku_menu())
-    elif response.status_code == 404:
-        bot.edit_message_text(f"التطبيق `{app_name}` غير موجود في هيروكو.", chat_id=message.chat.id, message_id=message.message_id, parse_mode='Markdown', reply_markup=create_heroku_menu())
+    if response.status_code == 200 or response.status_code == 202:
+        bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح من هيروكو.", parse_mode='Markdown', reply_markup=create_heroku_menu())
     else:
-        bot.edit_message_text("حدث خطأ أثناء حذف التطبيق من هيروكو.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_heroku_menu())
+        bot.send_message(message.chat.id, "حدث خطأ أثناء حذف التطبيق من هيروكو.", reply_markup=create_heroku_menu())
 
 def prompt_for_github_repo_name(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الجديد في GitHub:", reply_markup=create_github_menu())
-    bot.register_next_step_handler(msg, process_create_github_repo_step)
+    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الجديد في GitHub:",reply_markup=create_github_menu())
+    bot.register_next_step_handler(msg, process_github_repo_visibility_step)
 
-def process_create_github_repo_step(message):
+def process_github_repo_visibility_step(message):
     repo_name = message.text
-    response = requests.post(
-        f'{GITHUB_BASE_URL}/user/repos',
-        headers=GITHUB_HEADERS,
-        json={"name": repo_name, "private": False}
-    )
-    if response.status_code == 201:
-        bot.edit_message_text(f"تم إنشاء المستودع `{repo_name}` بنجاح في GitHub.", chat_id=message.chat.id, message_id=message.message_id, parse_mode='Markdown', reply_markup=create_github_menu())
-    elif response.status_code == 422:
-        bot.edit_message_text("الاسم موجود بالفعل، يرجى اختيار اسم آخر.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_github_menu())
+    msg = bot.send_message(message.chat.id, "هل تريد أن يكون المستودع خاصًا؟ (نعم/لا):", reply_markup=create_github_menu())
+    bot.register_next_step_handler(msg, process_create_github_repo_step, repo_name)
+
+def process_create_github_repo_step(message, repo_name):
+    is_private = message.text.lower() in ['نعم', 'yes']
+    response = requests.get(f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}', headers=GITHUB_HEADERS)
+    if response.status_code == 404:
+        response = requests.post(
+            f'{GITHUB_BASE_URL}/user/repos',
+            headers=GITHUB_HEADERS,
+            json={"name": repo_name, "private": is_private}
+        )
+        if response.status_code == 201:
+            bot.send_message(message.chat.id, f"تم إنشاء المستودع `{repo_name}` بنجاح في GitHub.", parse_mode='Markdown', reply_markup=create_github_menu())
+        else:
+            bot.send_message(message.chat.id, "حدث خطأ أثناء إنشاء المستودع في GitHub.", reply_markup=create_github_menu())
     else:
-        bot.edit_message_text("حدث خطأ أثناء إنشاء المستودع في GitHub.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_github_menu())
+        bot.send_message(message.chat.id, "اسم المستودع موجود بالفعل، يرجى اختيار اسم آخر.", reply_markup=create_github_menu())
 
 def prompt_for_github_repo_to_delete(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد حذفه من GitHub:", reply_markup=create_github_menu())
@@ -204,199 +175,91 @@ def prompt_for_github_repo_to_delete(message):
 
 def process_delete_github_repo_step(message):
     repo_name = message.text
-    response = requests.delete(f'{GITHUB_BASE_URL}/repos/{your_github_username}/{repo_name}', headers=GITHUB_HEADERS)
+    response = requests.delete(f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}', headers=GITHUB_HEADERS)
     if response.status_code == 204:
-        bot.edit_message_text(f"تم حذف المستودع `{repo_name}` بنجاح من GitHub.", chat_id=message.chat.id, message_id=message.message_id, parse_mode='Markdown', reply_markup=create_github_menu())
-    elif response.status_code == 404:
-        bot.edit_message_text(f"المستودع `{repo_name}` غير موجود في GitHub.", chat_id=message.chat.id, message_id=message.message_id, parse_mode='Markdown', reply_markup=create_github_menu())
+        bot.send_message(message.chat.id, f"تم حذف المستودع `{repo_name}` بنجاح من GitHub.", parse_mode='Markdown', reply_markup=create_github_menu())
     else:
-        bot.edit_message_text("حدث خطأ أثناء حذف المستودع من GitHub.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_github_menu())
+        bot.send_message(message.chat.id, "حدث خطأ أثناء حذف المستودع من GitHub.", reply_markup=create_github_menu())
 
 def prompt_for_github_repo_for_upload(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد تحميل الملفات إليه في GitHub:", reply_markup=create_github_menu())
-    bot.register_next_step_handler(msg, prompt_for_file_upload)
+    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد تحميل الملفات إليه:", reply_markup=create_github_menu())
+    bot.register_next_step_handler(msg, process_upload_files_step)
 
-def prompt_for_file_upload(message):
+def process_upload_files_step(message):
+    global repo_name
     repo_name = message.text
-    msg = bot.send_message(message.chat.id, "أرسل الملف الذي تريد تحميله إلى المستودع:", reply_markup=create_github_menu())
-    bot.register_next_step_handler(msg, process_file_upload_step, repo_name)
+    msg = bot.send_message(message.chat.id, "أرسل الملفات التي تريد تحميلها:", reply_markup=create_github_menu())
+    bot.register_next_step_handler(msg, receive_files)
 
-def process_file_upload_step(message, repo_name):
+def receive_files(message):
     if message.document:
         file_info = bot.get_file(message.document.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
-
-        file_path = os.path.join("uploads", message.document.file_name)
-        with open(file_path, 'wb') as new_file:
-            new_file.write(downloaded_file)
-
-        with open(file_path, 'rb') as f:
-            content = f.read()
-
-        base64_content = base64.b64encode(content).decode('utf-8')
+        file_name = message.document.file_name
+        encoded_content = base64.b64encode(downloaded_file).decode()
         response = requests.put(
-            f'{GITHUB_BASE_URL}/repos/{your_github_username}/{repo_name}/contents/{message.document.file_name}',
+            f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/contents/{file_name}',
             headers=GITHUB_HEADERS,
             json={
-                "message": f"Upload {message.document.file_name}",
-                "content": base64_content
+                "message": f"Uploading {file_name}",
+                "content": encoded_content
             }
         )
-
         if response.status_code == 201:
-            bot.edit_message_text(f"تم تحميل الملف `{message.document.file_name}` بنجاح إلى المستودع `{repo_name}` في GitHub.", chat_id=message.chat.id, message_id=message.message_id, parse_mode='Markdown', reply_markup=create_github_menu())
+            bot.send_message(message.chat.id, f"تم تحميل الملف `{file_name}` بنجاح إلى المستودع `{repo_name}`.", parse_mode='Markdown', reply_markup=create_github_menu())
         else:
-            bot.edit_message_text("حدث خطأ أثناء تحميل الملف إلى GitHub.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_github_menu())
-        os.remove(file_path)
+            bot.send_message(message.chat.id, "حدث خطأ أثناء تحميل الملف إلى GitHub.", reply_markup=create_github_menu())
     else:
-        bot.edit_message_text("يرجى إرسال ملف صالح.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_github_menu())
+        bot.send_message(message.chat.id, "يرجى إرسال ملف صحيح.", reply_markup=create_github_menu())
 
 def prompt_for_github_repo_for_delete(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد حذف الملفات منه في GitHub:", reply_markup=create_github_menu())
-    bot.register_next_step_handler(msg, prompt_for_file_delete)
+    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع:", reply_markup=create_github_menu())
+    bot.register_next_step_handler(msg, process_delete_files_step)
 
-def prompt_for_file_delete(message):
+def process_delete_files_step(message):
+    global repo_name
     repo_name = message.text
-    msg = bot.send_message(message.chat.id, "أدخل اسم الملف الذي تريد حذفه من المستودع:", reply_markup=create_github_menu())
-    bot.register_next_step_handler(msg, process_file_delete_step, repo_name)
+    msg = bot.send_message(message.chat.id, "أدخل مسار الملف الذي تريد حذفه:", reply_markup=create_github_menu())
+    bot.register_next_step_handler(msg, confirm_delete_file)
 
-def process_file_delete_step(message, repo_name):
-    file_name = message.text
-    response = requests.get(
-        f'{GITHUB_BASE_URL}/repos/{your_github_username}/{repo_name}/contents/{file_name}',
-        headers=GITHUB_HEADERS
-    )
+def confirm_delete_file(message):
+    file_path = message.text
+    response = requests.get(f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/contents/{file_path}', headers=GITHUB_HEADERS)
     if response.status_code == 200:
-        file_sha = response.json().get('sha')
-        delete_response = requests.delete(
-            f'{GITHUB_BASE_URL}/repos/{your_github_username}/{repo_name}/contents/{file_name}',
+        file_sha = response.json()['sha']
+        response = requests.delete(
+            f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/contents/{file_path}',
             headers=GITHUB_HEADERS,
-            json={
-                "message": f"Delete {file_name}",
-                "sha": file_sha
-            }
+            json={"message": f"Deleting {file_path}", "sha": file_sha}
         )
-        if delete_response.status_code == 200:
-            bot.edit_message_text(f"تم حذف الملف `{file_name}` بنجاح من المستودع `{repo_name}` في GitHub.", chat_id=message.chat.id, message_id=message.message_id, parse_mode='Markdown', reply_markup=create_github_menu())
+        if response.status_code == 200:
+            bot.send_message(message.chat.id, f"تم حذف الملف `{file_path}` بنجاح من المستودع `{repo_name}`.", parse_mode='Markdown', reply_markup=create_github_menu())
         else:
-            bot.edit_message_text("حدث خطأ أثناء حذف الملف من GitHub.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_github_menu())
+            bot.send_message(message.chat.id, "حدث خطأ أثناء حذف الملف من GitHub.", reply_markup=create_github_menu())
     else:
-        bot.edit_message_text("الملف غير موجود في المستودع.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_github_menu())
+        bot.send_message(message.chat.id, "لم يتم العثور على الملف، يرجى التأكد من المسار الصحيح.", reply_markup=create_github_menu())
 
 def prompt_for_github_repo_for_deploy(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد نشره على هيروكو:", reply_markup=create_heroku_menu())
-    bot.register_next_step_handler(msg, process_deploy_to_heroku_step)
+    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع المراد نشره:", reply_markup=create_heroku_menu())
+    bot.register_next_step_handler(msg, process_deploy_step)
 
-def process_deploy_to_heroku_step(message):
+def process_deploy_step(message):
     repo_name = message.text
-    app_name = repo_name.replace('_', '-')
-    create_app_response = requests.post(
-        f'{HEROKU_BASE_URL}/apps',
-        headers=HEROKU_HEADERS,
-        json={"name": app_name, "region": "eu"}
-    )
-    if create_app_response.status_code == 201:
-        bot.edit_message_text(f"تم إنشاء التطبيق `{app_name}` في هيروكو. جاري نشر الكود...", chat_id=message.chat.id, message_id=message.message_id, parse_mode='Markdown', reply_markup=create_heroku_menu())
-        # تنفيذ عملية نشر الكود إلى هيروكو هنا
+    response = requests.get(f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/zipball', headers=GITHUB_HEADERS)
+    if response.status_code == 200:
+        zip_data = response.content
+        tmp_dir = f'/tmp/{repo_name}'
+        with open(f'{tmp_dir}.zip', 'wb') as f:
+            f.write(zip_data)
+        with zipfile.ZipFile(f'{tmp_dir}.zip', 'r') as zip_ref:
+            zip_ref.extractall(tmp_dir)
+        app_name = repo_name
+        os.system(f'heroku git:remote -a {app_name}')
+        os.system('git add .')
+        os.system('git commit -m "Deploying to Heroku"')
+        os.system('git push heroku master')
+        bot.send_message(message.chat.id, f"تم نشر المستودع `{repo_name}` بنجاح إلى هيروكو.", parse_mode='Markdown', reply_markup=create_heroku_menu())
     else:
-        bot.edit_message_text("حدث خطأ أثناء إنشاء التطبيق في هيروكو.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_heroku_menu())
+        bot.send_message(message.chat.id, "حدث خطأ أثناء تنزيل المستودع من GitHub.", reply_markup=create_heroku_menu())
 
-def switch_heroku_account(message):
-    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
-    # احصل على حسابات هيروكو المتاحة
-    accounts = get_available_heroku_accounts()
-    for account in accounts:
-        itembtn = telebot.types.InlineKeyboardButton(account, callback_data=f'set_heroku_account:{account}')
-        markup.add(itembtn)
-    itembtn_back = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
-    markup.add(itembtn_back)
-    bot.edit_message_text(
-        "الرجاء اختيار حساب هيروكو:",
-        chat_id=message.chat.id, 
-        message_id=message.message_id,
-        reply_markup=markup
-    )
-
-def delete_heroku_account(message):
-    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
-    # احصل على حسابات هيروكو المتاحة
-    accounts = get_available_heroku_accounts()
-    for account in accounts:
-        itembtn = telebot.types.InlineKeyboardButton(account, callback_data=f'delete_heroku_account:{account}')
-        markup.add(itembtn)
-    itembtn_back = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
-    markup.add(itembtn_back)
-    bot.edit_message_text(
-        "الرجاء اختيار حساب هيروكو لحذفه:",
-        chat_id=message.chat.id, 
-        message_id=message.message_id,
-        reply_markup=markup
-    )
-
-def get_available_heroku_accounts():
-    # استعادة حسابات هيروكو من قاعدة البيانات أو من مصدر آخر
-    accounts = []  # استبدل هذا بالكود اللازم للحصول على الحسابات المتاحة
-    return accounts
-
-def set_heroku_account(account_name, message):
-    # تعيين حساب هيروكو النشط
-    # قد يتطلب هذا تخزين اسم الحساب النشط في قاعدة البيانات أو مكان آخر
-    bot.edit_message_text(
-        f"تم تعيين حساب هيروكو {account_name}.",
-        chat_id=message.chat.id, 
-        message_id=message.message_id,
-        reply_markup=create_main_menu()
-    )
-
-def delete_heroku_account(account_name, message):
-    # حذف حساب هيروكو
-    # قد يتطلب هذا حذف الحساب من قاعدة البيانات أو من مكان آخر
-    bot.edit_message_text(
-        f"تم حذف حساب هيروكو {account_name}.",
-        chat_id=message.chat.id, 
-        message_id=message.message_id,
-        reply_markup=create_main_menu()
-    )
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    if call.data == 'heroku_section':
-        bot.edit_message_text("قسم هيروكو:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_heroku_menu())
-    elif call.data == 'github_section':
-        bot.edit_message_text("قسم GitHub:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_menu())
-    elif call.data == 'list_heroku_apps':
-        list_heroku_apps(call.message)
-    elif call.data == 'list_github_repos':
-        list_github_repos(call.message)
-    elif call.data == 'create_heroku_app':
-        prompt_for_heroku_app_name(call.message)
-    elif call.data == 'delete_heroku_app':
-        prompt_for_heroku_app_to_delete(call.message)
-    elif call.data == 'create_github_repo':
-        prompt_for_github_repo_name(call.message)
-    elif call.data == 'delete_github_repo':
-        prompt_for_github_repo_to_delete(call.message)
-    elif call.data == 'upload_files_to_github':
-        prompt_for_github_repo_for_upload(call.message)
-    elif call.data == 'delete_files_from_github':
-        prompt_for_github_repo_for_delete(call.message)
-    elif call.data == 'deploy_to_heroku':
-        prompt_for_github_repo_for_deploy(call.message)
-    elif call.data == 'back_to_main':
-        bot.edit_message_text(
-            "مرحبًا! يمكنك التحكم في حساب هيروكو ومستودعات GitHub باستخدام الأوامر التالية:", 
-            chat_id=call.message.chat.id, message_id=call.message.message_id, 
-            reply_markup=create_main_menu()
-        )
-    elif call.data == 'switch_heroku_account':
-        switch_heroku_account(call.message)
-    elif call.data.startswith('set_heroku_account:'):
-        account_name = call.data.split(':')[1]
-        set_heroku_account(account_name, call.message)
-    elif call.data == 'delete_heroku_account':
-        delete_heroku_account(call.message)
-    elif call.data.startswith('delete_heroku_account:'):
-        account_name = call.data.split(':')[1]
-        delete_heroku_account(account_name, call.message)
-
-bot.polling()
+bot.polling() 
