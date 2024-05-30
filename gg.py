@@ -3,6 +3,8 @@ import requests
 import os
 import zipfile
 import base64
+import threading
+from datetime import datetime, timedelta
 
 # إعدادات البوت
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"  # توكن البوت في تليجرام
@@ -88,7 +90,7 @@ def callback_query(call):
     elif call.data == 'create_heroku_app':
         prompt_for_heroku_app_name(call.message)
     elif call.data == 'delete_heroku_app':
-        prompt_for_heroku_app_to_delete(call.message)
+        prompt_for_heroku_app_deletion_method(call.message)
     elif call.data == 'create_github_repo':
         prompt_for_github_repo_name(call.message)
     elif call.data == 'delete_github_repo':
@@ -112,7 +114,7 @@ def list_heroku_apps(message):
     if response.status_code == 200:
         apps = response.json()
         apps_list = "\n".join([f"`{app['name']}`" for app in apps])
-        bot.send_message(message.chat.id, f"التطبيقات المتاحة في هيروكو:\n{apps_list}", parse_mode='Markdown', reply_markup=create_heroku_menu())
+        bot.send_message(message.chat.id, f"التطبيقات المتواحدة في هيروكو:\n{apps_list}", parse_mode='Markdown', reply_markup=create_heroku_menu())
     else:
         bot.send_message(message.chat.id, "حدث خطأ في جلب التطبيقات من هيروكو.", reply_markup=create_heroku_menu())
 
@@ -143,6 +145,19 @@ def process_create_heroku_app_step(message):
     else:
         bot.send_message(message.chat.id, "حدث خطأ أثناء إنشاء التطبيق في هيروكو.", reply_markup=create_heroku_menu())
 
+def prompt_for_heroku_app_deletion_method(message):
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    itembtn1 = telebot.types.InlineKeyboardButton('حذف ذاتي مع المؤقت', callback_data='auto_delete_heroku_app')
+    itembtn2 = telebot.types.InlineKeyboardButton('حذف عادي', callback_data='regular_delete_heroku_app')
+    itembtn3 = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
+    markup.add(itembtn1, itembtn2, itembtn3)
+    bot.edit_message_text(
+        "يرجى اختيار طريقة الحذف:", 
+        chat_id=message.chat.id,
+        message_id=message.message_id,
+        reply_markup=markup
+    )
+
 def prompt_for_heroku_app_to_delete(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الذي تريد حذفه من هيروكو:")
     bot.register_next_step_handler(msg, process_delete_heroku_app_step)
@@ -154,6 +169,27 @@ def process_delete_heroku_app_step(message):
         bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح من هيروكو.", parse_mode='Markdown', reply_markup=create_heroku_menu())
     else:
         bot.send_message(message.chat.id, "حدث خطأ أثناء حذف التطبيق من هيروكو.", reply_markup=create_heroku_menu())
+
+def auto_delete_heroku_app(app_name, time_to_delete):
+    time_to_delete = int(time_to_delete)
+    threading.Timer(time_to_delete * 60, delete_heroku_app, args=[app_name]).start()
+
+def delete_heroku_app(app_name):
+    response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
+    if response.status_code == 200 or response.status_code == 202:
+        bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح من هيروكو.", parse_mode='Markdown', reply_markup=create_heroku_menu())
+    else:
+        bot.send_message(message.chat.id, "حدث خطأ أثناء حذف التطبيق من هيروكو.", reply_markup=create_heroku_menu())
+
+def prompt_for_heroku_auto_delete_time(message):
+    msg = bot.send_message(message.chat.id, "أدخل الوقت بالدقائق بعد الذي تريد حذف التطبيق:")
+    bot.register_next_step_handler(msg, process_heroku_auto_delete_time)
+
+def process_heroku_auto_delete_time(message):
+    time_to_delete = message.text
+    app_name = message.text
+    msg = bot.send_message(message.chat.id, "أدخل الوقت بالدقائق بعد الذي تريد حذف التطبيق:")
+    bot.register_next_step_handler(msg, auto_delete_heroku_app, app_name, time_to_delete)
 
 def prompt_for_github_repo_name(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الجديد في GitHub:")
