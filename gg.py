@@ -30,8 +30,9 @@ def create_main_menu():
     itembtn1 = telebot.types.InlineKeyboardButton('⚙️ قسم هيروكو', callback_data='heroku_section')
     itembtn2 = telebot.types.InlineKeyboardButton('🗃️ قسم GitHub', callback_data='github_section')
     itembtn3 = telebot.types.InlineKeyboardButton('👨‍💻 المطور', url='https://t.me/q_w_c')
+    itembtn4 = telebot.types.InlineKeyboardButton('🔑 إضافة حساب هيروكو جديد', callback_data='add_heroku_account')
     markup.add(itembtn1, itembtn2)
-    markup.add(itembtn3)
+    markup.add(itembtn3, itembtn4)
     return markup
 
 def create_heroku_menu():
@@ -40,9 +41,10 @@ def create_heroku_menu():
     itembtn2 = telebot.types.InlineKeyboardButton('➕ إنشاء تطبيق جديد في هيروكو', callback_data='create_heroku_app')
     itembtn3 = telebot.types.InlineKeyboardButton('🗑️ حذف تطبيق في هيروكو', callback_data='delete_heroku_app')
     itembtn4 = telebot.types.InlineKeyboardButton('🚀 نشر كود إلى هيروكو', callback_data='deploy_to_heroku')
-    itembtn5 = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
-    markup.add(itembtn1, itembtn2, itembtn3, itembtn4)
-    markup.add(itembtn5)
+    itembtn5 = telebot.types.InlineKeyboardButton('🔄 تبديل الحسابات', callback_data='switch_accounts')
+    itembtn6 = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
+    markup.add(itembtn1, itembtn2, itembtn3)
+    markup.add(itembtn4, itembtn5, itembtn6)
     return markup
 
 def create_github_menu():
@@ -53,8 +55,8 @@ def create_github_menu():
     itembtn4 = telebot.types.InlineKeyboardButton('📤 تحميل ملفات إلى مستودع GitHub', callback_data='upload_files_to_github')
     itembtn5 = telebot.types.InlineKeyboardButton('🗑️ حذف ملفات من مستودع GitHub', callback_data='delete_files_from_github')
     itembtn6 = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
-    markup.add(itembtn1, itembtn2, itembtn3, itembtn4, itembtn5)
-    markup.add(itembtn6)
+    markup.add(itembtn1, itembtn2, itembtn3)
+    markup.add(itembtn4, itembtn5, itembtn6)
     return markup
 
 @bot.message_handler(commands=['start'])
@@ -71,6 +73,8 @@ def callback_query(call):
         bot.edit_message_text("قسم هيروكو:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_heroku_menu())
     elif call.data == 'github_section':
         bot.edit_message_text("قسم GitHub:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_menu())
+    elif call.data == 'add_heroku_account':
+        add_heroku_account(call.message)
     elif call.data == 'list_heroku_apps':
         list_heroku_apps(call.message)
     elif call.data == 'list_github_repos':
@@ -89,12 +93,42 @@ def callback_query(call):
         prompt_for_github_repo_for_delete(call.message)
     elif call.data == 'deploy_to_heroku':
         prompt_for_github_repo_for_deploy(call.message)
+    elif call.data == 'switch_accounts':
+        switch_heroku_accounts(call.message)
     elif call.data == 'back_to_main':
         bot.edit_message_text(
             "مرحبًا! يمكنك التحكم في حساب هيروكو ومستودعات GitHub باستخدام الأوامر التالية:", 
             chat_id=call.message.chat.id, message_id=call.message.message_id, 
-            reply_markup=create_main_menu()
+            reply_markup=createmarkup()
         )
+
+def add_heroku_account(message):
+    msg = bot.send_message(message.chat.id, "قم بإدخال مفتاح API الجديد الخاص بـ Heroku:", reply_markup=create_main_menu())
+    bot.register_next_step_handler(msg, verify_heroku_api_key)
+
+def verify_heroku_api_key(message):
+    new_api_key = message.text
+    response = requests.get(f'{HEROKU_BASE_URL}/account', headers={'Authorization': f'Bearer {new_api_key}'})
+    if response.status_code == 200:
+        bot.edit_message_text("تم إضافة حساب Heroku بنجاح!", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_main_menu())
+    else:
+        bot.edit_message_text("حدث خطأ أثناء التحقق من صحة مفتاح API.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_main_menu())
+
+def switch_heroku_accounts(message):
+    response = requests.get(f'{HEROKU_BASE_URL}/account', headers=HEROKU_HEADERS)
+    if response.status_code == 200:
+        accounts = response.json()
+        markup = telebot.types.InlineKeyboardMarkup()
+        for account in accounts:
+            markup.add(telebot.types.InlineKeyboardButton(account['email'], callback_data=f'switch_to_account_{account["id"]}'))
+        bot.edit_message_text(
+            "اختر الحساب الذي ترغب في التبديل إليه:", 
+            chat_id=message.chat.id, 
+            message_id=message.message_id, 
+            reply_markup=markup
+        )
+    else:
+        bot.edit_message_text("حدث خطأ أثناء جلب الحسابات من Heroku.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_main_menu())
 
 def list_heroku_apps(message):
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
@@ -266,5 +300,103 @@ def process_deploy_to_heroku_step(message):
         # تنفيذ عملية نشر الكود إلى هيروكو هنا
     else:
         bot.edit_message_text("حدث خطأ أثناء إنشاء التطبيق في هيروكو.", chat_id=message.chat.id, message_id=message.message_id, reply_markup=create_heroku_menu())
+
+def switch_heroku_account(message):
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    # احصل على حسابات هيروكو المتاحة
+    accounts = get_available_heroku_accounts()
+    for account in accounts:
+        itembtn = telebot.types.InlineKeyboardButton(account, callback_data=f'set_heroku_account:{account}')
+        markup.add(itembtn)
+    itembtn_back = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
+    markup.add(itembtn_back)
+    bot.edit_message_text(
+        "الرجاء اختيار حساب هيروكو:",
+        chat_id=message.chat.id, 
+        message_id=message.message_id,
+        reply_markup=markup
+    )
+
+def delete_heroku_account(message):
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    # احصل على حسابات هيروكو المتاحة
+    accounts = get_available_heroku_accounts()
+    for account in accounts:
+        itembtn = telebot.types.InlineKeyboardButton(account, callback_data=f'delete_heroku_account:{account}')
+        markup.add(itembtn)
+    itembtn_back = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
+    markup.add(itembtn_back)
+    bot.edit_message_text(
+        "الرجاء اختيار حساب هيروكو لحذفه:",
+        chat_id=message.chat.id, 
+        message_id=message.message_id,
+        reply_markup=markup
+    )
+
+def get_available_heroku_accounts():
+    # استعادة حسابات هيروكو من قاعدة البيانات أو من مصدر آخر
+    accounts = []  # استبدل هذا بالكود اللازم للحصول على الحسابات المتاحة
+    return accounts
+
+def set_heroku_account(account_name, message):
+    # تعيين حساب هيروكو النشط
+    # قد يتطلب هذا تخزين اسم الحساب النشط في قاعدة البيانات أو مكان آخر
+    bot.edit_message_text(
+        f"تم تعيين حساب هيروكو {account_name}.",
+        chat_id=message.chat.id, 
+        message_id=message.message_id,
+        reply_markup=create_main_menu()
+    )
+
+def delete_heroku_account(account_name, message):
+    # حذف حساب هيروكو
+    # قد يتطلب هذا حذف الحساب من قاعدة البيانات أو من مكان آخر
+    bot.edit_message_text(
+        f"تم حذف حساب هيروكو {account_name}.",
+        chat_id=message.chat.id, 
+        message_id=message.message_id,
+        reply_markup=create_main_menu()
+    )
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    if call.data == 'heroku_section':
+        bot.edit_message_text("قسم هيروكو:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_heroku_menu())
+    elif call.data == 'github_section':
+        bot.edit_message_text("قسم GitHub:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_menu())
+    elif call.data == 'list_heroku_apps':
+        list_heroku_apps(call.message)
+    elif call.data == 'list_github_repos':
+        list_github_repos(call.message)
+    elif call.data == 'create_heroku_app':
+        prompt_for_heroku_app_name(call.message)
+    elif call.data == 'delete_heroku_app':
+        prompt_for_heroku_app_to_delete(call.message)
+    elif call.data == 'create_github_repo':
+        prompt_for_github_repo_name(call.message)
+    elif call.data == 'delete_github_repo':
+        prompt_for_github_repo_to_delete(call.message)
+    elif call.data == 'upload_files_to_github':
+        prompt_for_github_repo_for_upload(call.message)
+    elif call.data == 'delete_files_from_github':
+        prompt_for_github_repo_for_delete(call.message)
+    elif call.data == 'deploy_to_heroku':
+        prompt_for_github_repo_for_deploy(call.message)
+    elif call.data == 'back_to_main':
+        bot.edit_message_text(
+            "مرحبًا! يمكنك التحكم في حساب هيروكو ومستودعات GitHub باستخدام الأوامر التالية:", 
+            chat_id=call.message.chat.id, message_id=call.message.message_id, 
+            reply_markup=create_main_menu()
+        )
+    elif call.data == 'switch_heroku_account':
+        switch_heroku_account(call.message)
+    elif call.data.startswith('set_heroku_account:'):
+        account_name = call.data.split(':')[1]
+        set_heroku_account(account_name, call.message)
+    elif call.data == 'delete_heroku_account':
+        delete_heroku_account(call.message)
+    elif call.data.startswith('delete_heroku_account:'):
+        account_name = call.data.split(':')[1]
+        delete_heroku_account(account_name, call.message)
 
 bot.polling()
