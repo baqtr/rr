@@ -27,32 +27,32 @@ GITHUB_HEADERS = {
 
 def create_main_menu():
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-    itembtn1 = telebot.types.InlineKeyboardButton('قسم هيروكو', callback_data='heroku_section')
-    itembtn2 = telebot.types.InlineKeyboardButton('قسم GitHub', callback_data='github_section')
-    itembtn3 = telebot.types.InlineKeyboardButton('المطور', url='https://t.me/q_w_c')
+    itembtn1 = telebot.types.InlineKeyboardButton('⚙️ قسم هيروكو', callback_data='heroku_section')
+    itembtn2 = telebot.types.InlineKeyboardButton('🗃️ قسم GitHub', callback_data='github_section')
+    itembtn3 = telebot.types.InlineKeyboardButton('👨‍💻 المطور', url='https://t.me/q_w_c')
     markup.add(itembtn1, itembtn2)
     markup.add(itembtn3)
     return markup
 
 def create_heroku_menu():
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-    itembtn1 = telebot.types.InlineKeyboardButton('عرض التطبيقات في هيروكو', callback_data='list_heroku_apps')
-    itembtn2 = telebot.types.InlineKeyboardButton('إنشاء تطبيق جديد في هيروكو', callback_data='create_heroku_app')
-    itembtn3 = telebot.types.InlineKeyboardButton('حذف تطبيق في هيروكو', callback_data='delete_heroku_app')
-    itembtn4 = telebot.types.InlineKeyboardButton('نشر كود إلى هيروكو', callback_data='deploy_to_heroku')
-    itembtn5 = telebot.types.InlineKeyboardButton('العودة', callback_data='back_to_main')
+    itembtn1 = telebot.types.InlineKeyboardButton('📋 عرض التطبيقات في هيروكو', callback_data='list_heroku_apps')
+    itembtn2 = telebot.types.InlineKeyboardButton('➕ إنشاء تطبيق جديد في هيروكو', callback_data='create_heroku_app')
+    itembtn3 = telebot.types.InlineKeyboardButton('🗑️ حذف تطبيق في هيروكو', callback_data='delete_heroku_app')
+    itembtn4 = telebot.types.InlineKeyboardButton('🚀 نشر كود إلى هيروكو', callback_data='deploy_to_heroku')
+    itembtn5 = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
     markup.add(itembtn1, itembtn2, itembtn3, itembtn4)
     markup.add(itembtn5)
     return markup
 
 def create_github_menu():
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-    itembtn1 = telebot.types.InlineKeyboardButton('عرض مستودعات GitHub', callback_data='list_github_repos')
-    itembtn2 = telebot.types.InlineKeyboardButton('إنشاء مستودع جديد في GitHub', callback_data='create_github_repo')
-    itembtn3 = telebot.types.InlineKeyboardButton('حذف مستودع في GitHub', callback_data='delete_github_repo')
-    itembtn4 = telebot.types.InlineKeyboardButton('تحميل ملفات إلى مستودع GitHub', callback_data='upload_files_to_github')
-    itembtn5 = telebot.types.InlineKeyboardButton('حذف ملفات من مستودع GitHub', callback_data='delete_files_from_github')
-    itembtn6 = telebot.types.InlineKeyboardButton('العودة', callback_data='back_to_main')
+    itembtn1 = telebot.types.InlineKeyboardButton('📋 عرض مستودعات GitHub', callback_data='list_github_repos')
+    itembtn2 = telebot.types.InlineKeyboardButton('➕ إنشاء مستودع جديد في GitHub', callback_data='create_github_repo')
+    itembtn3 = telebot.types.InlineKeyboardButton('🗑️ حذف مستودع في GitHub', callback_data='delete_github_repo')
+    itembtn4 = telebot.types.InlineKeyboardButton('📤 تحميل ملفات إلى مستودع GitHub', callback_data='upload_files_to_github')
+    itembtn5 = telebot.types.InlineKeyboardButton('🗑️ حذف ملفات من مستودع GitHub', callback_data='delete_files_from_github')
+    itembtn6 = telebot.types.InlineKeyboardButton('🔙 العودة', callback_data='back_to_main')
     markup.add(itembtn1, itembtn2, itembtn3, itembtn4, itembtn5)
     markup.add(itembtn6)
     return markup
@@ -98,7 +98,7 @@ def callback_query(call):
 
 def list_heroku_apps(message):
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
-    if response.status_code == 200:
+    if (response.status_code == 200):
         apps = response.json()
         apps_list = "\n".join([f"`{app['name']}`" for app in apps])
         bot.send_message(message.chat.id, f"التطبيقات المتاحة في هيروكو:\n{apps_list}", parse_mode='Markdown', reply_markup=create_heroku_menu())
@@ -145,7 +145,7 @@ def process_delete_heroku_app_step(message):
         bot.send_message(message.chat.id, "حدث خطأ أثناء حذف التطبيق من هيروكو.", reply_markup=create_heroku_menu())
 
 def prompt_for_github_repo_name(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الجديد في GitHub:", reply_markup=create_github_menu())
+    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الجديد في GitHub:",reply_markup=create_github_menu())
     bot.register_next_step_handler(msg, process_github_repo_visibility_step)
 
 def process_github_repo_visibility_step(message):
@@ -158,7 +158,7 @@ def process_create_github_repo_step(message, repo_name):
     response = requests.get(f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}', headers=GITHUB_HEADERS)
     if response.status_code == 404:
         response = requests.post(
-            fGITHUB_BASE_URL}/user/repos',
+            f'{GITHUB_BASE_URL}/user/repos',
             headers=GITHUB_HEADERS,
             json={"name": repo_name, "private": is_private}
         )
