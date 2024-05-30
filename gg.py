@@ -4,21 +4,18 @@ import os
 import zipfile
 import base64
 
-# إعدادات البوت
-bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"  # توكن البوت في تليجرام
-heroku_api_key = "HRKU-bffcce5a-db84-4c17-97ed-160f04745271"  # مفتاح API الخاص بـ Heroku
-github_token = "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"  # توكن GitHub
+bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
+heroku_api_key = "HRKU-bffcce5a-db84-4c17-97ed-160f04745271"
+github_token = "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"
 
 bot = telebot.TeleBot(bot_token)
 
-# الهيروكو API
 HEROKU_BASE_URL = 'https://api.heroku.com'
 HEROKU_HEADERS = {
     'Authorization': f'Bearer {heroku_api_key}',
     'Accept': 'application/vnd.heroku+json; version=3'
 }
 
-# GitHub API
 GITHUB_BASE_URL = 'https://api.github.com'
 GITHUB_HEADERS = {
     'Authorization': f'token {github_token}',
@@ -109,15 +106,14 @@ def callback_query(call):
 
 def list_heroku_apps(message):
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
-    if (response.status_code == 200):
+    if response.status_code == 200:
         apps = response.json()
         apps_list = "\n".join([f"`{app['name']}`" for app in apps])
-        bot.send_message(message.chat.id, f"التطبيقات المتاحة في هيروكو:\{apps_list}", parse_mode='Markdown', reply_markup=create_heroku_menu())
+        bot.send_message(message.chat.id, f"التطبيقات المتاحة في هيروكو:\n{apps_list}", parse_mode='Markdown', reply_markup=create_heroku_menu())
     else:
         bot.send_message(message.chat.id, "حدث خطأ في جلب التطبيقات من هيروكو.", reply_markup=create_heroku_menu())
 
-def list_github_repos(message):
-    response = requests.get(f'{GITHUB_BASE_URL}/user/repos', headers=GITHUB_HEADERS)
+def list_github_repos(message):response = requests.get(f'{GITHUB_BASE_URL}/user/repos', headers=GITHUB_HEADERS)
     if response.status_code == 200:
         repos = response.json()
         repos_list = "\n".join([f"`{repo['name']}`" for repo in repos])
@@ -216,7 +212,8 @@ def receive_files(message):
                 "content": encoded_content
             }
         )
-        if response.status_code == 201:bot.send_message(message.chat.id, f"تم تحميل الملف `{file_name}` بنجاح إلى المستودع `{repo_name}`.", parse_mode='Markdown', reply_markup=create_github_menu())
+        if response.status_code == 201:
+            bot.send_message(message.chat.id, f"تم تحميل الملف `{file_name}` بنجاح إلى المستودع `{repo_name}`.", parse_mode='Markdown', reply_markup=create_github_menu())
         else:
             bot.send_message(message.chat.id, "حدث خطأ أثناء تحميل الملف إلى GitHub.", reply_markup=create_github_menu())
     else:
