@@ -79,8 +79,8 @@ def callback_query(call):
     elif call.data == 'deploy_to_heroku':
         prompt_for_github_repo_for_deploy(call.message)
         elif call.data == 'maintenance_mode':
-    toggle_maintenance_mode(call.message)
-    elif call.data == 'back_to_main':
+        toggle_maintenance_mode(call.message)
+        elif call.data == 'back_to_main':
         bot.send_message(
             call.message.chat.id, 
             "مرحبًا! يمكنك التحكم في حساب هيروكو ومستودعات GitHub باستخدام الأوامر التالية:", 
