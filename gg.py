@@ -78,6 +78,8 @@ def callback_query(call):
         prompt_for_github_repo_for_delete(call.message)
     elif call.data == 'deploy_to_heroku':
         prompt_for_github_repo_for_deploy(call.message)
+        elif call.data == 'maintenance_mode':
+    toggle_maintenance_mode(call.message)
     elif call.data == 'back_to_main':
         bot.send_message(
             call.message.chat.id, 
@@ -250,5 +252,23 @@ def process_deploy_step(message):
         bot.send_message(message.chat.id, f"تم نشر المستودع `{repo_name}` بنجاح إلى هيروكو.", parse_mode='Markdown', reply_markup=create_back_button())
     else:
         bot.send_message(message.chat.id, "حدث خطأ أثناء تنزيل المستودع من GitHub.", reply_markup=create_back_button())
+
+def prompt_for_app_name_for_maintenance(message):
+    msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الذي تريد وضعه في وضع الصيانة:", reply_markup=create_back_button())
+    bot.register_next_step_handler(msg, process_app_name_for_maintenance)
+
+def process_app_name_for_maintenance(message):
+    app_name = message.text
+    response = requests.get(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
+    if response.status_code == 200:
+        # تطبيق موجود، يمكن القيام بوضعه في وضع الصيانة
+        response = requests.patch(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS, json={"maintenance": True})
+        if response.status_code == 200:
+            bot.send_message(message.chat.id, f"تم وضع التطبيق `{app_name}` في وضع الصيانة بنجاح.", parse_mode='Markdown', reply_markup=create_back_button())
+        else:
+            bot.send_message(message.chat.id, f"حدث خطأ أثناء وضع التطبيق `{app_name}` في وضع الصيانة.", reply_markup=create_back_button())
+    else:
+        # تطبيق غير موجود
+        bot.send_message(message.chat.id, "لا يمكن العثور على التطبيق المطلوب. تأكد من أن الاسم صحيح.", reply_markup=create_back_button())
 
 bot.polling()
