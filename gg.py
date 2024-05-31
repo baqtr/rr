@@ -7,9 +7,9 @@ import base64
 import time
 
 # تهيئة البوت
-bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"  # توكن البوت في تليجرام
-heroku_api_key = "HRKU-bffcce5a-db84-4c17-97ed-160f04745271"  # مفتاح API الخاص بـ Heroku
-github_token = "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"  # توكن GitHub
+bot_token = "YOUR_BOT_TOKEN_HERE"  # توكن البوت في تليجرام
+heroku_api_key = "YOUR_HEROKU_API_KEY_HERE"  # مفتاح API الخاص بـ Heroku
+github_token = "YOUR_GITHUB_TOKEN_HERE"  # توكن GitHub
 bot = telebot.TeleBot(bot_token)
 
 # الهيروكو API
@@ -36,8 +36,9 @@ def send_progress_bar(chat_id, message_id, progress):
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     keyboard = InlineKeyboardMarkup()
-    deploy_button = InlineKeyboardButton(text="نشر مستودع GitHub على Heroku", callback_data="deploy")
-    keyboard.add(deploy_button)
+    repo_button = InlineKeyboardButton(text="اختر مستودع GitHub", callback_data="choose_repo")
+    app_button = InlineKeyboardButton(text="اختر تطبيق Heroku", callback_data="choose_app")
+    keyboard.row(repo_button, app_button)
     bot.send_message(
         message.chat.id, 
         "مرحبًا! يمكنك التحكم في حساب هيروكو ومستودعات GitHub باستخدام الأوامر التالية:",
@@ -46,23 +47,50 @@ def send_welcome(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback_query(call):
-    if call.data == "deploy":
+    if call.data == "choose_repo":
         bot.answer_callback_query(call.id)
-        msg = bot.send_message(call.message.chat.id, "أدخل اسم المستودع في GitHub الذي تريد نشره على Heroku:")
-        bot.register_next_step_handler(msg, process_deploy_repo_step)
+        repos = get_github_repositories()
+        if repos:
+            keyboard = InlineKeyboardMarkup()
+            for repo in repos:
+                repo_button = InlineKeyboardButton(text=repo, callback_data=f"repo_{repo}")
+                keyboard.row(repo_button)
+            bot.send_message(call.message.chat.id, "اختر المستودع الذي تريد نشره على Heroku:", reply_markup=keyboard)
+        else:
+            bot.send_message(call.message.chat.id, "❌ لا يوجد مستودعات متاحة على GitHub.")
+    elif call.data.startswith("repo_"):
+        repo_name = call.data.split("_")[1]
+        msg = bot.send_message(call.message.chat.id, f"أدخل اسم التطبيق الذي تريد إنشاؤه على Heroku:")
+        bot.register_next_step_handler(msg, lambda msg: create_app_and_deploy(repo_name, msg.text, call.message.chat.id))
+    elif call.data == "choose_app":
+        bot.answer_callback_query(call.id)
+        apps = get_heroku_apps()
+        if apps:
+            keyboard = InlineKeyboardMarkup()
+            for app in apps:
+                app_button = InlineKeyboardButton(text=app, callback_data=f"app_{app}")
+                keyboard.row(app_button)
+            bot.send_message(call.message.chat.id, "اختر التطبيق الذي تريد نشر المستودع عليه:", reply_markup=keyboard)
+        else:
+            bot.send_message(call.message.chat.id, "❌ لا يوجد تطبيقات متاحة على Heroku.")
 
-def process_deploy_repo_step(message):
-    repo_name = message.text
-    response = requests.get(f'{GITHUB_BASE_URL}/repos/{repo_name}', headers=GITHUB_HEADERS)
+def get_github_repositories():
+    response = requests.get(f'{GITHUB_BASE_URL}/user/repos', headers=GITHUB_HEADERS)
     if response.status_code == 200:
-        repo_data = response.json()
-        repo_url = repo_data['html_url']
-        msg = bot.send_message(message.chat.id, f"تم العثور على المستودع {repo_name} على GitHub. أرسل اسم التطبيق الذي تريد إنشاؤه على Heroku:")
-        bot.register_next_step_handler(msg, lambda msg: create_app_and_deploy(repo_name, msg.text, repo_url, message.chat.id))
+        repos = [repo['name'] for repo in response.json()]
+        return repos
     else:
-        bot.send_message(message.chat.id, f"❌ المستودع {repo_name} غير موجود على GitHub.")
+        return None
 
-def create_app_and_deploy(repo_name, app_name, repo_url, chat_id):
+def get_heroku_apps():
+    response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
+    if response.status_code == 200:
+        apps = [app['name'] for app in response.json()]
+        return apps
+    else:
+        return None
+
+def create_app_and_deploy(repo_name, app_name, chat_id):
     response = requests.post(
         f'{HEROKU_BASE_URL}/apps',
         headers=HEROKU_HEADERS,
@@ -72,6 +100,7 @@ def create_app_and_deploy(repo_name, app_name, repo_url, chat_id):
         bot.send_message(chat_id, f"تم إنشاء التطبيق {app_name} بنجاح على Heroku. جارٍ النشر...")
         message = bot.send_message(chat_id, "⬜⬛⬛⬛⬛⬛⬛⬛⬛⬛: 0%")
         app_url = f'https://{app_name}.herokuapp.com'
+        repo_url = f'https://github.com/{repo_name}'
         repo_zip_url = f'{repo_url}/archive/refs/heads/main.zip'
         repo_zip_response = requests.get(repo_zip_url)
         if repo_zip_response.status_code == 200:
@@ -93,6 +122,7 @@ def create_app_and_deploy(repo_name, app_name, repo_url, chat_id):
             bot.send_message(chat_id, f"❌ حدث خطأ أثناء تنزيل المستودع من GitHub.")
             bot.delete_message(chat_id, message.message_id)
     else:
-        bot.send_message(chat_id, f"❌ حدث خطأ أثناء إنشاء التطبيق على Heroku.")
+        bot.send_message(chat_id, f"❌ حدث خطأ أثناء إنشاء التطبيك على Heroku."
+        bot.delete_message(chat_id, message.message_id)
 
 bot.polling()
