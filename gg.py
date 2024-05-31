@@ -114,7 +114,8 @@ def process_deploy_to_heroku_step(message, repo_name):
             'Content-Type': 'application/json'
         },
         json={"source_blob": {"url": f"https://github.com/YOUR_GITHUB_USERNAME/{repo_name}/tarball/master"}}
-    )if deploy_response.status_code == 201:
+    )
+    if deploy_response.status_code == 201:
         bot.edit_message_text("تم نشر التطبيق بنجاح على هيروكو.", chat_id=message.chat.id, message_id=progress_message_id)
         bot.send_message(message.chat.id, f"تم نشر المستودع `{repo_name}` بنجاح على التطبيق `{app_name}` في هيروكو.", parse_mode='Markdown', reply_markup=create_back_button())
     else:
