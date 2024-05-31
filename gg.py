@@ -1,4 +1,5 @@
 import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import requests
 import os
 import zipfile
@@ -34,15 +35,21 @@ def send_progress_bar(chat_id, message_id, progress):
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    keyboard = InlineKeyboardMarkup()
+    deploy_button = InlineKeyboardButton(text="نشر مستودع GitHub على Heroku", callback_data="deploy")
+    keyboard.add(deploy_button)
     bot.send_message(
         message.chat.id, 
-        "مرحبًا! يمكنك التحكم في حساب هيروكو ومستودعات GitHub باستخدام الأوامر التالية:"
+        "مرحبًا! يمكنك التحكم في حساب هيروكو ومستودعات GitHub باستخدام الأوامر التالية:",
+        reply_markup=keyboard
     )
 
-@bot.message_handler(commands=['deploy'])
-def deploy_repo(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم المستودع في GitHub الذي تريد نشره على Heroku:")
-    bot.register_next_step_handler(msg, process_deploy_repo_step)
+@bot.callback_query_handler(func=lambda call: True)
+def handle_callback_query(call):
+    if call.data == "deploy":
+        bot.answer_callback_query(call.id)
+        msg = bot.send_message(call.message.chat.id, "أدخل اسم المستودع في GitHub الذي تريد نشره على Heroku:")
+        bot.register_next_step_handler(msg, process_deploy_repo_step)
 
 def process_deploy_repo_step(message):
     repo_name = message.text
