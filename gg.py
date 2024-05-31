@@ -98,6 +98,24 @@ def process_deploy_to_heroku(message, repo_name):
         elapsed_time = time.time() - start_time
         bot.send_message(message.chat.id, f"📤 تم تنزيل المستودع في {elapsed_time:.2f} ثانية! جارٍ نشره على Heroku كتطبيق `{app_name}`...")
         
+        # تحديثات بصرية للنشر باستخدام رموز تعبيرية
+        progress_message = bot.send_message(message.chat.id, "⬜🟨🟧🟦🟥⬜🟫🟪🟩 %0")
+        
+        def update_progress(progress):
+            progress_bars = ["⬜", "🟨", "🟧", "🟦", "🟥", "⬜", "🟫", "🟪", "🟩"]
+            progress_index = int(progress * len(progress_bars))
+            progress_text = "".join(progress_bars[:progress_index]) + "".join(progress_bars[progress_index:])
+            bot.edit_message_text(
+                f"{progress_text} %{int(progress * 100)}",
+                chat_id=progress_message.chat.id,
+                message_id=progress_message.message_id
+            )
+        
+        # محاكاة تقدم عملية النشر
+        for i in range(1, 11):
+            update_progress(i / 10.0)
+            time.sleep(1)  # وقت وهمي للنشر
+        
         with open(zip_file_path, 'rb') as f:
             files = {'file': f}
             deploy_response = requests.post(
