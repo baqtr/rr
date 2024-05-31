@@ -4,7 +4,6 @@ import requests
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"  # توكن البوت في تليجرام
 heroku_api_key = "HRKU-bffcce5a-db84-4c17-97ed-160f04745271"  # مفتاح API الخاص بـ Heroku
 github_token = "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"  # توكن GitHub
-
 bot = telebot.TeleBot(bot_token)
 
 HEROKU_BASE_URL = 'https://api.heroku.com'
@@ -20,10 +19,10 @@ GITHUB_HEADERS = {
 }
 
 def create_main_menu():
-    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-    itembtn1 = telebot.types.InlineKeyboardButton('قسم هيروكو 🏢', callback_data='heroku_section')
-    itembtn2 = telebot.types.InlineKeyboardButton('قسم GitHub 🗂️', callback_data='github_section')
-    itembtn3 = telebot.types.InlineKeyboardButton('المطور 👨‍💻', url='https://t.me/q_w_c')
+    markup = telebot.types.ReplyKeyboardMarkup(row_width=2)
+    itembtn1 = telebot.types.KeyboardButton('قسم هيروكو 🏢')
+    itembtn2 = telebot.types.KeyboardButton('قسم GitHub 🗂️')
+    itembtn3 = telebot.types.KeyboardButton('المطور 👨‍💻')
     markup.add(itembtn1, itembtn2)
     markup.add(itembtn3)
     return markup
@@ -51,38 +50,28 @@ def send_welcome(message):
         reply_markup=create_main_menu()
     )
 
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    if call.data == 'heroku_section':
-        bot.edit_message_text(
-            "قسم هيروكو:",
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            reply_markup=create_heroku_menu()
-        )
-    elif call.data == 'github_section':
-        bot.edit_message_text(
-            "قسم GitHub:",
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            reply_markup=create_github_menu()
-        )
-    elif call.data == 'deploy_to_heroku':
-        prompt_for_github_repo_for_deploy(call.message)
+@bot.message_handler(func=lambda message: True)
+def handle_message(message):
+    if message.text == 'قسم هيروكو 🏢':
+        create_heroku_menu(message.chat.id)
+    elif message.text == 'قسم GitHub 🗂️':
+        create_github_menu(message.chat.id)
+    elif message.text == 'المطور 👨‍💻':
+        bot.send_message(message.chat.id, "المطور:", reply_markup=create_back_button())
 
-def create_heroku_menu():
+def create_heroku_menu(chat_id):
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
     itembtn1 = telebot.types.InlineKeyboardButton('نشر كود 🚀', callback_data='deploy_to_heroku')
     markup.add(itembtn1)
     markup.add(telebot.types.InlineKeyboardButton('العودة 🔙', callback_data='back_to_main'))
-    return markup
+    bot.send_message(chat_id, "قسم هيروكو:", reply_markup=markup)
 
-def create_github_menu():
+def create_github_menu(chat_id):
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
     itembtn1 = telebot.types.InlineKeyboardButton('عرض مستودعات 📜', callback_data='list_github_repos')
     markup.add(itembtn1)
     markup.add(telebot.types.InlineKeyboardButton('العودة 🔙', callback_data='back_to_main'))
-    return markup
+    bot.send_message(chat_id, "قسم GitHub:", reply_markup=markup)
 
 def list_github_repos(message):
     response = requests.get(f'{GITHUB_BASE_URL}/user/repos', headers=GITHUB_HEADERS)
@@ -92,6 +81,11 @@ def list_github_repos(message):
         bot.send_message(message.chat.id, f"المستودعات المتاحة في GitHub:\n{repos_list}", parse_mode='Markdown', reply_markup=create_back_button())
     else:
         bot.send_message(message.chat.id, "حدث خطأ في جلب المستودعات من GitHub.", reply_markup=create_back_button())
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    if call.data == 'deploy_to_heroku':
+        prompt_for_github_repo_for_deploy(call.message)
 
 def prompt_for_github_repo_for_deploy(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد نشره في هيروكو:", reply_markup=create_back_button())
@@ -120,9 +114,7 @@ def process_deploy_to_heroku_step(message, repo_name):
             'Content-Type': 'application/json'
         },
         json={"source_blob": {"url": f"https://github.com/YOUR_GITHUB_USERNAME/{repo_name}/tarball/master"}}
-    )
-    
-    if deploy_response.status_code == 201:
+    )if deploy_response.status_code == 201:
         bot.edit_message_text("تم نشر التطبيق بنجاح على هيروكو.", chat_id=message.chat.id, message_id=progress_message_id)
         bot.send_message(message.chat.id, f"تم نشر المستودع `{repo_name}` بنجاح على التطبيق `{app_name}` في هيروكو.", parse_mode='Markdown', reply_markup=create_back_button())
     else:
