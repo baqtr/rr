@@ -65,29 +65,29 @@ def list_heroku_apps(message):
 
 @bot.message_handler(func=lambda message: True)
 def process_github_repo_for_deploy(message):
-    repo_name = message.text
-    bot.send_message(message.chat.id, f"🔍 جارٍ التحقق من وجود المستودع `{repo_name}` على GitHub...")
+    repo_full_name = message.text
+    bot.send_message(message.chat.id, f"🔍 جارٍ التحقق من وجود المستودع `{repo_full_name}` على GitHub...")
     
     response = requests.get(
-        f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}',
+        f'{GITHUB_BASE_URL}/repos/{repo_full_name}',
         headers=GITHUB_HEADERS
     )
     
     if response.status_code == 200:
         msg = bot.send_message(message.chat.id, "✅ المستودع موجود! أدخل اسم التطبيق الذي تريد نشره على Heroku:")
-        bot.register_next_step_handler(msg, process_deploy_to_heroku, repo_name)
+        bot.register_next_step_handler(msg, process_deploy_to_heroku, repo_full_name)
     else:
         bot.send_message(message.chat.id, "❌ المستودع غير موجود. تأكد من الاسم وحاول مرة أخرى.")
 
-def process_deploy_to_heroku(message, repo_name):
+def process_deploy_to_heroku(message, repo_full_name):
     app_name = message.text
-    zip_file_path = f'/tmp/{repo_name}.zip'
+    zip_file_path = f'/tmp/{repo_full_name.split("/")[-1]}.zip'
     
-    bot.send_message(message.chat.id, f"📦 جارٍ تنزيل المستودع `{repo_name}` من GitHub...")
+    bot.send_message(message.chat.id, f"📦 جارٍ تنزيل المستودع `{repo_full_name}` من GitHub...")
     start_time = time.time()
     
     response = requests.get(
-        f'{GITHUB_BASE_URL}/repos/{message.from_user.username}/{repo_name}/zipball/main',
+        f'{GITHUB_BASE_URL}/repos/{repo_full_name}/zipball/main',
         headers=GITHUB_HEADERS
     )
     
@@ -127,7 +127,7 @@ def process_deploy_to_heroku(message, repo_name):
         os.remove(zip_file_path)
         
         if deploy_response.status_code == 201:
-            bot.send_message(message.chat.id, f"✅ تم نشر المستودع `{repo_name}` بنجاح على Heroku كتطبيق `{app_name}`.")
+            bot.send_message(message.chat.id, f"✅ تم نشر المستودع `{repo_full_name}` بنجاح على Heroku كتطبيق `{app_name}`.")
         else:
             bot.send_message(message.chat.id, "❌ حدث خطأ أثناء نشر المستودع على Heroku.")
     else:
