@@ -22,8 +22,9 @@ def send_welcome(message):
 # دالة لمعالجة النقرات على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    if call.data == "test_button":
-        bot.send_message(call.message.chat.id, "تم الضغط على الزر بنجاح!")
+    if call.data == "show_id":
+        user_id = call.message.chat.id
+        bot.send_message(call.message.chat.id, f"معرف المستخدم هو: {user_id}")
 
 # التشغيل
 if __name__ == "__main__":
