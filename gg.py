@@ -10,9 +10,11 @@ bot = telebot.TeleBot(bot_token)
 # دالة لإنشاء الزر وتخصيصه
 def create_button():
     markup = telebot.types.InlineKeyboardMarkup()
-    button1 = telebot.types.InlineKeyboardButton("اضغط هنا", callback_data="show_id")
-    button2 = telebot.types.InlineKeyboardButton("اضغط هنا", callback_data="show_id")
-    markup.add(button)
+    button1 = telebot.types.InlineKeyboardButton("اضغط هنا", callback_data="show_id1")
+button2 = telebot.types.InlineKeyboardButton("اضغط هنا", callback_data="show_id2")
+
+markup = telebot.types.InlineKeyboardMarkup()
+markup.add(button1, button2)
     return markup
 
 # دالة لمعالجة الطلبات الواردة
@@ -23,7 +25,7 @@ def send_welcome(message):
 # دالة لمعالجة النقرات على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    if call.data == "show_id":
+    if call.data == "show_id1":
         user_id = call.message.chat.id
         bot.send_message(call.message.chat.id, f"معرف المستخدم هو: `{user_id}`")
 
