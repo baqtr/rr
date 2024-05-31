@@ -37,7 +37,7 @@ def create_main_menu():
 def send_welcome(message):
     bot.send_message(
         message.chat.id, 
-        "مرحبًا! أرسل اسم المستودع على GitHub الذي تريد نشره على Heroku:",
+        "مرحبًا! أرسل اسم المستخدم الخاص بك على GitHub لعرض المستودعات:",
         reply_markup=create_main_menu()
     )
 
@@ -64,20 +64,34 @@ def list_heroku_apps(message):
         bot.send_message(message.chat.id, "❌ حدث خطأ أثناء جلب قائمة التطبيقات من Heroku.")
 
 @bot.message_handler(func=lambda message: True)
-def process_github_repo_for_deploy(message):
-    repo_full_name = message.text
-    bot.send_message(message.chat.id, f"🔍 جارٍ التحقق من وجود المستودع `{repo_full_name}` على GitHub...")
+def process_github_user(message):
+    github_user = message.text
+    bot.send_message(message.chat.id, f"🔍 جارٍ جلب المستودعات للمستخدم `{github_user}` من GitHub...")
     
     response = requests.get(
-        f'{GITHUB_BASE_URL}/repos/{repo_full_name}',
+        f'{GITHUB_BASE_URL}/users/{github_user}/repos',
         headers=GITHUB_HEADERS
     )
     
     if response.status_code == 200:
-        msg = bot.send_message(message.chat.id, "✅ المستودع موجود! أدخل اسم التطبيق الذي تريد نشره على Heroku:")
-        bot.register_next_step_handler(msg, process_deploy_to_heroku, repo_full_name)
+        repos = response.json()
+        if repos:
+            markup = telebot.types.InlineKeyboardMarkup()
+            for repo in repos:
+                repo_name = repo['full_name']
+                markup.add(telebot.types.InlineKeyboardButton(text=repo_name, callback_data=f"repo:{repo_name}"))
+            bot.send_message(message.chat.id, "📋 اختر المستودع الذي تريد نشره:", reply_markup=markup)
+        else:
+            bot.send_message(message.chat.id, "❌ لم يتم العثور على مستودعات لهذا المستخدم.")
     else:
-        bot.send_message(message.chat.id, "❌ المستودع غير موجود. تأكد من الاسم وحاول مرة أخرى.")
+        bot.send_message(message.chat.id, "❌ حدث خطأ أثناء جلب المستودعات من GitHub.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('repo:'))
+def handle_repo_selection(call):
+    repo_full_name = call.data[len('repo:'):]
+    msg = bot.send_message(call.message.chat.id, f"✅ المستودع موجود! أدخل اسم التطبيق الذي تريد نشره على Heroku:")
+    bot.register_next_step_handler(msg, process_deploy_to_heroku, repo_full_name)
+    bot.delete_message(call.message.chat.id, call.message.message_id)
 
 def process_deploy_to_heroku(message, repo_full_name):
     app_name = message.text
@@ -127,9 +141,9 @@ def process_deploy_to_heroku(message, repo_full_name):
         os.remove(zip_file_path)
         
         if deploy_response.status_code == 201:
-            bot.send_message(message.chat.id, f"✅ تم نشر المستودع `{repo_full_name}` بنجاح على Heroku كتطبيق `{app_name}`.")
+            bot.send_message(message.chat.id, "✅ تم نشر التطبيق بنجاح على Heroku!")
         else:
-            bot.send_message(message.chat.id, "❌ حدث خطأ أثناء نشر المستودع على Heroku.")
+            bot.send_message(message.chat.id, "❌ حدث خطأ أثناء عملية النشر على Heroku.")
     else:
         bot.send_message(message.chat.id, "❌ حدث خطأ أثناء تنزيل المستودع من GitHub.")
 
