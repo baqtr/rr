@@ -24,7 +24,7 @@ def send_welcome(message):
 def callback_query(call):
     if call.data == "show_id":
         user_id = call.message.chat.id
-        bot.send_message(call.message.chat.id, f"معرف المستخدم هو: {user_id}")
+        bot.send_message(call.message.chat.id, f"معرف المستخدم هو: `{user_id}`")
 
 # التشغيل
 if __name__ == "__main__":
