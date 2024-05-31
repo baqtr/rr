@@ -35,8 +35,10 @@ def create_main_menu():
     itembtn6 = telebot.types.InlineKeyboardButton('حذف مستودع في GitHub', callback_data='delete_github_repo')
     itembtn7 = telebot.types.InlineKeyboardButton('تحميل ملفات إلى مستودع GitHub', callback_data='upload_files_to_github')
     itembtn8 = telebot.types.InlineKeyboardButton('حذف ملفات من مستودع GitHub', callback_data='delete_files_from_github')
-    itembtn9 = telebot.types.InlineKeyboardButton('نشر كود إلى هيروكو', callback_data='maintenance_mode')
+    itembtn9 = telebot.types.InlineKeyboardButton('نشر كود إلى هيروكو', callback_data='deploy_to_heroku')
     itembtn10 = telebot.types.InlineKeyboardButton('المطور', url='https://t.me/q_w_c')
+    itembtn11 = telebot.types.InlineKeyboardButton('وضع الصيانة', callback_data='maintenance_mode')
+    markup.add(itembtn11)
     markup.add(itembtn1, itembtn2, itembtn3, itembtn4, itembtn5, itembtn6, itembtn7, itembtn8, itembtn9)
     markup.add(itembtn10)
     return markup
@@ -74,8 +76,8 @@ def callback_query(call):
         prompt_for_github_repo_for_upload(call.message)
     elif call.data == 'delete_files_from_github':
         prompt_for_github_repo_for_delete(call.message)
-    elif call.data == 'maintenance_mode':
-        prompt_for_github_repo_for_deploy(call.message
+    elif call.data == 'deploy_to_heroku':
+        prompt_for_github_repo_for_deploy(call.message)
     elif call.data == 'back_to_main':
         bot.send_message(
             call.message.chat.id, 
@@ -83,23 +85,6 @@ def callback_query(call):
             reply_markup=create_main_menu()
         )
 
-@bot.message_handler(commands=['maintenance'])
-def prompt_for_app_name(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الذي تريد وضعه في وضع الصيانة:")
-    bot.register_next_step_handler(msg, process_maintenance_mode)
-
-def process_maintenance_mode(message):
-    app_name = message.text
-    maintenance_response = requests.patch(
-        f'{HEROKU_BASE_URL}/apps/{app_name}',
-        headers=HEROKU_HEADERS,
-        json={"maintenance": True}
-    )
-    if maintenance_response.status_code == 200:
-        bot.send_message(message.chat.id, f"تم وضع التطبيق `{app_name}` في وضع الصيانة بنجاح.", parse_mode='Markdown')
-    else:
-        bot.send_message(message.chat.id, f"حدث خطأ أثناء وضع التطبيق `{app_name}` في وضع الصيانة.")
-        
 def list_heroku_apps(message):
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
     if response.status_code == 200:
@@ -172,23 +157,6 @@ def process_create_github_repo_step(message, repo_name):
             bot.send_message(message.chat.id, "حدث خطأ أثناء إنشاء المستودع في GitHub.", reply_markup=create_back_button())
     else:
         bot.send_message(message.chat.id, "اسم المستودع موجود بالفعل، يرجى اختيار اسم آخر.", reply_markup=create_back_button())
-
-@bot.message_handler(commands=['maintenance'])
-def prompt_for_app_name(message):
-    msg = bot.send_message(message.chat.id, "أدخل اسم التطبيق الذي تريد وضعه في وضع الصيانة:")
-    bot.register_next_step_handler(msg, process_maintenance_mode)
-
-def process_maintenance_mode(message):
-    app_name = message.text
-    maintenance_response = requests.patch(
-        f'{HEROKU_BASE_URL}/apps/{app_name}',
-        headers=HEROKU_HEADERS,
-        json={"maintenance": True}
-    )
-    if maintenance_response.status_code == 200:
-        bot.send_message(message.chat.id, f"تم وضع التطبيق `{app_name}` في وضع الصيانة بنجاح.", parse_mode='Markdown')
-    else:
-        bot.send_message(message.chat.id, f"حدث خطأ أثناء وضع التطبيق `{app_name}` في وضع الصيانة.")
 
 def prompt_for_github_repo_to_delete(message):
     msg = bot.send_message(message.chat.id, "أدخل اسم المستودع الذي تريد حذفه من GitHub:", reply_markup=create_back_button())
