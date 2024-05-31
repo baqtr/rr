@@ -92,7 +92,9 @@ def callback_query(call):
     elif call.data == 'back_to_main':
         bot.edit_message_text(
             "مرحبًا! يمكنك التحكم في حساب هيروكو ومستودعات GitHub باستخدام الأوامر التالية:", 
-            chat_id=call.message.chat.id,markup=create_main_menu()
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            replymarkup=create_main_menu()
         )
 
 def list_heroku_apps(message):
@@ -318,5 +320,3 @@ def process_repo_folder_for_deploy(message):
         bot.send_message(message.chat.id, f"المجلد `{folder_name}` غير موجود في المستودع `{repo_name_for_deploy}` على GitHub.", parse_mode='Markdown', reply_markup=create_heroku_menu())
 
 bot.polling()
-            message_id=call.message.message_id,
-            reply
