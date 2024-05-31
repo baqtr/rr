@@ -9,7 +9,7 @@ import requests
 import telebot
 from telebot import types
 
-API_TOKEN = '7035086363:AAG_DSbJppFhb1rcsfXdmDs4xOUbzvjdJUU'
+API_TOKEN = '7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20'
 HEROKU_API_KEY = 'HRKU-9c7ef067-cae2-4294-876e-4d91accff033'
 GITHUB_API_KEY = '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'
 ADMIN_USER_ID = '6876315705'
