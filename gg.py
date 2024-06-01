@@ -51,11 +51,13 @@ def send_welcome(message):
 # دالة لجلب تطبيقات هيروكو
 def list_heroku_apps(call):
     bot.edit_message_text("جلب التطبيقات... ⬛⬜ 0%", chat_id=call.message.chat.id, message_id=call.message.message_id)
+    time.sleep(2)
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
     if response.status_code == 200:
         apps = response.json()
         apps_list = "\n".join([f"`{app['name']}`" for app in apps])
         bot.edit_message_text("جلب التطبيقات... ⬛⬛ 50%", chat_id=call.message.chat.id, message_id=call.message.message_id)
+        time.sleep(2)
         bot.edit_message_text(f"التطبيقات المتاحة في هيروكو:\n{apps_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
     else:
         bot.edit_message_text("حدث خطأ في جلب التطبيقات من هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
@@ -66,7 +68,9 @@ def callback_query(call):
     if call.data == "show_id1":
         user_id = call.message.chat.id
         bot.edit_message_text("جلب معرف المستخدم... ⬛⬜ 0%", chat_id=call.message.chat.id, message_id=call.message.message_id)
+        time.sleep(2)
         bot.edit_message_text("جلب معرف المستخدم... ⬛⬛ 50%", chat_id=call.message.chat.id, message_id=call.message.message_id)
+        time.sleep(2)
         bot.edit_message_text(f"معرف المستخدم هو: `{user_id}`", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
     elif call.data == "list_heroku_apps":
         list_heroku_apps(call)
@@ -81,7 +85,7 @@ def callback_query(call):
     elif call.data == "go_back":
         bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_button())
 
-# دالة لمعالجة اسم التطبيق المستلم للحذف
+# الحذف
 def handle_app_name_for_deletion(message):
     app_name = message.text.strip()
     if validate_heroku_app(app_name):
@@ -89,65 +93,47 @@ def handle_app_name_for_deletion(message):
     else:
         bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
 
-# دالة لمعالجة اسم التطبيق المستلم للحذف الذاتي
+# الحذف الذاتي
 def handle_app_name_for_self_deletion(message):
     app_name = message.text.strip()
     if validate_heroku_app(app_name):
-        msg = bot.send_message(message.chat.id, f"تم تأكيد اسم التطبيق `{app_name}`. يرجى إرسال الوقت (بالدقائق) حتى يتم الحذف الذاتي:")
-        bot.register_next_step_handler(msg, lambda m: schedule_self_deletion(app_name, m))
+        msg = bot.send_message(message.chat.id, "يرجى إدخال الوقت المطلوب بالدقائق لحذف التطبيق:")
+        bot.register_next_step_handler(msg, lambda m: handle_self_deletion_time(m, app_name))
     else:
         bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
 
-# دالة للتحقق من صحة اسم التطبيق
+# تحقق من صحة اسم التطبيق
 def validate_heroku_app(app_name):
     response = requests.get(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
     return response.status_code == 200
 
-# دالة لحذف التطبيق
+# الحذف الذاتي
+def handle_self_deletion_time(message, app_name):
+    try:
+        minutes = int(message.text.strip())
+        if minutes <= 0:
+            raise ValueError
+        self_deleting_apps[app_name] = minutes
+        bot.send_message(message.chat.id, f"سيتم حذف التطبيق `{app_name}` بعد {minutes} دقيقة.")
+        # بدء عملية الحذف الذاتي
+        threading.Timer(minutes * 60, delete_heroku_app, args=[app_name, message]).start()
+    except ValueError:
+        bot.send_message(message.chat.id, "الرجاء إدخال عدد صحيح إيجابي للدقائق.")
+
+# حذف التطبيق
 def delete_heroku_app(app_name, message):
-    bot.send_message(message.chat.id, "حذف التطبيق... ⬛⬜ 0%")
     response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
     if response.status_code == 202:
-        bot.send_message(message.chat.id, "حذف التطبيق... ⬛⬛ 50%")
         bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح.", parse_mode='Markdown')
     else:
         bot.send_message(message.chat.id, "حدث خطأ أثناء محاولة حذف التطبيق.")
 
-# دالة لجدولة الحذف الذاتي
-def schedule_self_deletion(app_name, message):
-    try:
-        minutes = int(message.text.strip())
-        if minutes > 0:
-            delete_time = time.time() + minutes * 60
-            self_deleting_apps[app_name] = delete_time
-            bot.send_message(message.chat.id, f"تم جدولة حذف التطبيق `{app_name}` بعد {minutes} دقيقة.")
-            threading.Thread(target=wait_and_delete_app, args=(app_name, message.chat.id, delete_time)).start()
-        else:
-            bot.send_message(message.chat.id, "يرجى إرسال وقت صحيح (عدد الدقائق يجب أن يكون أكبر من 0).")
-    except ValueError:
-        bot.send_message(message.chat.id, "يرجى إرسال وقت صحيح (عدد الدقائق).")
-
-# دالة للانتظار وحذف التطبيق بعد انتهاء الوقت المحدد
-def wait_and_delete_app(app_name, chat_id, delete_time):
-    while time.time() < delete_time:
-        time.sleep(10)
-    delete_heroku_app(app_name, None)
-    bot.send_message(chat_id, f"تم حذف التطبيق `{app_name}` بعد انتهاء الوقت المحدد.")
-
-# دالة لعرض الوقت المتبقي للحذف الذاتي
+# عرض الوقت المتبقي للحذف الذاتي
 def show_remaining_time(call):
-    messages = []
-    current_time = time.time()
-    for app_name, delete_time in self_deleting_apps.items():
-        remaining_time = int((delete_time - current_time) / 60)
-        if remaining_time > 0:
-            messages.append(f"التطبيق `{app_name}` سيتم حذفه بعد {remaining_time} دقيقة.")
-        else:
-            messages.append(f"التطبيق `{app_name}` سيتم حذفه قريبا.")
-    if messages:
-        bot.edit_message_text("\n".join(messages), chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
-    else:
-        bot.edit_message_text("لا توجد تطبيقات مجدولة للحذف الذاتي.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+    remaining_time_message = "التطبيقات المجدولة للحذف الذاتي:\n"
+    for app_name, minutes in self_deleting_apps.items():
+        remaining_time_message += f"- `{app_name}`: {minutes} دقيقة\n"
+    bot.send_message(call.message.chat.id, remaining_time_message, parse_mode='Markdown')
 
 # التشغيل
 if __name__ == "__main__":
