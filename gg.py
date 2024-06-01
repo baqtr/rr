@@ -26,12 +26,10 @@ self_deleting_apps = {}
 # دالة لإنشاء الأزرار وتخصيصها
 def create_button():
     markup = telebot.types.InlineKeyboardMarkup()
-    button1 = telebot.types.InlineKeyboardButton("اضغط هنا 😊", callback_data="show_id1")
     button2 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو 📦", callback_data="list_heroku_apps")
     button3 = telebot.types.InlineKeyboardButton("حذف تطبيق ❌", callback_data="delete_app")
     button4 = telebot.types.InlineKeyboardButton("الحذف الذاتي ⏲️", callback_data="self_delete_app")
     button5 = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
-    markup.add(button1)
     markup.add(button2)
     markup.add(button3)
     markup.add(button4)
@@ -67,14 +65,7 @@ def list_heroku_apps(call):
 # دالة لمعالجة النقرات على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    if call.data == "show_id1":
-        user_id = call.message.chat.id
-        bot.edit_message_text("جلب معرف المستخدم... ⬛⬜ 0%", chat_id=call.message.chat.id, message_id=call.message.message_id)
-        time.sleep(2)
-        bot.edit_message_text("جلب معرف المستخدم... ⬛⬛ 50%", chat_id=call.message.chat.id, message_id=call.message.message_id)
-        time.sleep(2)
-        bot.edit_message_text(f"معرف المستخدم هو: `{user_id}`", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
-    elif call.data == "list_heroku_apps":
+    if call.data == "list_heroku_apps":
         list_heroku_apps(call)
     elif call.data == "delete_app":
         msg = bot.edit_message_text("يرجى إرسال اسم التطبيق لحذفه:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
@@ -154,7 +145,7 @@ def show_remaining_time(call):
             remaining_time_message += f"- {app_name}:\n  الوقت المتبقي: {format_remaining_time(minutes)}\n  تاريخ الحذف: {calculate_deletion_time(minutes)}\n"
         else:
             remaining_time_message += f"- {app_name}: تم حذفه."
-    bot.edit_message_text(remaining_timeremaining_time_message += "،", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown')
+    bot.edit_message_text(remaining_time_message, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown')
 
 # تنسيق الوقت المتبقي
 def format_remaining_time(minutes):
