@@ -66,7 +66,9 @@ def add_account(call):
 def handle_new_account(message):
     api_key = message.text.strip()
     user_id = message.from_user.id
-    if validate_heroku_api_key(api_key):
+    if api_key in [account['api_key'] for account in user_accounts[user_id]]:
+        bot.send_message(message.chat.id, "هذا الحساب مضاف مسبقًا.", reply_markup=create_button())
+    elif validate_heroku_api_key(api_key):
         user_accounts[user_id].append({'api_key': api_key})
         bot.send_message(message.chat.id, "تمت إضافة حساب Heroku بنجاح!", reply_markup=create_button())
     else:
@@ -165,7 +167,7 @@ def validate_heroku_app(app_name, account_index, user_id):
 def handle_app_name_for_self_deletion(message, account_index):
     app_name = message.text.strip()
     user_id = message.from_user.id
-    if validate_heroku_app(app_name, account_index,user_id):
+    if validate_heroku_app(app_name, account_index, user_id):
         if app_name in self_deleting_apps:
             bot.send_message(message.chat.id, f"تم وضع التطبيق `{app_name}` مسبقًا في قائمة الحذف الذاتي.", parse_mode='Markdown')
         else:
