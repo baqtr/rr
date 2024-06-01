@@ -2,34 +2,35 @@ import os
 import telebot
 import requests
 
-# استيراد توكن البوت من المتغيرات البيئية
+
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
 heroku_api_key = "HRKU-bffcce5a-db84-4c17-97ed-160f04745271"  # مفتاح API الخاص بـ Heroku
 
-# إنشاء كائن البوت
+
 bot = telebot.TeleBot(bot_token)
 
-# الهيروكو API
+
 HEROKU_BASE_URL = 'https://api.heroku.com'
 HEROKU_HEADERS = {
     'Authorization': f'Bearer {heroku_api_key}',
     'Accept': 'application/vnd.heroku+json; version=3'
 }
 
-# دالة لإنشاء الأزرار وتخصيصها
+
 def create_button():
     markup = telebot.types.InlineKeyboardMarkup()
     button1 = telebot.types.InlineKeyboardButton("اضغط هنا", callback_data="show_id1")
     button2 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو", callback_data="list_heroku_apps")
-    markup.add(button1, button2)
+    markup.add(button1)
+    markup.add(button2)
     return markup
 
-# دالة لمعالجة الطلبات الواردة
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_button())
 
-# دالة لجلب تطبيقات هيروكو
+
 def list_heroku_apps(message):
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
     if response.status_code == 200:
