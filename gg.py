@@ -93,12 +93,24 @@ def handle_app_name_for_deletion(message):
     if validate_heroku_app(app_name):
         delete_heroku_app(app_name, message)
     else:
-        bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')# الحذف الذاتي
+        bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
+
+# الحذف الذاتي
+def handle_app_name_for_self_deletion(message):
+    app_name = message.text.strip()
+    if validate_herdef validate_heroku_app(app_name):
+    response = requests.get(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
+    return response.status_code == 200
+
+# الحذف الذاتي
 def handle_app_name_for_self_deletion(message):
     app_name = message.text.strip()
     if validate_heroku_app(app_name):
-        msg = bot.send_message(message.chat.id, "يرجى إدخال الوقت المطلوب بالدقائق لحذف التطبيق:")
-        bot.register_next_step_handler(msg, lambda m: handle_self_deletion_time(m, app_name))
+        if app_name in self_deleting_apps:
+            bot.send_message(message.chat.id, f"تم وضع التطبيق `{app_name}` مسبقًا في قائمة الحذف الذاتي.", parse_mode='Markdown')
+        else:
+            msg = bot.send_message(message.chat.id, "يرجى إدخال الوقت المطلوب بالدقائق لحذف التطبيق:")
+            bot.register_next_step_handler(msg, lambda m: handle_self_deletion_time(m, app_name))
     else:
         bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
 
