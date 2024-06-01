@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 import pytz  # استيراد مكتبة pytz
 
 # استيراد توكن البوت من المتغيرات البيئية
-bot_token = os.getenv("BOT_TOKEN", "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20")
-heroku_api_key = os.getenv("HEROKU_API_KEY", "HRKU-bffcce5a-db84-4c17-97ed-160f04745271")  # مفتاح API الخاص بـ Heroku
+bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20")
+heroku_api_key = "HRKU-bffcce5a-db84-4c17-97ed-160f04745271")  # مفتاح API الخاص بـ Heroku
 
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
