@@ -2,37 +2,37 @@ import os
 import telebot
 import requests
 
-
+# استيراد توكن البوت من المتغيرات البيئية
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
 heroku_api_key = "HRKU-bffcce5a-db84-4c17-97ed-160f04745271"  # مفتاح API الخاص بـ Heroku
 
-
+# إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
 
-
+# الهيروكو API
 HEROKU_BASE_URL = 'https://api.heroku.com'
 HEROKU_HEADERS = {
     'Authorization': f'Bearer {heroku_api_key}',
     'Accept': 'application/vnd.heroku+json; version=3'
 }
 
-
+# دالة لإنشاء الأزرار وتخصيصها
 def create_button():
     markup = telebot.types.InlineKeyboardMarkup()
     button1 = telebot.types.InlineKeyboardButton("اضغط هنا", callback_data="show_id1")
     button2 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو", callback_data="list_heroku_apps")
-    button3 = telebot.types.InlineKeyboardButton("وضع الصيانه", callback_data="maintenance_mode")
+    button3 = telebot.types.InlineKeyboardButton("وضع الصيانة", callback_data="maintenance_mode")
     markup.add(button1)
     markup.add(button2)
     markup.add(button3)
     return markup
 
-
+# دالة لمعالجة الطلبات الواردة
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_button())
 
-
+# دالة لجلب تطبيقات هيروكو
 def list_heroku_apps(message):
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
     if response.status_code == 200:
@@ -50,19 +50,17 @@ def callback_query(call):
         bot.send_message(call.message.chat.id, f"معرف المستخدم هو: `{user_id}`", parse_mode='Markdown')
     elif call.data == "list_heroku_apps":
         list_heroku_apps(call.message)
+    elif call.data == "maintenance_mode":
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لوضعه في وضع الصيانة:")
+        bot.register_next_step_handler(msg, handle_app_name)
 
-elif call.data == "maintenance_mode":
-        bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لوضعه في وضع الصيانة:")
-
-# دالة لمعالجة رسائل النصية
-@bot.message_handler(func=lambda message: True)
-def handle_text(message):
-    if message.reply_to_message and "يرجى إرسال اسم التطبيق لوضعه في وضع الصيانة:" in message.reply_to_message.text:
-        app_name = message.text.strip()
-        if validate_heroku_app(app_name):
-            set_maintenance_mode(app_name, message)
-        else:
-            bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
+# دالة لمعالجة اسم التطبيق المستلم
+def handle_app_name(message):
+    app_name = message.text.strip()
+    if validate_heroku_app(app_name):
+        set_maintenance_mode(app_name, message)
+    else:
+        bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
 
 # دالة للتحقق من صحة اسم التطبيق
 def validate_heroku_app(app_name):
