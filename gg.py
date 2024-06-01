@@ -21,8 +21,10 @@ def create_button():
     markup = telebot.types.InlineKeyboardMarkup()
     button1 = telebot.types.InlineKeyboardButton("اضغط هنا", callback_data="show_id1")
     button2 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو", callback_data="list_heroku_apps")
+    button3 = telebot.types.InlineKeyboardButton("وضع الصيانه", callback_data="maintenance_mode")
     markup.add(button1)
     markup.add(button2)
+    markup.add(button3)
     return markup
 
 
@@ -48,6 +50,32 @@ def callback_query(call):
         bot.send_message(call.message.chat.id, f"معرف المستخدم هو: `{user_id}`", parse_mode='Markdown')
     elif call.data == "list_heroku_apps":
         list_heroku_apps(call.message)
+
+elif call.data == "maintenance_mode":
+        bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لوضعه في وضع الصيانة:")
+
+# دالة لمعالجة رسائل النصية
+@bot.message_handler(func=lambda message: True)
+def handle_text(message):
+    if message.reply_to_message and "يرجى إرسال اسم التطبيق لوضعه في وضع الصيانة:" in message.reply_to_message.text:
+        app_name = message.text.strip()
+        if validate_heroku_app(app_name):
+            set_maintenance_mode(app_name, message)
+        else:
+            bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
+
+# دالة للتحقق من صحة اسم التطبيق
+def validate_heroku_app(app_name):
+    response = requests.get(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
+    return response.status_code == 200
+
+# دالة لوضع التطبيق في وضع الصيانة
+def set_maintenance_mode(app_name, message):
+    response = requests.patch(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS, json={'maintenance': True})
+    if response.status_code == 200:
+        bot.send_message(message.chat.id, f"تم وضع التطبيق `{app_name}` في وضع الصيانة.", parse_mode='Markdown')
+    else:
+        bot.send_message(message.chat.id, "حدث خطأ أثناء وضع التطبيق في وضع الصيانة.")
 
 # التشغيل
 if __name__ == "__main__":
