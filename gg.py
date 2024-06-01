@@ -145,7 +145,7 @@ def show_remaining_time(call):
             remaining_time_message += f"- {app_name}:\n  الوقت المتبقي: {format_remaining_time(minutes)}\n  تاريخ الحذف: {calculate_deletion_time(minutes)}\n"
         else:
             remaining_time_message += f"- {app_name}: تم حذفه."
-    bot.edit_message_text(remaining_time_message, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown')
+    bot.edit_message_text(remaining_time_message, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
 # تنسيق الوقت المتبقي
 def format_remaining_time(minutes):
