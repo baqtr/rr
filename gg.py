@@ -152,4 +152,4 @@ def calculate_deletion_time(minutes):
 
 # التشغيل
 if __name__ == "__main__":
-    bot.polling() 
+    bot.polling()
