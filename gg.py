@@ -3,6 +3,7 @@ import telebot
 import requests
 import threading
 import time
+from datetime import datetime, timedelta
 
 # استيراد توكن البوت من المتغيرات البيئية
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
@@ -135,9 +136,20 @@ def delete_heroku_app(app_name, message):
 def show_remaining_time(call):
     remaining_time_message = "التطبيقات المجدولة للحذف الذاتي:\n"
     for app_name, minutes in self_deleting_apps.items():
-        remaining_time_message += f"- `{app_name}`: {minutes} دقيقة\n"
+        remaining_time_message += f"- {app_name}:\n  الوقت المتبقي: {format_remaining_time(minutes)}\n  تاريخ الحذف: {calculate_deletion_time(minutes)}\n"
     bot.send_message(call.message.chat.id, remaining_time_message, parse_mode='Markdown')
+
+# تنسيق الوقت المتبقي
+def format_remaining_time(minutes):
+    delta = timedelta(minutes=minutes)
+    return str(delta)
+
+# حساب وقت الحذف
+def calculate_deletion_time(minutes):
+    now = datetime.now()
+    deletion_time = now + timedelta(minutes=minutes)
+    return deletion_time.strftime("%Y-%m-%d %H:%M:%S")
 
 # التشغيل
 if __name__ == "__main__":
-    bot.polling()
+    bot.polling() 
