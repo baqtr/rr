@@ -7,32 +7,39 @@ from datetime import datetime, timedelta
 import pytz  # استيراد مكتبة pytz
 
 # استيراد توكن البوت من المتغيرات البيئية
-bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
+bot_token = os.getenv("BOT_TOKEN", "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20")
+heroku_api_key = os.getenv("HEROKU_API_KEY", "HRKU-bffcce5a-db84-4c17-97ed-160f04745271")  # مفتاح API الخاص بـ Heroku
+
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
 
-# قاعدة بيانات مؤقتة لتخزين حسابات المستخدمين
-user_accounts = {}
+# الهيروكو API
+HEROKU_BASE_URL = 'https://api.heroku.com'
+HEROKU_HEADERS = {
+    'Authorization': f'Bearer {heroku_api_key}',
+    'Accept': 'application/vnd.heroku+json; version=3'
+}
 
 # قائمة التطبيقات المجدولة للحذف الذاتي
 self_deleting_apps = {}
 
-# دالة لإنشاء الأزرار وتخصيصها
-def create_main_buttons():
-    markup = telebot.types.InlineKeyboardMarkup()
-    button1 = telebot.types.InlineKeyboardButton("إضافة حساب 🆕", callback_data="add_account")
-    button2 = telebot.types.InlineKeyboardButton("حساباتك 🔐", callback_data="list_accounts")
-    markup.add(button1, button2)
-    return markup
+# تخزين حسابات المستخدم
+user_accounts = {}
 
-def create_action_buttons():
+# دالة لإنشاء الأزرار وتخصيصها
+def create_button():
     markup = telebot.types.InlineKeyboardMarkup()
-    button1 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو 📦", callback_data="list_heroku_apps")
-    button2 = telebot.types.InlineKeyboardButton("حذف تطبيق ❌", callback_data="delete_app")
-    button3 = telebot.types.InlineKeyboardButton("الحذف الذاتي ⏲️", callback_data="self_delete_app")
-    button4 = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
+    button1 = telebot.types.InlineKeyboardButton("إضافة حساب ➕", callback_data="add_account")
+    button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
+    button3 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو 📦", callback_data="list_heroku_apps")
+    button4 = telebot.types.InlineKeyboardButton("حذف تطبيق ❌", callback_data="delete_app")
+    button5 = telebot.types.InlineKeyboardButton("الحذف الذاتي ⏲️", callback_data="self_delete_app")
+    button6 = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
     markup.add(button1, button2)
-    markup.add(button3, button4)
+    markup.add(button3)
+    markup.add(button4)
+    markup.add(button5)
+    markup.add(button6)
     return markup
 
 # دالة لإنشاء زر العودة
@@ -45,53 +52,64 @@ def create_back_button():
 # دالة لمعالجة الطلبات الواردة
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_main_buttons())
+    user_id = message.from_user.id
+    if user_id not in user_accounts:
+        user_accounts[user_id] = []
+    bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_button())
 
 # دالة لإضافة حساب جديد
 def add_account(call):
-    msg = bot.edit_message_text("يرجى إرسال مفتاح API الخاص بحسابك في هيروكو:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+    msg = bot.edit_message_text("يرجى إرسال مفتاح API الخاص بحساب Heroku:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
     bot.register_next_step_handler(msg, handle_new_account)
 
 def handle_new_account(message):
     api_key = message.text.strip()
-    response = requests.get('https://api.heroku.com/account', headers={'Authorization': f'Bearer {api_key}', 'Accept': 'application/vnd.heroku+json; version=3'})
-    if response.status_code == 200:
-        account_info = response.json()
-        user_id = message.from_user.id
-        if user_id not in user_accounts:
-            user_accounts[user_id] = []
-        user_accounts[user_id].append({'api_key': api_key, 'email': account_info['email']})
-        bot.send_message(message.chat.id, f"تمت إضافة الحساب بنجاح: {account_info['email']}", reply_markup=create_main_buttons())
+    user_id = message.from_user.id
+    if validate_heroku_api_key(api_key):
+        user_accounts[user_id].append({'api_key': api_key})
+        bot.send_message(message.chat.id, "تمت إضافة حساب Heroku بنجاح!", reply_markup=create_button())
     else:
-        bot.send_message(message.chat.id, "مفتاح API غير صحيح، يرجى المحاولة مرة أخرى.", reply_markup=create_back_button())
+        bot.send_message(message.chat.id, "مفتاح API غير صحيح. يرجى المحاولة مرة أخرى.", reply_markup=create_button())
 
-# دالة لعرض حسابات المستخدم
+# التحقق من صحة مفتاح API
+def validate_heroku_api_key(api_key):
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Accept': 'application/vnd.heroku+json; version=3'
+    }
+    response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
+    return response.status_code == 200
+
+# عرض حسابات المستخدم
 def list_accounts(call):
     user_id = call.from_user.id
     if user_id in user_accounts and user_accounts[user_id]:
-        accounts_list = "\n".join([f"{i+1}. {account['email']}" for i, account in enumerate(user_accounts[user_id])])
-        bot.edit_message_text(f"حساباتك:\n{accounts_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_buttons(user_id))
+        accounts_list = "\n".join([f"`{account['api_key']}`" for account in user_accounts[user_id]])
+        bot.edit_message_text(f"حساباتك:\n{accounts_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
     else:
-        bot.edit_message_text("لا توجد حسابات مضافة.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
-
-def create_account_buttons(user_id):
-    markup = telebot.types.InlineKeyboardMarkup()
-    for i, account in enumerate(user_accounts[user_id]):
-        button = telebot.types.InlineKeyboardButton(account['email'], callback_data=f"select_account_{i}")
-        markup.add(button)
-    back_button = telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back")
-    markup.add(back_button)
-    return markup
-
-def select_account(call):
-    user_id = call.from_user.id
-    account_index = int(call.data.split('_')[-1])
-    account = user_accounts[user_id][account_index]
-    HEROKU_HEADERS['Authorization'] = f'Bearer {account["api_key"]}'
-    bot.edit_message_text(f"تم اختيار الحساب: {account['email']}\nاختر الإجراء المطلوب:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_action_buttons())
+        bot.edit_message_text("لا توجد حسابات مضافة.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
 
 # دالة لجلب تطبيقات هيروكو
 def list_heroku_apps(call):
+    user_id = call.from_user.id
+    if not user_accounts[user_id]:
+        bot.edit_message_text("لا توجد حسابات مضافة. يرجى إضافة حساب أولاً.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+        return
+
+    bot.edit_message_text("يرجى اختيار الحساب:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_selection_buttons(user_id))
+
+def create_account_selection_buttons(user_id):
+    markup = telebot.types.InlineKeyboardMarkup()
+    for index, account in enumerate(user_accounts[user_id]):
+        markup.add(telebot.types.InlineKeyboardButton(f"حساب {index+1}", callback_data=f"select_account_{index}"))
+    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
+    return markup
+
+def select_account(call):
+    account_index = int(call.data.split("_")[-1])
+    user_id = call.from_user.id
+    selected_account = user_accounts[user_id][account_index]
+    HEROKU_HEADERS['Authorization'] = f'Bearer {selected_account["api_key"]}'
     bot.edit_message_text("جلب التطبيقات... ⬛⬜ 0%", chat_id=call.message.chat.id, message_id=call.message.message_id)
     time.sleep(2)
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=HEROKU_HEADERS)
@@ -124,7 +142,7 @@ def callback_query(call):
     elif call.data == "remaining_time":
         show_remaining_time(call)
     elif call.data == "go_back":
-        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
+        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_button())
 
 # الحذف
 def handle_app_name_for_deletion(message):
@@ -146,7 +164,7 @@ def handle_app_name_for_self_deletion(message):
         if app_name in self_deleting_apps:
             bot.send_message(message.chat.id, f"تم وضع التطبيق `{app_name}` مسبقًا في قائمة الحذف الذاتي.", parse_mode='Markdown')
         else:
-            msg = bot.send_message(message.chat.id, "يرجى إدخال الوقت المطلوب بالدقائق لحذف التطبيق:")
+            msg = bot.send_message(message.chat.id,msg = bot.send_message(message.chat.id, "يرجى إدخال الوقت المطلوب بالدقائق لحذف التطبيق:")
             bot.register_next_step_handler(msg, lambda m: handle_self_deletion_time(m, app_name))
     else:
         bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
@@ -211,4 +229,4 @@ def calculate_deletion_time(minutes):
 
 # التشغيل
 if __name__ == "__main__":
-    bot.polling() 
+    bot.polling()
