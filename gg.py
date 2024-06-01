@@ -147,6 +147,9 @@ def format_remaining_time(minutes):
 # حساب وقت الحذف
 def calculate_deletion_time(minutes):
     now = datetime.now()
+    # تحديد التوقيت لمنطقة العراق
+    iraq_timezone = pytz.timezone('Asia/Baghdad')
+    now = datetime.now(iraq_timezone)
     deletion_time = now + timedelta(minutes=minutes)
     return deletion_time.strftime("%Y-%m-%d %H:%M:%S")
 
