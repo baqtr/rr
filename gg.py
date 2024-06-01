@@ -24,11 +24,11 @@ self_deleting_apps = {}
 # دالة لإنشاء الأزرار وتخصيصها
 def create_button():
     markup = telebot.types.InlineKeyboardMarkup()
-    button1 = telebot.types.InlineKeyboardButton("اضغط هنا", callback_data="show_id1")
-    button2 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو", callback_data="list_heroku_apps")
-    button3 = telebot.types.InlineKeyboardButton("حذف تطبيق", callback_data="delete_app")
-    button4 = telebot.types.InlineKeyboardButton("الحذف الذاتي", callback_data="self_delete_app")
-    button5 = telebot.types.InlineKeyboardButton("الوقت المتبقي للحذف الذاتي", callback_data="remaining_time")
+    button1 = telebot.types.InlineKeyboardButton("اضغط هنا 😊", callback_data="show_id1")
+    button2 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو 📦", callback_data="list_heroku_apps")
+    button3 = telebot.types.InlineKeyboardButton("حذف تطبيق ❌", callback_data="delete_app")
+    button4 = telebot.types.InlineKeyboardButton("الحذف الذاتي ⏲️", callback_data="self_delete_app")
+    button5 = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
     markup.add(button1)
     markup.add(button2)
     markup.add(button3)
@@ -39,7 +39,7 @@ def create_button():
 # دالة لإنشاء زر العودة
 def create_back_button():
     markup = telebot.types.InlineKeyboardMarkup()
-    back_button = telebot.types.InlineKeyboardButton("العودة", callback_data="go_back")
+    back_button = telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back")
     markup.add(back_button)
     return markup
 
@@ -97,7 +97,7 @@ def handle_app_name_for_deletion(message):
 def handle_app_name_for_self_deletion(message):
     app_name = message.text.strip()
     if validate_heroku_app(app_name):
-        msg = bot.send_message(message.chat.id, "يرجى إدخال الوقت المطلووقت بالدقائق لحذف التطبيق:")
+        msg = bot.send_message(message.chat.id, "يرجى إدخال الوقت المطلوب بالدقائق لحذف التطبيق:")
         bot.register_next_step_handler(msg, lambda m: handle_self_deletion_time(m, app_name))
     else:
         bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
@@ -116,19 +116,18 @@ def handle_self_deletion_time(message, app_name):
         self_deleting_apps[app_name] = minutes
         bot.send_message(message.chat.id, f"سيتم حذف التطبيق `{app_name}` بعد {minutes} دقيقة.")
         # بدء عملية الحذف الذاتي
-        threading.Timer(minutes * 60, delete_heroku_app_and_update_button, args=[app_name, message]).start()
+        threading.Timer(minutes * 60, delete_heroku_app, args=[app_name, message]).start()
     except ValueError:
         bot.send_message(message.chat.id, "الرجاء إدخال عدد صحيح إيجابي للدقائق.")
 
-# حذف التطبيق وتحديث زر الحذف الذاتي
-def delete_heroku_app_and_update_button(app_name, message):
+# حذف التطبيق
+def delete_heroku_app(app_name, message):
     response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
     if response.status_code == 202:
         bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح.", parse_mode='Markdown')
-        # إزالة التطبيق من قائمة التطبيقات المجدولة للحذف الذاتي
-        del self_deleting_apps[app_name]
-        # تحديث زر الوقت المتبقي للحذف الذاتي
-        show_remaining_time(message)
+        # إزالة التطبيق من قائمة الحذف الذاتي
+        if app_name in self_deleting_apps:
+            del self_deleting_apps[app_name]
     else:
         bot.send_message(message.chat.id, "حدث خطأ أثناء محاولة حذف التطبيق.")
 
@@ -137,8 +136,6 @@ def show_remaining_time(call):
     remaining_time_message = "التطبيقات المجدولة للحذف الذاتي:\n"
     for app_name, minutes in self_deleting_apps.items():
         remaining_time_message += f"- `{app_name}`: {minutes} دقيقة\n"
-    if remaining_time_message == "التطبيقات المجدولة للحذف الذاتي:\n":
-        remaining_time_message += "لا يوجد تطبيقات مجدولة للحذف الذاتي."
     bot.send_message(call.message.chat.id, remaining_time_message, parse_mode='Markdown')
 
 # التشغيل
