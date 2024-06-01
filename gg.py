@@ -154,7 +154,7 @@ def show_remaining_time(call):
             remaining_time_message += f"- {app_name}:\n  الوقت المتبقي: {format_remaining_time(minutes)}\n  تاريخ الحذف: {calculate_deletion_time(minutes)}\n"
         else:
             remaining_time_message += f"- {app_name}: تم حذفه."
-    bot.edit_message_text(remaining_time_message, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown')
+    bot.edit_message_text(remaining_timeremaining_time_message += "،", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown')
 
 # تنسيق الوقت المتبقي
 def format_remaining_time(minutes):
@@ -167,7 +167,8 @@ def format_remaining_time(minutes):
 def calculate_deletion_time(minutes):
     iraq_timezone = pytz.timezone('Asia/Baghdad')
     now = datetime.now(iraq_timezone)
-    deletion_time = now + timedelta(minutes=minutes)return deletion_time.strftime("%I:%M %p - %Y-%m-%d")
+    deletion_time = now + timedelta(minutes=minutes)
+    return deletion_time.strftime("%I:%M %p - %Y-%m-%d")
 
 # التشغيل
 if __name__ == "__main__":
