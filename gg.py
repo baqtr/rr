@@ -114,11 +114,6 @@ def handle_app_name_for_self_deletion(message):
     else:
         bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
 
-# تحقق من صحة اسم التطبيق
-def validate_heroku_app(app_name):
-    response = requests.get(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
-    return response.status_code == 200
-
 # الحذف الذاتي
 def handle_self_deletion_time(message, app_name):
     try:
