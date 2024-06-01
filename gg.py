@@ -146,16 +146,16 @@ def show_remaining_time(call):
 # تنسيق الوقت المتبقي
 def format_remaining_time(minutes):
     delta = timedelta(minutes=minutes)
-    return str(delta)
+    hours, remainder = divmod(delta.seconds, 3600)
+    minutes = remainder // 60
+    return f"{hours} ساعة و{minutes} دقيقة"
 
 # حساب وقت الحذف
 def calculate_deletion_time(minutes):
-    now = datetime.now()
-    # تحديد التوقيت لمنطقة العراق
     iraq_timezone = pytz.timezone('Asia/Baghdad')
     now = datetime.now(iraq_timezone)
     deletion_time = now + timedelta(minutes=minutes)
-    return deletion_time.strftime("%Y-%m-%d %H:%M:%S")
+    return deletion_time.strftime("%I:%M %p - %Y-%m-%d")
 
 # التشغيل
 if __name__ == "__main__":
