@@ -119,29 +119,42 @@ def handle_self_deletion_time(message, app_name):
         if minutes <= 0:
             raise ValueError
         self_deleting_apps[app_name] = minutes
-        bot.send_message(message.chat.id, f"سيتم حذف التطبيق `{app_name}` بعد {minutes} دقيقة.")
+        bot.send_message(message.chat.id, f"سيتم حذف التطبيق `{app_name}` بعد {minutes} دقيقة.\n", reply_markup=create_remaining_time_button())
         # بدء عملية الحذف الذاتي
-        threading.Timer(minutes * 60, delete_heroku_app, args=[app_name, message]).start()
+        threading.Timer(minutes * 60, lambda: delete_and_remove_app(app_name, message)).start()
     except ValueError:
         bot.send_message(message.chat.id, "الرجاء إدخال عدد صحيح إيجابي للدقائق.")
+
+# زر عرض الوقت المتبقي
+def create_remaining_time_button():
+    markup = telebot.types.InlineKeyboardMarkup()
+    button = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
+    markup.add(button)
+    return markup
+
+# حذف التطبيق وإزالته من القائمة
+def delete_and_remove_app(app_name, message):
+    delete_heroku_app(app_name, message)
+    if app_name in self_deleting_apps:
+        del self_deleting_apps[app_name]
 
 # حذف التطبيق
 def delete_heroku_app(app_name, message):
     response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
     if response.status_code == 202:
         bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح.", parse_mode='Markdown')
-        # إزالة التطبيق من قائمة الحذف الذاتي
-        if app_name in self_deleting_apps:
-            del self_deleting_apps[app_name]
     else:
         bot.send_message(message.chat.id, "حدث خطأ أثناء محاولة حذف التطبيق.")
 
 # عرض الوقت المتبقي للحذف الذاتي
 def show_remaining_time(call):
     remaining_time_message = "التطبيقات المجدولة للحذف الذاتي:\n"
-    for app_name, minutes in self_deleting_apps.items():
-        remaining_time_message += f"- {app_name}:\n  الوقت المتبقي: {format_remaining_time(minutes)}\n  تاريخ الحذف: {calculate_deletion_time(minutes)}\n"
-    bot.send_message(call.message.chat.id, remaining_time_message, parse_mode='Markdown')
+    for app_name, minutes in list(self_deleting_apps.items()):
+        if app_name in self_deleting_apps:
+            remaining_time_message += f"- {app_name}:\n  الوقت المتبقي: {format_remaining_time(minutes)}\n  تاريخ الحذف: {calculate_deletion_time(minutes)}\n"
+        else:
+            remaining_time_message += f"- {app_name}: تم حذفه."
+    bot.edit_message_text(remaining_time_message, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown')
 
 # تنسيق الوقت المتبقي
 def format_remaining_time(minutes):
@@ -154,8 +167,7 @@ def format_remaining_time(minutes):
 def calculate_deletion_time(minutes):
     iraq_timezone = pytz.timezone('Asia/Baghdad')
     now = datetime.now(iraq_timezone)
-    deletion_time = now + timedelta(minutes=minutes)
-    return deletion_time.strftime("%I:%M %p - %Y-%m-%d")
+    deletion_time = now + timedelta(minutes=minutes)return deletion_time.strftime("%I:%M %p - %Y-%m-%d")
 
 # التشغيل
 if __name__ == "__main__":
