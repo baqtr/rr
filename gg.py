@@ -95,10 +95,8 @@ def handle_app_name_for_deletion(message):
     else:
         bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
 
-# الحذف الذاتي
-def handle_app_name_for_self_deletion(message):
-    app_name = message.text.strip()
-    if validate_herdef validate_heroku_app(app_name):
+# تحقق من صحة اسم التطبيق
+def validate_heroku_app(app_name):
     response = requests.get(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=HEROKU_HEADERS)
     return response.status_code == 200
 
