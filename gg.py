@@ -4,6 +4,7 @@ import requests
 import threading
 import time
 from datetime import datetime, timedelta
+import pytz  # استيراد مكتبة pytz
 
 # استيراد توكن البوت من المتغيرات البيئية
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
@@ -92,9 +93,7 @@ def handle_app_name_for_deletion(message):
     if validate_heroku_app(app_name):
         delete_heroku_app(app_name, message)
     else:
-        bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
-
-# الحذف الذاتي
+        bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')# الحذف الذاتي
 def handle_app_name_for_self_deletion(message):
     app_name = message.text.strip()
     if validate_heroku_app(app_name):
