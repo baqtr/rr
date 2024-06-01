@@ -4,7 +4,7 @@ import requests
 import threading
 import time
 from datetime import datetime, timedelta
-import pytz  # استيراد مكتبة pytz
+import pytz
 
 # استيراد توكن البوت من المتغيرات البيئية
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
@@ -26,15 +26,7 @@ def create_button():
     markup = telebot.types.InlineKeyboardMarkup()
     button1 = telebot.types.InlineKeyboardButton("إضافة حساب ➕", callback_data="add_account")
     button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
-    button3 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو 📦", callback_data="list_heroku_apps")
-    button4 = telebot.types.InlineKeyboardButton("حذف تطبيق ❌", callback_data="delete_app")
-    button5 = telebot.types.InlineKeyboardButton("الحذف الذاتي ⏲️", callback_data="self_delete_app")
-    button6 = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
     markup.add(button1, button2)
-    markup.add(button3)
-    markup.add(button4)
-    markup.add(button5)
-    markup.add(button6)
     return markup
 
 # دالة لإنشاء زر العودة
@@ -42,6 +34,20 @@ def create_back_button():
     markup = telebot.types.InlineKeyboardMarkup()
     back_button = telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back")
     markup.add(back_button)
+    return markup
+
+# دالة لإنشاء أزرار التحكم بالحسابات
+def create_account_control_buttons(account_index):
+    markup = telebot.types.InlineKeyboardMarkup()
+    button1 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو 📦", callback_data=f"list_heroku_apps_{account_index}")
+    button2 = telebot.types.InlineKeyboardButton("حذف تطبيق ❌", callback_data=f"delete_app_{account_index}")
+    button3 = telebot.types.InlineKeyboardButton("الحذف الذاتي ⏲️", callback_data=f"self_delete_app_{account_index}")
+    button4 = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
+    markup.add(button1)
+    markup.add(button2)
+    markup.add(button3)
+    markup.add(button4)
+    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="list_accounts"))
     return markup
 
 # دالة لمعالجة الطلبات الواردة
@@ -79,33 +85,25 @@ def validate_heroku_api_key(api_key):
 def list_accounts(call):
     user_id = call.from_user.id
     if user_id in user_accounts and user_accounts[user_id]:
-        accounts_list = "\n".join([f"`{account['api_key']}`" for account in user_accounts[user_id]])
-        bot.edit_message_text(f"حساباتك:\n{accounts_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
+        accounts_list = "\n".join([f"حساب {index + 1}: `{account['api_key'][:4]}****`" for index, account in enumerate(user_accounts[user_id])])
+        markup = telebot.types.InlineKeyboardMarkup()
+        for index in range(len(user_accounts[user_id])):
+            markup.add(telebot.types.InlineKeyboardButton(f"حساب {index + 1}", callback_data=f"select_account_{index}"))
+        markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
+        bot.edit_message_text(f"حساباتك:\n{accounts_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup, parse_mode='Markdown')
     else:
         bot.edit_message_text("لا توجد حسابات مضافة.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
 
 # دالة لجلب تطبيقات هيروكو
 def list_heroku_apps(call):
+    account_index = int(call.data.split("_")[-1])
     user_id = call.from_user.id
     if not user_accounts[user_id]:
         bot.edit_message_text("لا توجد حسابات مضافة. يرجى إضافة حساب أولاً.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
         return
 
-    bot.edit_message_text("يرجى اختيار الحساب:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_selection_buttons(user_id))
-
-def create_account_selection_buttons(user_id):
-    markup = telebot.types.InlineKeyboardMarkup()
-    for index, account in enumerate(user_accounts[user_id]):
-        markup.add(telebot.types.InlineKeyboardButton(f"حساب {index+1}", callback_data=f"select_account_{index}"))
-    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
-    return markup
-
-def select_account(call):
-    account_index = int(call.data.split("_")[-1])
-    user_id = call.from_user.id
-    selected_account = user_accounts[user_id][account_index]
     headers = {
-        'Authorization': f'Bearer {selected_account["api_key"]}',
+        'Authorization': f'Bearer {user_accounts[user_id][account_index]["api_key"]}',
         'Accept': 'application/vnd.heroku+json; version=3'
     }
     bot.edit_message_text("جلب التطبيقات... ⬛⬜ 0%", chat_id=call.message.chat.id, message_id=call.message.message_id)
@@ -128,33 +126,34 @@ def callback_query(call):
     elif call.data == "list_accounts":
         list_accounts(call)
     elif call.data.startswith("select_account_"):
-        select_account(call)
-    elif call.data == "list_heroku_apps":
+        account_index = int(call.data.split("_")[-1])
+        bot.edit_message_text(f"إدارة حساب {account_index + 1}:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_control_buttons(account_index))
+    elif call.data.startswith("list_heroku_apps_"):
         list_heroku_apps(call)
-    elif call.data == "delete_app":
+    elif call.data.startswith("delete_app_"):
+        account_index = int(call.data.split("_")[-1])
         msg = bot.edit_message_text("يرجى إرسال اسم التطبيق لحذفه:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
-        bot.register_next_step_handler(msg, handle_app_name_for_deletion)
-    elif call.data == "self_delete_app":
+        bot.register_next_step_handler(msg, lambda m: handle_app_name_for_deletion(m, account_index))
+    elif call.data.startswith("self_delete_app_"):
+        account_index = int(call.data.split("_")[-1])
         msg = bot.edit_message_text("يرجى إرسال اسم التطبيق للحذف الذاتي:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
-        bot.register_next_step_handler(msg, handle_app_name_for_self_deletion)
+        bot.register_next_step_handler(msg, lambda m: handle_app_name_for_self_deletion(m, account_index))
     elif call.data == "remaining_time":
         show_remaining_time(call)
     elif call.data == "go_back":
         bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_button())
 
 # الحذف
-def handle_app_name_for_deletion(message):
+def handle_app_name_for_deletion(message, account_index):
     app_name = message.text.strip()
     user_id = message.from_user.id
-    account_index = get_selected_account_index(user_id)
-    if validate_heroku_app(app_name, account_index):
+    if validate_heroku_app(app_name, account_index, user_id):
         delete_heroku_app(app_name, message, account_index)
     else:
         bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
 
 # تحقق من صحة اسم التطبيق
-def validate_heroku_app(app_name, account_index):
-    user_id = message.from_user.id
+def validate_heroku_app(app_name, account_index, user_id):
     headers = {
         'Authorization': f'Bearer {user_accounts[user_id][account_index]["api_key"]}',
         'Accept': 'application/vnd.heroku+json; version=3'
@@ -163,11 +162,10 @@ def validate_heroku_app(app_name, account_index):
     return response.status_code == 200
 
 # الحذف الذاتي
-def handle_app_name_for_self_deletion(message):
+def handle_app_name_for_self_deletion(message, account_index):
     app_name = message.text.strip()
     user_id = message.from_user.id
-    account_index = get_selected_account_index(user_id)
-    if validate_heroku_app(app_name, account_index):
+    if validate_heroku_app(app_name, account_index,user_id):
         if app_name in self_deleting_apps:
             bot.send_message(message.chat.id, f"تم وضع التطبيق `{app_name}` مسبقًا في قائمة الحذف الذاتي.", parse_mode='Markdown')
         else:
@@ -241,9 +239,6 @@ def calculate_deletion_time(minutes):
 
 # الحصول على فهرس الحساب المحدد
 def get_selected_account_index(user_id):
-    # هنا يمكنك تنفيذ منطق لتحديد أي حساب يجب استخدامه
-    # على سبيل المثال، يمكن استخدام فهرس حساب افتراضي أو طلب المستخدم لاختياره
-    # في هذه الحالة، سأفترض أن الحساب الأول هو الافتراضي
     return 0
 
 # التشغيل
