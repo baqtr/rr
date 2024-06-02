@@ -197,6 +197,8 @@ def callback_query(call):
     elif call.data == "delete_repo":
         msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم المستودع لحذفه.")
         bot.register_next_step_handler(msg, handle_repo_deletion)
+        elif call.data == "user_count":
+        bot.answer_callback_query(call.id, f"عدد المستخدمين الكلي: {len(users)}")
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
 
