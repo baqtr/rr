@@ -13,18 +13,11 @@ import pytz
 # استيراد توكن البوت من المتغيرات البيئية
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
 
-github_token = "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"
-
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
 
 # الهيروكو API
 HEROKU_BASE_URL = 'https://api.heroku.com'
-
-GITHUB_BASE_URL = 'https://api.github.com'
-GITHUB_HEADERS = {
-    'Authorization': f'token {github_token}',
-    'Accept': 'application/vnd.github.v3+json'
 
 # قائمة التطبيقات المجدولة للحذف الذاتي
 self_deleting_apps = {}
@@ -46,14 +39,10 @@ def create_github_control_buttons():
     markup = telebot.types.InlineKeyboardMarkup()
     delete_all_button = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
     delete_repo_button = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
-    list_repos_button = telebot.types.InlineKeyboardButton('عرض مستودعات GitHub', callback_data='list_github_repos')
     upload_file_button = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
-    
-    # وضع الأزرار في صفوف مناسبة
     markup.row(delete_all_button, delete_repo_button)
-    markup.row(list_repos_button, upload_file_button)
+    markup.row(upload_file_button)
     markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
-    
     return markup
 # دالة لإنشاء زر العودة
 def create_back_button():
@@ -279,74 +268,6 @@ def calculate_deletion_time(minutes):
     now = datetime.now(iraq_timezone)
     deletion_time = now + timedelta(minutes=minutes)
     return deletion_time.strftime("%I:%M %p - %Y-%m-%d")
-
-# دالة لمعالجة رفع الملف
-def upload_file(call):
-    msg = bot.edit_message_text("يرجى إرسال ملف مضغوط بصيغة zip:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
-    bot.register_next_step_handler(msg, handle_uploaded_file)
-
-# دالة لمعالجة الملف المرفوع
-def handle_uploaded_file(message):
-    if message.content_type != 'document' or not message.document.mime_type == 'application/zip':
-        bot.send_message(message.chat.id, "الرجاء إرسال ملف مضغوط بصيغة zip فقط.")
-        return
-    
-    file_info = bot.get_file(message.document.file_id)
-    downloaded_file = bot.download_file(file_info.file_path)
-    file_name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-    zip_file_path = f"{file_name}.zip"
-    
-    with open(zip_file_path, 'wb') as file:
-        file.write(downloaded_file)
-
-    # فك ضغط الملف
-    extracted_folder_path = f"extracted_{file_name}"
-    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-        zip_ref.extractall(extracted_folder_path)
-    
-    # حساب عدد الملفات
-    num_files = sum([len(files) for r, d, files in os.walk(extracted_folder_path)])
-
-    # إنشاء مستودع جديد ورفع الملفات
-    repo_name = f"repo_{file_name}"
-    os.system(f"git init {extracted_folder_path}")
-    os.system(f"cd {extracted_folder_path} && git add . && git commit -m 'Initial commit'")
-    os.system(f"cd {extracted_folder_path} && gh repo create {repo_name} --private --source=. --remote=origin")
-
-    # إزالة الملفات المؤقتة
-    os.remove(zip_file_path)
-    shutil.rmtree(extracted_folder_path)
-    
-    bot.send_message(message.chat.id, f"تم إنشاء المستودع بنجاح!\nاسم المستودع: `{repo_name}`\nعدد الملفات: {num_files}", parse_mode='Markdown', reply_markup=create_github_control_buttons())
-
-# تعديل دالة callback_query لإضافة الحالة الجديدة
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    if call.data == "add_account":
-        add_account(call)
-    elif call.data == "list_accounts":
-        list_accounts(call)
-    elif call.data.startswith("select_account_"):
-        account_index = int(call.data.split("_")[-1])
-        bot.edit_message_text(f"إدارة حساب {account_index + 1}:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_control_buttons(account_index))
-    elif call.data.startswith("list_heroku_apps_"):
-        list_heroku_apps(call)
-    elif call.data.startswith("delete_app_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.edit_message_text("يرجى إرسال اسم التطبيق لحذفه:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
-        bot.register_next_step_handler(msg, lambda m: handle_app_name_for_deletion(m, account_index))
-    elif call.data.startswith("self_delete_app_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.edit_message_text("يرجى إرسال اسم التطبيق للحذف الذاتي:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
-        bot.register_next_step_handler(msg, lambda m: handle_app_name_for_self_deletion(m, account_index))
-    elif call.data == "remaining_time":
-        show_remaining_time(call)
-    elif call.data == "go_back":
-        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
-    elif call.data == "github_section":
-        bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
-    elif call.data == "upload_file":
-        upload_file(call)
 
 # التشغيل
 if __name__ == "__main__":
