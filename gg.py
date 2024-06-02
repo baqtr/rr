@@ -4,6 +4,8 @@ import requests
 import zipfile
 import tempfile
 import shutil
+import random
+import string
 from github import Github
 
 # استيراد توكن البوت من المتغيرات البيئية
@@ -90,10 +92,16 @@ def list_github_repos(call):
     repos = user.get_repos()
     repo_list = ""
     for repo in repos:
-        contents = repo.get_contents("")
-        num_files = sum(1 for _ in contents)
-        repo_list += f"اسم المستودع: `{repo.name}`\nعدد الملفات: {num_files}\n\n"
-    bot.edit_message_text(f"مستودعات GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
+        try:
+            contents = repo.get_contents("")
+            num_files = sum(1 for _ in contents)
+            repo_list += f"اسم المستودع: `{repo.name}`\nعدد الملفات: {num_files}\n\n"
+        except Exception as e:
+            bot.send_message(call.message.chat.id, f"خطأ في جلب محتويات المستودع `{repo.name}`: {str(e)}")
+    if repo_list:
+        bot.edit_message_text(f"مستودعات GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
+    else:
+        bot.edit_message_text("لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
 # دالة لحذف مستودع
 def handle_repo_deletion(message):
