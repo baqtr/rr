@@ -316,6 +316,10 @@ def handle_zip_file(message):
 
 # دالة لعرض مستودعات GitHub
 def list_github_repos(call):
+    user_id = call.from_user.id
+    account_index = int(call.data.split("_")[-1])
+    api_key = user_accounts[user_id][account_index]["api_key"]
+    g = Github(api_key)  # إنشاء كائن Github هنا
     user = g.get_user()
     repos = user.get_repos()
     repo_list = ""
@@ -330,7 +334,7 @@ def list_github_repos(call):
         bot.edit_message_text(f"مستودعات GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
     else:
         bot.edit_message_text("لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
-
+        
 # دالة لحذف مستودع
 def handle_repo_deletion(message):
     repo_name = message.text.strip()
