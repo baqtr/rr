@@ -232,25 +232,34 @@ def list_github_repos(call):
     bot.edit_message_text(f"مستودعاتك في GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
 
 # دالة لمعالجة الملف المضغوط
+# دالة لمعالجة ملف ZIP
 def handle_zip_file(message):
-    if message.document.mime_type != 'application/zip':
-        bot.send_message(message.chat.id, "الملف المرسل ليس بصيغة ZIP. يرجى المحاولة مرة أخرى.", reply_markup=create_back_button())
-        return
-
-    file_info = bot.get_file(message.document.file_id)
-    downloaded_file = bot.download_file(file_info.file_path)
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        zip_path = os.path.join(temp_dir, message.document.file_name)
-        with open(zip_path, 'wb') as new_file:
-            new_file.write(downloaded_file)
-
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
-
-        for root, dirs, files in os.walk(temp_dir):
-            for file in files:
-                bot.send_document(message.chat.id, open(os.path.join(root, file), 'rb'))
+    if message.document and message.document.mime_type == 'application/zip':
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            zip_path = os.path.join(temp_dir, message.document.file_name)
+            with open(zip_path, 'wb') as new_file:
+                new_file.write(downloaded_file)
+            
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+                repo_name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+                user = g.get_user()
+                repo = user.create_repo(repo_name, private=True)
+                
+                for root, dirs, files in os.walk(temp_dir):
+                    for file_name in files:
+                        file_path = os.path.join(root, file_name)
+                        relative_path = os.path.relpath(file_path, temp_dir)
+                        with open(file_path, 'rb') as file_data:
+                            repo.create_file(relative_path, f"Add {relative_path}", file_data.read())
+                
+                num_files = sum([len(files) for r, d, files in os.walk(temp_dir)])
+                bot.send_message(message.chat.id, f"تم إنشاء المستودع بنجاح.\nاسم المستودع: `{repo_name}`\nعدد الملفات: {num_files}", parse_mode='Markdown')
+    else:
+        bot.send_message(message.chat.id, "الملف الذي تم إرساله ليس ملف ZIP. يرجى المحاولة مرة أخرى.")
 
 # دالة لعرض الأحداث
 def show_events(call):
