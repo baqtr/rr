@@ -133,7 +133,9 @@ def list_heroku_apps(call):
         bot.edit_message_text(f"التطبيقات المتاحة في هيروكو:\n{apps_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
     else:
         bot.edit_message_text("حدث خطأ في جلب التطبيقات من هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
-
+        
+elif call.data == "github_section":
+        bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
 # دالة لمعالجة النقرات على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
