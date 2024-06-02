@@ -1,5 +1,5 @@
 import os
-import telebot
+from telebot import types
 import requests
 import threading
 import time
