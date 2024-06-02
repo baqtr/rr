@@ -12,19 +12,24 @@ from datetime import datetime, timedelta
 import pytz
 from github import Github
 
+# استيراد توكن البوت من المتغيرات البيئية
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
 github_token = "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"
 
+# إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
 
+# الهيروكو API
 HEROKU_BASE_URL = 'https://api.heroku.com'
 
 g = Github(github_token)
-
+# قائمة التطبيقات المجدولة للحذف الذاتي
 self_deleting_apps = {}
 
+# تخزين حسابات المستخدم
 user_accounts = {}
 
+# دالة لإنشاء الأزرار وتخصيصها
 def create_main_buttons():
     markup = telebot.types.InlineKeyboardMarkup()
     button1 = telebot.types.InlineKeyboardButton("إضافة حساب ➕", callback_data="add_account")
@@ -39,19 +44,21 @@ def create_github_control_buttons():
     delete_all_button = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
     delete_repo_button = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
     upload_file_button = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
-    list_repos_button = telebot.types.InlineKeyboardButton("عرض مستودعات GitHub 📂", callback_data="list_github_repos")
+    list_repos_button = telebot.types.InlineKeyboardButton("عرض مستودعات GitHub 📂", callback_data="list_github_repos")  # إضافة هذا السطر
     markup.row(delete_all_button, delete_repo_button)
     markup.row(upload_file_button)
-    markup.add(list_repos_button)
+    markup.add(list_repos_button)  # إضافة هذا السطر
     markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
     return markup
 
+# دالة لإنشاء زر العودة
 def create_back_button():
     markup = telebot.types.InlineKeyboardMarkup()
     back_button = telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back")
     markup.add(back_button)
     return markup
 
+# دالة لإنشاء أزرار التحكم بالحسابات
 def create_account_control_buttons(account_index):
     markup = telebot.types.InlineKeyboardMarkup()
     button1 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو 📦", callback_data=f"list_heroku_apps_{account_index}")
@@ -65,6 +72,7 @@ def create_account_control_buttons(account_index):
     markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="list_accounts"))
     return markup
 
+# دالة لمعالجة الطلبات الواردة
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = message.from_user.id
@@ -72,6 +80,7 @@ def send_welcome(message):
         user_accounts[user_id] = []
     bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_main_buttons())
 
+# دالة لإضافة حساب جديد
 def add_account(call):
     msg = bot.edit_message_text("يرجى إرسال مفتاح API الخاص بحساب Heroku:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
     bot.register_next_step_handler(msg, handle_new_account)
@@ -87,6 +96,7 @@ def handle_new_account(message):
     else:
         bot.send_message(message.chat.id, "مفتاح API غير صحيح. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons())
 
+# التحقق من صحة مفتاح API
 def validate_heroku_api_key(api_key):
     headers = {
         'Authorization': f'Bearer {api_key}',
@@ -95,6 +105,7 @@ def validate_heroku_api_key(api_key):
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
     return response.status_code == 200
 
+# عرض حسابات المستخدم
 def list_accounts(call):
     user_id = call.from_user.id
     if user_id in user_accounts and user_accounts[user_id]:
@@ -106,7 +117,10 @@ def list_accounts(call):
         markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
         bot.edit_message_text(f"حساباتك:\n{accounts_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup, parse_mode='Markdown')
     else:
-        bot.edit_message_text("لا توجد حسابات مضافة.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())def get_heroku_account_name(api_key):
+        bot.edit_message_text("لا توجد حسابات مضافة.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+
+# جلب اسم حساب هيروكو
+def get_heroku_account_name(api_key):
     headers = {
         'Authorization': f'Bearer {api_key}',
         'Accept': 'application/vnd.heroku+json; version=3'
@@ -116,6 +130,7 @@ def list_accounts(call):
         return response.json().get('email', 'Unknown')
     return 'Unknown'
 
+# دالة لجلب تطبيقات هيروكو
 def list_heroku_apps(call):
     account_index = int(call.data.split("_")[-1])
     user_id = call.from_user.id
@@ -139,6 +154,7 @@ def list_heroku_apps(call):
     else:
         bot.edit_message_text("حدث خطأ في جلب التطبيقات من هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
 
+# دالة لمعالجة النقرات على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     if call.data == "add_account":
@@ -161,11 +177,11 @@ def callback_query(call):
     elif call.data == "remaining_time":
         show_remaining_time(call)
     elif call.data == "go_back":
-        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
+        bot.edit_message_message_text("مرحبًا بك! اضغط على الأزرارأدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
     elif call.data == "github_section":
         bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
     elif call.data == "upload_file":
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسلال ملف مضغوط بصيغة ZIP.")
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال ملف مضغوط بصيغة ZIP.")
         bot.register_next_step_handler(msg, handle_zip_file)
     elif call.data == "list_github_repos":
         list_github_repos(call)
@@ -174,57 +190,8 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_repo_deletion)
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
-    elif call.data == "go_back":
-        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
 
-def handle_zip_file(message):
-    if message.document and message.document.mime_type == 'application/zip':
-        file_info = bot.get_file(message.document.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        
-        with tempfile.TemporaryDirectory() as temp_dir:
-            zip_path = os.path.join(temp_dir, message.document.file_name)
-            with open(zip_path, 'wb') as new_file:
-                new_file.write(downloaded_file)
-            
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
-                repo_name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
-                user = g.get_user()
-                repo = user.create_repo(repo_name, private=True)
-                
-                for root, dirs, files in os.walk(temp_dir):
-                    for file_name in files:
-                        file_path = os.path.join(root, file_name)
-                        relative_path = os.path.relpath(file_path, temp_dir)
-                        with open(file_path, 'rb') as file_data:
-                            repo.create_file(relative_path, f"Add {relative_path}", file_data.read())
-                
-                num_files = sum([len(files) for r, d, files in os.walk(temp_dir)])
-                bot.send_message(message.chat.id, f"تم إنشاء المستودع بنجاح.\nاسم المستودع: `{repo_name}`\nعدد الملفات: {num_files}", parse_mode='Markdown')
-    else:
-        bot.send_message(message.chat.id, "الملف الذي تم إرساله ليس ملف ZIP. يرجى المحاولة مرة أخرى.")
-
-def list_github_repos(call):
-    user_id = call.from_user.id
-    account_index = int(call.data.split("_")[-1])
-    api_key = user_accounts[user_id][account_index]["api_key"]
-    g = Github(api_key)  # إنشاء كائن Github هنا
-    user = g.get_user()
-    repos = user.get_repos()
-    repo_list = ""
-    for repo in repos:
-        try:
-            contents = repo.get_contents("")
-            num_files = sum(1 for _ in contents)
-            repo_list += f"اسم المستودع: `{repo.name}`\nعدد الملفات: {num_files}\n\n"
-        except Exception as e:
-            bot.send_message(call.message.chat.id, f"خطأ في جلب محتويات المستودع `{repo.name}`: {str(e)}")
-    if repo_list:
-        bot.edit_message_text(f"مستودعات GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
-    else:
-        bot.edit_message_text("لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
-        
+# دالة لحذف مستودع
 def handle_repo_deletion(message):
     repo_name = message.text.strip()
     user = g.get_user()
@@ -235,6 +202,7 @@ def handle_repo_deletion(message):
     except:
         bot.send_message(message.chat.id, f"المستودع `{repo_name}` غير موجود أو لا تملك صلاحية حذفه.", parse_mode='Markdown')
 
+# دالة لحذف جميع المستودعات
 def delete_all_repos(call):
     user = g.get_user()
     repos = user.get_repos()
@@ -243,5 +211,6 @@ def delete_all_repos(call):
         repo.delete()
     bot.edit_message_text(f"تم حذف جميع المستودعات بنجاح.\nعدد المستودعات المحذوفة: {repo_count}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
+# التشغيل
 if __name__ == "__main__":
     bot.polling()
