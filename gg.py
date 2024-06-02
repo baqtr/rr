@@ -13,11 +13,18 @@ import pytz
 # استيراد توكن البوت من المتغيرات البيئية
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
 
+github_token = "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"
+
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
 
 # الهيروكو API
 HEROKU_BASE_URL = 'https://api.heroku.com'
+
+GITHUB_BASE_URL = 'https://api.github.com'
+GITHUB_HEADERS = {
+    'Authorization': f'token {github_token}',
+    'Accept': 'application/vnd.github.v3+json'
 
 # قائمة التطبيقات المجدولة للحذف الذاتي
 self_deleting_apps = {}
@@ -39,6 +46,7 @@ def create_github_control_buttons():
     markup = telebot.types.InlineKeyboardMarkup()
     delete_all_button = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
     delete_repo_button = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
+    itembtn2 = telebot.types.InlineKeyboardButton('عرض مستودعات GitHub', callback_data='list_github_repos')
     upload_file_button = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
     markup.row(delete_all_button, delete_repo_button)
     markup.row(upload_file_button)
