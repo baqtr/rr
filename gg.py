@@ -310,5 +310,5 @@ def show_remaining_time(call):
         bot.edit_message_text("الوقت المتبقي للحذف الذاتي:\n" + "\n".join(remaining_times), chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
 
 # التشغيل
-if __name if __name__ == "__main__":
-    bot.polling(none_stop=True)
+if __name__ == "__main__":
+    bot.polling()
