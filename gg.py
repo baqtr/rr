@@ -35,6 +35,15 @@ def create_main_buttons():
     markup.add(button3) 
     return markup
 
+def create_github_control_buttons():
+    markup = telebot.types.InlineKeyboardMarkup()
+    delete_all_button = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
+    delete_repo_button = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
+    upload_file_button = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
+    markup.row(delete_all_button, delete_repo_button)
+    markup.row(upload_file_button)
+    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
+    return markup
 # دالة لإنشاء زر العودة
 def create_back_button():
     markup = telebot.types.InlineKeyboardMarkup()
@@ -162,7 +171,8 @@ def callback_query(call):
         show_remaining_time(call)
     elif call.data == "go_back":
         bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
-
+    elif call.data == "github_section":
+        bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
 # دالة لمعالجة اسم التطبيق للحذف
 def handle_app_name_for_deletion(message, account_index):
     app_name = message.text.strip()
