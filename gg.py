@@ -43,9 +43,10 @@ def create_github_control_buttons():
     delete_all_button = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
     delete_repo_button = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
     upload_file_button = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
-    button = telebot.types.InlineKeyboardButton("عرض مستودعات GitHub 📂", callback_data="list_github_repos")
+    list_repos_button = telebot.types.InlineKeyboardButton("عرض مستودعات GitHub 📂", callback_data="list_github_repos")  # إضافة هذا السطر
     markup.row(delete_all_button, delete_repo_button)
     markup.row(upload_file_button)
+    markup.add(list_repos_button)  # إضافة هذا السطر
     markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
     return markup
 # دالة لإنشاء زر العودة
