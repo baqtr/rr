@@ -39,9 +39,11 @@ def create_main_buttons():
     button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
     button3 = telebot.types.InlineKeyboardButton("قسم جيتهاب 🛠️", callback_data="github_section")
     button4 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
+    button5 = types.InlineKeyboardButton(f"عدد المستخدمين 👥: {len(users)}", callback_data="user_count")
     markup.add(button1, button2)
     markup.add(button3)
     markup.add(button4)
+    markup.add(button5)
     return markup
 
 def create_github_control_buttons():
