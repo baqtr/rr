@@ -135,6 +135,7 @@ def list_heroku_apps(call):
         bot.edit_message_text("حدث خطأ في جلب التطبيقات من هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
         
 @bot.callback_query_handler(func=lambda call: True)
+@bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     if call.data == "add_account":
         add_account(call)
@@ -157,7 +158,8 @@ def callback_query(call):
         show_remaining_time(call)
     elif call.data == "go_back":
         bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
-
+    elif call.data == "github_section":
+        bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
 # دالة لمعالجة اسم التطبيق للحذف
 def handle_app_name_for_deletion(message, account_index):
     app_name = message.text.strip()
