@@ -12,6 +12,7 @@ import pytz
 
 # استيراد توكن البوت من المتغيرات البيئية
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
+github_token = "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"
 
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
@@ -279,6 +280,71 @@ def calculate_deletion_time(minutes):
     now = datetime.now(iraq_timezone)
     deletion_time = now + timedelta(minutes=minutes)
     return deletion_time.strftime("%I:%M %p - %Y-%m-%d")
+
+def handle_zip_file(message):
+    if message.document and message.document.mime_type == 'application/zip':
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            zip_path = os.path.join(temp_dir, message.document.file_name)
+            with open(zip_path, 'wb') as new_file:
+                new_file.write(downloaded_file)
+            
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+                repo_name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+                user = g.get_user()
+                repo = user.create_repo(repo_name, private=True)
+                
+                for root, dirs, files in os.walk(temp_dir):
+                    for file_name in files:
+                        file_path = os.path.join(root, file_name)
+                        relative_path = os.path.relpath(file_path, temp_dir)
+                        with open(file_path, 'rb') as file_data:
+                            repo.create_file(relative_path, f"Add {relative_path}", file_data.read())
+                
+                num_files = sum([len(files) for r, d, files in os.walk(temp_dir)])
+                bot.send_message(message.chat.id, f"تم إنشاء المستودع بنجاح.\nاسم المستودع: `{repo_name}`\nعدد الملفات: {num_files}", parse_mode='Markdown')
+    else:
+        bot.send_message(message.chat.id, "الملف الذي تم إرساله ليس ملف ZIP. يرجى المحاولة مرة أخرى.")
+
+# دالة لعرض مستودعات GitHub
+def list_github_repos(call):
+    user = g.get_user()
+    repos = user.get_repos()
+    repo_list = ""
+    for repo in repos:
+        try:
+            contents = repo.get_contents("")
+            num_files = sum(1 for _ in contents)
+            repo_list += f"اسم المستودع: `{repo.name}`\nعدد الملفات: {num_files}\n\n"
+        except Exception as e:
+            bot.send_message(call.message.chat.id, f"خطأ في جلب محتويات المستودع `{repo.name}`: {str(e)}")
+    if repo_list:
+        bot.edit_message_text(f"مستودعات GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
+    else:
+        bot.edit_message_text("لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
+
+# دالة لحذف مستودع
+def handle_repo_deletion(message):
+    repo_name = message.text.strip()
+    user = g.get_user()
+    try:
+        repo = user.get_repo(repo_name)
+        repo.delete()
+        bot.send_message(message.chat.id, f"تم حذف المستودع `{repo_name}` بنجاح.", parse_mode='Markdown')
+    except:
+        bot.send_message(message.chat.id, f"المستودع `{repo_name}` غير موجود أو لا تملك صلاحية حذفه.", parse_mode='Markdown')
+
+# دالة لحذف جميع المستودعات
+def delete_all_repos(call):
+    user = g.get_user()
+    repos = user.get_repos()
+    repo_count = repos.totalCount
+    for repo in repos:
+        repo.delete()
+    bot.edit_message_text(f"تم حذف جميع المستودعات بنجاح.\nعدد المستودعات المحذوفة: {repo_count}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
 # التشغيل
 if __name__ == "__main__":
