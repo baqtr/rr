@@ -22,6 +22,7 @@ bot = telebot.TeleBot(bot_token)
 # الهيروكو API
 HEROKU_BASE_URL = 'https://api.heroku.com'
 
+g = Github(github_token)
 # قائمة التطبيقات المجدولة للحذف الذاتي
 self_deleting_apps = {}
 
