@@ -14,7 +14,7 @@ from github import Github
 
 # استيراد توكن البوت من المتغيرات البيئية
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
-github_token = "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"
+github_token = "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"
 
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
