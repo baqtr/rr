@@ -1,4 +1,121 @@
-0%", chat_id=call.message.chat.id, message_id=call.message.message_id)
+import os
+import telebot
+import requests
+import threading
+import time
+import zipfile
+import random
+import string
+import shutil
+from datetime import datetime, timedelta
+import pytz
+
+# استيراد توكن البوت من المتغيرات البيئية
+bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
+github_token = "YOUR_GITHUB_TOKEN_HERE"  # توكن جيتهاب
+
+# إنشاء كائن البوت
+bot = telebot.TeleBot(bot_token)
+
+# الهيروكو API
+HEROKU_BASE_URL = 'https://api.heroku.com'
+# جيتهاب API
+GITHUB_BASE_URL = 'https://api.github.com'
+
+# قائمة التطبيقات المجدولة للحذف الذاتي
+self_deleting_apps = {}
+
+# تخزين حسابات المستخدم
+user_accounts = {}
+
+# دالة لإنشاء الأزرار وتخصيصها
+def create_main_buttons():
+    markup = telebot.types.InlineKeyboardMarkup()
+    button1 = telebot.types.InlineKeyboardButton("إضافة حساب ➕", callback_data="add_account")
+    button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
+    button3 = telebot.types.InlineKeyboardButton("قسم جيتهاب 🛠️", callback_data="github_section")
+    markup.add(button1, button2)
+    markup.add(button3)
+    return markup
+
+# دالة لإنشاء زر العودة
+def create_back_button():
+    markup = telebot.types.InlineKeyboardMarkup()
+    back_button = telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back")
+    markup.add(back_button)
+    return markup
+
+# دالة لإنشاء أزرار التحكم بالحسابات
+def create_account_control_buttons(account_index):
+    markup = telebot.types.InlineKeyboardMarkup()
+    button1 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو 📦", callback_data=f"list_heroku_apps_{account_index}")
+    button2 = telebot.types.InlineKeyboardButton("حذف تطبيق ❌", callback_data=f"delete_app_{account_index}")
+    button3 = telebot.types.InlineKeyboardButton("الحذف الذاتي ⏲️", callback_data=f"self_delete_app_{account_index}")
+    button4 = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
+    markup.add(button1) 
+    markup.add(button2)
+    markup.add(button3)
+    markup.add(button4)
+    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="list_accounts"))
+    return markup
+
+# دالة لإنشاء أزرار التحكم بقسم جيتهاب
+def create_github_control_buttons():
+    markup = telebot.types.InlineKeyboardMarkup()
+    delete_all_button = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
+    delete_repo_button = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
+    upload_file_button = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
+    markup.row(delete_all_button, delete_repo_button)
+    markup.row(upload_file_button)
+    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
+    return markup
+
+# دالة لمعالجة الطلبات الواردة
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    user_id = message.from_user.id
+    if user_id not in user_accounts:
+        user_accounts[user_id] = []
+    bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_main_buttons())
+
+# دالة لإضافة حساب جديد
+def add_account(call):
+    msg = bot.edit_message_text("يرجى إرسال مفتاح API الخاص بحساب Heroku:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+    bot.register_next_step_handler(msg, handle_new_account)
+
+def handle_new_account(message):
+    api_key = message.text.strip()
+    user_id = message.from_user.id
+    if api_key in [account['api_key'] for account in user_accounts[user_id]]:
+        bot.send_message(message.chat.id, "هذا الحساب مضاف مسبقًا.", reply_markup=create_main_buttons())
+    elif validate_heroku_api_key(api_key):
+        user_accounts[user_id].append({'api_key': api_key})
+        bot.send_message(message.chat.id, "تمت إضافة حساب Heroku بنجاح!", reply_markup=create_main_buttons())
+    else:
+        bot.send_message(message.chat.id, "مفتاح API غير صحيح. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons())
+
+# التحقق من صحة مفتاح API
+def validate_heroku_api_key(api_key):
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Accept': 'application/vnd.heroku+json; version=3'
+    }
+    response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
+    return response.status_code == 200
+
+# دالة لجلب تطبيقات هيروكو
+def list_heroku_apps(call):
+    account_index = int(call.data.split("_")[-1])
+    user_id = call.from_user.id
+    if not user_accounts[user_id]:
+        bot.edit_message_text("لا توجد حسابات مضافة. يرجى إضافة حساب أولاً.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+        return
+
+    headers = {
+        'Authorization': f'Bearer {user_accounts[user_id][account_index]["api_key"]}',
+        'Accept': 'application/vnd.heroku+json; version=3'
+    }
+    bot.edit_message_text("جلب التطبيقات... ⬛⬜0%", chat_id=call.message.chat.id, message_id=call.message.message_id)
     time.sleep(2)
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
     if response.status_code == 200:
