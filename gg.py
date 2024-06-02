@@ -173,7 +173,7 @@ def callback_query(call):
         bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
     elif call.data == "github_section":
         bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
-        if call.data == "upload_file":
+    elif call.data == "upload_file":
         msg = bot.send_message(call.message.chat.id, "يرجى إرسال ملف مضغوط بصيغة ZIP.")
         bot.register_next_step_handler(msg, handle_zip_file)
     elif call.data == "list_github_repos":
@@ -185,7 +185,6 @@ def callback_query(call):
         delete_all_repos(call)
     elif call.data == "go_back":
         bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
-# دالة لمعالجة اسم التطبيق للحذف
 def handle_app_name_for_deletion(message, account_index):
     app_name = message.text.strip()
     user_id = message.from_user.id
