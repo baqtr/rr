@@ -84,8 +84,6 @@ def send_welcome(message):
         user_accounts[user_id] = []
     bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_main_buttons())
 
-# دالة لإضافة حساب جديد
-def add_account(call):
     # دالة لإضافة حساب جديد
 def add_account(call):
     msg = bot.edit_message_text("يرجى إرسال مفتاح API الخاص بحساب Heroku:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
