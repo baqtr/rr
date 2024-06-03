@@ -39,11 +39,12 @@ def create_main_buttons():
     button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
     button3 = telebot.types.InlineKeyboardButton("قسم جيتهاب 🛠️", callback_data="github_section")
     button4 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
-    button5 = telebot.types.InlineKeyboardButton("المطور ✅", url="https://t.me/xx44g")
+    button5 = telebot.types.InlineKeyboardButton("الاعدادات ⚙", callback_data="show_event")
+    button6 = telebot.types.InlineKeyboardButton("المطور ✅", url="https://t.me/xx44g")
     markup.add(button1, button2)
     markup.add(button3)
-    markup.add(button4)
-    markup.add(button5)
+    markup.add(button4, button5)
+    markup.add(button6)
     return markup
 
 def create_github_control_buttons():
