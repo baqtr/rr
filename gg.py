@@ -350,6 +350,26 @@ def show_events(call):
         events_list = "\n".join(events)
         bot.edit_message_text(f"الأحداث:\n{events_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
 
+def handle_repo_deletion(message):
+    repo_name = message.text.strip()
+    user = g.get_user()
+    try:
+        repo = user.get_repo(repo_name)
+        repo.delete()
+        bot.send_message(message.chat.id, f"تم حذف المستودع `{repo_name}` بنجاح.", parse_mode='Markdown')
+    except:
+        bot.send_message(message.chat.id, f"المستودع `{repo_name}` غير موجود أو لا تملك صلاحية حذفه.", parse_mode='Markdown')
+
+# دالة لحذف جميع المستودعات
+def delete_all_repos(call):
+    user = g.get_user()
+    repos = user.get_repos()
+    repo_count = repos.totalCount
+    for repo in repos:
+        repo.delete()
+    bot.edit_message_text(f"تم حذف جميع المستودعات بنجاح.\nعدد المستودعات المحذوفة: {repo_count}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
+
+
 
 # التشغيل
 if __name__ == "__main__":
