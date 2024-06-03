@@ -20,9 +20,6 @@ bot = telebot.TeleBot(BOT_TOKEN)
 github = Github(GITHUB_TOKEN)
 heroku_conn = from_key(HEROKU_API_KEY)
 
-# قائمة لمتابعة التقدم
-progress_tracking = {}
-
 # دالة لإنشاء الأزرار وتخصيصها
 def create_main_buttons():
     markup = types.InlineKeyboardMarkup()
@@ -95,7 +92,7 @@ def handle_repo_deployment(message):
 
         app_name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
         try:
-            app = heroku_conn.create_app(app_name)
+            app = heroku_conn.create_app(app_name, stack_id='heroku-22')
         except Exception as e:
             bot.send_message(message.chat.id, f"حدث خطأ أثناء إنشاء تطبيق Heroku: {e}")
             return
@@ -121,7 +118,19 @@ def handle_repo_deployment(message):
                 progress = int((current_count / file_count) * 100)
                 bot.edit_message_text(f"{progress}% - جاري رفع الملفات إلى Heroku...", chat_id=progress_message.chat.id, message_id=progress_message.message_id)
 
-        bot.send_message(message.chat.id, f"تم نشر المستودع `{repo_name}` بنجاح على Heroku.\nاسم التطبيق: `{app_name}`\nرابط التطبيق: https://{app_name}.herokuapp.com", parse_mode='Markdown')
+        try:
+            build = app.builds().create(source_blob=url)
+            while build.status in ['pending', 'building']:
+                time.sleep(5)
+                build = app.builds().get(build.id)
+                bot.edit_message_text(f"{build.status.capitalize()} - جاري بناء التطبيق...", chat_id=progress_message.chat.id, message_id=progress_message.message_id)
+
+            if build.status == 'succeeded':
+                bot.edit_message_text(f"تم نشر المستودع `{repo_name}` بنجاح على Heroku.\nاسم التطبيق: `{app_name}`\nرابط التطبيق: [https://{app_name}.herokuapp.com](https://{app_name}.herokuapp.com)", chat_id=progress_message.chat.id, message_id=progress_message.message_id, parse_mode='Markdown')
+            else:
+                bot.edit_message_text(f"فشل في بناء التطبيق على Heroku: {build.status}", chat_id=progress_message.chat.id, message_id=progress_message.message_id)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"حدث خطأ أثناء بناء التطبيق على Heroku: {e}")
 
 # تشغيل البوت
 if __name__ == "__main__":
