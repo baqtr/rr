@@ -185,6 +185,7 @@ def callback_query(call):
         bot.register_next_step_handler(msg, lambda m: handle_app_name_for_self_deletion(m, account_index))
     elif call.data == "remaining_time":
         show_remaining_time(call)
+        show_remaining_time(call)
     elif call.data == "go_back":
         bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
     elif call.data == "github_section":
