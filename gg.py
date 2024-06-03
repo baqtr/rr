@@ -28,8 +28,7 @@ def create_main_buttons():
     markup = types.InlineKeyboardMarkup()
     button1 = types.InlineKeyboardButton("نشر مستودع على Heroku 🚀", callback_data="deploy_repo")
     button2 = types.InlineKeyboardButton("عرض مستودعات GitHub 📂", callback_data="list_github_repos")
-    markup.add(button1)
-    markup.add(button2)
+    markup.add(button1, button2)
     return markup
 
 # دالة للبدء
@@ -88,14 +87,22 @@ def handle_repo_deployment(message):
 
             bot.send_message(message.chat.id, f"تم إنشاء تطبيق Heroku باسم `{app_name}`. جارٍ رفع الملفات...")
 
+            progress_message = bot.send_message(message.chat.id, "0% - جاري رفع الملفات إلى Heroku...")
+
+            file_count = sum([len(files) for r, d, files in os.walk(temp_dir)])
+            current_count = 0
+
             for root, dirs, files in os.walk(temp_dir):
                 for file_name in files:
                     file_path = os.path.join(root, file_name)
                     relative_path = os.path.relpath(file_path, temp_dir)
                     with open(file_path, 'rb') as file_data:
                         app.create_file(relative_path, file_data.read())
+                    current_count += 1
+                    progress = int((current_count / file_count) * 100)
+                    bot.edit_message_text(f"{progress}% - جاري رفع الملفات إلى Heroku...", chat_id=progress_message.chat.id, message_id=progress_message.message_id)
 
-            bot.send_message(message.chat.id, f"تم نشر المستودع `{repo_name}` بنجاح على Heroku.\nاسم التطبيق: `{app_name}`", parse_mode='Markdown')
+            bot.send_message(message.chat.id, f"تم نشر المستودع `{repo_name}` بنجاح على Heroku.\nاسم التطبيق: `{app_name}`\nرابط التطبيق: https://{app_name}.herokuapp.com", parse_mode='Markdown')
 
 # تشغيل البوت
 if __name__ == "__main__":
