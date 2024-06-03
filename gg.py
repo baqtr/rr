@@ -67,42 +67,61 @@ def handle_repo_deployment(message):
     repo = None
     try:
         repo = user.get_repo(repo_name)
-    except:
-        bot.send_message(message.chat.id, f"المستودع `{repo_name}` غير موجود. يرجى المحاولة مرة أخرى.")
+    except Exception as e:
+        bot.send_message(message.chat.id, f"المستودع `{repo_name}` غير موجود أو حدث خطأ: {e}. يرجى المحاولة مرة أخرى.")
         return
 
     bot.send_message(message.chat.id, f"جارٍ تنزيل مستودع `{repo_name}` للنشر...")
     with tempfile.TemporaryDirectory() as temp_dir:
         zip_path = os.path.join(temp_dir, f"{repo_name}.zip")
-        with open(zip_path, 'wb') as zip_file:
-            zip_file.write(repo.get_archive_link('zipball'))
+        try:
+            with requests.get(repo.get_archive_link('zipball'), stream=True) as r:
+                r.raise_for_status()
+                with open(zip_path, 'wb') as zip_file:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        zip_file.write(chunk)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"حدث خطأ أثناء تنزيل المستودع: {e}")
+            return
 
         bot.send_message(message.chat.id, "تم تنزيل المستودع. جارٍ التحضير للنشر...")
 
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"حدث خطأ أثناء استخراج المستودع: {e}")
+            return
 
-            app_name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+        app_name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+        try:
             app = heroku_conn.create_app(app_name)
+        except Exception as e:
+            bot.send_message(message.chat.id, f"حدث خطأ أثناء إنشاء تطبيق Heroku: {e}")
+            return
 
-            bot.send_message(message.chat.id, f"تم إنشاء تطبيق Heroku باسم `{app_name}`. جارٍ رفع الملفات...")
+        bot.send_message(message.chat.id, f"تم إنشاء تطبيق Heroku باسم `{app_name}`. جارٍ رفع الملفات...")
 
-            progress_message = bot.send_message(message.chat.id, "0% - جاري رفع الملفات إلى Heroku...")
+        progress_message = bot.send_message(message.chat.id, "0% - جاري رفع الملفات إلى Heroku...")
 
-            file_count = sum([len(files) for r, d, files in os.walk(temp_dir)])
-            current_count = 0
+        file_count = sum([len(files) for r, d, files in os.walk(temp_dir)])
+        current_count = 0
 
-            for root, dirs, files in os.walk(temp_dir):
-                for file_name in files:
-                    file_path = os.path.join(root, file_name)
-                    relative_path = os.path.relpath(file_path, temp_dir)
+        for root, dirs, files in os.walk(temp_dir):
+            for file_name in files:
+                file_path = os.path.join(root, file_name)
+                relative_path = os.path.relpath(file_path, temp_dir)
+                try:
                     with open(file_path, 'rb') as file_data:
                         app.create_file(relative_path, file_data.read())
-                    current_count += 1
-                    progress = int((current_count / file_count) * 100)
-                    bot.edit_message_text(f"{progress}% - جاري رفع الملفات إلى Heroku...", chat_id=progress_message.chat.id, message_id=progress_message.message_id)
+                except Exception as e:
+                    bot.send_message(message.chat.id, f"حدث خطأ أثناء رفع الملف {file_name}: {e}")
+                    return
+                current_count += 1
+                progress = int((current_count / file_count) * 100)
+                bot.edit_message_text(f"{progress}% - جاري رفع الملفات إلى Heroku...", chat_id=progress_message.chat.id, message_id=progress_message.message_id)
 
-            bot.send_message(message.chat.id, f"تم نشر المستودع `{repo_name}` بنجاح على Heroku.\nاسم التطبيق: `{app_name}`\nرابط التطبيق: https://{app_name}.herokuapp.com", parse_mode='Markdown')
+        bot.send_message(message.chat.id, f"تم نشر المستودع `{repo_name}` بنجاح على Heroku.\nاسم التطبيق: `{app_name}`\nرابط التطبيق: https://{app_name}.herokuapp.com", parse_mode='Markdown')
 
 # تشغيل البوت
 if __name__ == "__main__":
