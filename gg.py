@@ -50,7 +50,7 @@ def create_github_control_buttons():
     delete_all_button = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
     delete_repo_button = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
     upload_file_button = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
-    list_repos_button = telebot.types.InlineKeyboardButton("عرض مستودعات GitHub 📂", callback_data="list_github_repos")
+    list_repos_button = telebot.types.InlineKeyboardButton(" عرض المستودعات 📂", callback_data="list_github_repos")
     markup.row(delete_all_button, delete_repo_button)
     markup.row(upload_file_button)
     markup.add(list_repos_button)
@@ -85,7 +85,7 @@ def send_welcome(message):
     if user_id not in user_accounts:
         user_accounts[user_id] = []
         events.append(f"انضم مستخدم جديد: [{message.from_user.first_name}](tg://user?id={user_id})")
-    bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_main_buttons())
+    bot.send_message(message.chat.id, "اهلا وسهلا نورتنا اختار من بين الازرار ماذا تريد", reply_markup=create_main_buttons())
 
 # دالة لإضافة حساب جديد
 def add_account(call):
