@@ -317,16 +317,30 @@ def delete_heroku_app(app_name, api_key):
 
 # دالة لعرض الوقت المتبقي للحذف الذاتي
 def show_remaining_time(call):
-    user_id = call.from_user.id
-    if not self_deleting_apps:
-        bot.edit_message_text("لا توجد تطبيقات مجدولة للحذف الذاتي.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
-    else:
-        remaining_times = []
-        for app_name, timer in self_deleting_apps.items():
-            remaining_time = timer.interval - (time.time() - timer.when)
-            remaining_times.append(f"التطبيق: `{app_name[:-2]}**` - الوقت المتبقي: {str(timedelta(seconds=remaining_time))}")
-        bot.edit_message_text("الوقت المتبقي للحذف الذاتي:\n" + "\n".join(remaining_times), chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
+    remaining_time_message = "التطبيقات المجدولة للحذف الذاتي:\n"
+    for app_name, data in list(self_deleting_apps.items()):
+        if app_name in self_deleting_apps:
+            elapsed_time = (datetime.now(pytz.timezone('Asia/Baghdad')) - data['start_time']).total_seconds() // 60
+            remaining_minutes = max(data['minutes'] - elapsed_time, 0)
+            remaining_time_message += f"- {app_name}:\n  الوقت المتبقي: {format_remaining_time(remaining_minutes)}\n  تاريخ الحذف: {calculate_deletion_time(remaining_minutes)}\n"
+        else:
+            remaining_time_message += f"- {app_name}: تم حذفه."
+    bot.edit_message_text(remaining_time_message, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
+# تنسيق الوقت المتبقي
+def format_remaining_time(minutes):
+    delta = timedelta(minutes=minutes)
+    hours, remainder = divmod(delta.seconds, 3600)
+    minutes = remainder // 60
+    return f"{hours} ساعة و{minutes} دقيقة"
+
+# حساب وقت الحذف
+def calculate_deletion_time(minutes):
+    iraq_timezone = pytz.timezone('Asia/Baghdad')
+    now = datetime.now(iraq_timezone)
+    deletion_time = now + timedelta(minutes=minutes)
+    return deletion_time.strftime("%I:%M %p - %Y-%m-%d")
+    
 # التشغيل
 if __name__ == "__main__":
     bot.polling()
