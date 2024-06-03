@@ -185,7 +185,6 @@ def callback_query(call):
         bot.register_next_step_handler(msg, lambda m: handle_app_name_for_self_deletion(m, account_index))
     elif call.data == "remaining_time":
         show_remaining_time(call)
-        show_remaining_time(call)
     elif call.data == "go_back":
         bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
     elif call.data == "github_section":
@@ -295,30 +294,38 @@ def handle_app_name_for_deletion(message, account_index):
         bot.send_message(message.chat.id, f"حدث خطأ أثناء محاولة حذف التطبيق `{app_name}`. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons(), parse_mode='Markdown')
 
 # دالة لمعالجة اسم التطبيق للحذف الذاتي
+def handle_app_name_for_self_deletion(message, account_index):
+    app_name = message.text.strip()
+    user_id = message.from_user.id
+    if app_name in self_deleting_apps:
+        bot.send_message(message.chat.id, "تم جدولة الحذف الذاتي لهذا التطبيق مسبقًا.", reply_markup=create_main_buttons())
+    else:
+        delay = 24 * 60 * 60  # 24 ساعة
+        self_deleting_apps[app_name] = threading.Timer(delay, delete_heroku_app, [app_name, user_accounts[user_id][account_index]["api_key"]])
+        self_deleting_apps[app_name].start()
+        events.append(f"قام [{message.from_user.first_name}](tg://user?id={user_id}) بتفعيل الحذف الذاتي للتطبيق: `{app_name[:-2]}**`")
+        bot.send_message(message.chat.id, f"تم جدولة الحذف الذاتي للتطبيق `{app_name}` بعد 24 ساعة.", reply_markup=create_main_buttons(), parse_mode='Markdown')
+
+# دالة لحذف تطبيق هيروكو بعد فترة
+def delete_heroku_app(app_name, api_key):
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Accept': 'application/vnd.heroku+json; version=3'
+    }
+    requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
+    del self_deleting_apps[app_name]
+
+# دالة لعرض الوقت المتبقي للحذف الذاتي
 def show_remaining_time(call):
-    remaining_time_message = "التطبيقات المجدولة للحذف الذاتي:\n"
-    for app_name, data in list(self_deleting_apps.items()):
-        if app_name in self_deleting_apps:
-            elapsed_time = (datetime.now(pytz.timezone('Asia/Baghdad')) - data['start_time']).total_seconds() // 60
-            remaining_minutes = max(data['minutes'] - elapsed_time, 0)
-            remaining_time_message += f"- {app_name}:\n  الوقت المتبقي: {format_remaining_time(remaining_minutes)}\n  تاريخ الحذف: {calculate_deletion_time(remaining_minutes)}\n"
-        else:
-            remaining_time_message += f"- {app_name}: تم حذفه."
-    bot.edit_message_text(remaining_time_message, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
-
-# تنسيق الوقت المتبقي
-def format_remaining_time(minutes):
-    delta = timedelta(minutes=minutes)
-    hours, remainder = divmod(delta.seconds, 3600)
-    minutes = remainder // 60
-    return f"{hours} ساعة و{minutes} دقيقة"
-
-# حساب وقت الحذف
-def calculate_deletion_time(minutes):
-    iraq_timezone = pytz.timezone('Asia/Baghdad')
-    now = datetime.now(iraq_timezone)
-    deletion_time = now + timedelta(minutes=minutes)
-    return deletion_time.strftime("%I:%M %p - %Y-%m-%d")
+    user_id = call.from_user.id
+    if not self_deleting_apps:
+        bot.edit_message_text("لا توجد تطبيقات مجدولة للحذف الذاتي.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+    else:
+        remaining_times = []
+        for app_name, timer in self_deleting_apps.items():
+            remaining_time = timer.interval - (time.time() - timer.when)
+            remaining_times.append(f"التطبيق: `{app_name[:-2]}**` - الوقت المتبقي: {str(timedelta(seconds=remaining_time))}")
+        bot.edit_message_text("الوقت المتبقي للحذف الذاتي:\n" + "\n".join(remaining_times), chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
 
 # التشغيل
 if __name__ == "__main__":
