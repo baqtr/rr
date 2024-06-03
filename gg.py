@@ -295,6 +295,26 @@ def calculate_deletion_time(minutes):
     deletion_time = now + timedelta(minutes=minutes)
     return deletion_time.strftime("%I:%M %p - %Y-%m-%d")
 
+def list_github_repos(call):
+    user = g.get_user()
+    repos = user.get_repos()
+    repo_list = ""
+    loading_message = bot.send_message(call.message.chat.id, "جارٍ جلب المستودعات، يرجى الانتظار...")
+
+    for repo in repos:
+        try:
+            contents = repo.get_contents("")
+            num_files = sum(1 for _ in contents)
+            repo_list += f"📂 *اسم المستودع*: `{repo.name}`\n📁 *عدد الملفات*: {num_files}\n\n"
+        except:
+            pass
+
+    if repo_list:
+        bot.edit_message_text(f"مستودعات GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
+    else:
+        bot.edit_message_text("لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
+
+
 # التشغيل
 if __name__ == "__main__":
     bot.polling()
