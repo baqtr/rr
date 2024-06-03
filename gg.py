@@ -39,9 +39,11 @@ def create_main_buttons():
     button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
     button3 = telebot.types.InlineKeyboardButton("قسم جيتهاب 🛠️", callback_data="github_section")
     button4 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
+    button5 = telebot.types.InlineKeyboardButton("إرسال رسالة 📩", callback_data="send_message")  # الزر الجديد
     markup.add(button1, button2)
     markup.add(button3)
     markup.add(button4)
+    markup.add(button5)  # إضافة الزر الجديد
     return markup
 
 def create_github_control_buttons():
@@ -163,6 +165,7 @@ def list_heroku_apps(call):
 
 # دالة لمعالجة النقرات على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
+def c@bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     if call.data == "add_account":
         add_account(call)
@@ -199,6 +202,9 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_repo_deletion)
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
+    elif call.data == "send_message":  # وظيفة الزر الجديد
+        def send_custom_message(call):
+    bot.send_message(call.message.chat.id, "تم الضغط على الزر وإرسال هذه الرسالة.")
 
 # دالة لحذف مستودع
 def handle_repo_deletion(message):
