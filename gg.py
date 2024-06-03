@@ -92,7 +92,9 @@ def handle_repo_deployment(message):
 
         app_name = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
         try:
-            app = heroku_conn.create_app(app_name, stack_id='heroku-22')
+            app = heroku_conn.create_app(app_name)
+            app.stack = heroku_conn.stack('heroku-22')
+            app.update()
         except Exception as e:
             bot.send_message(message.chat.id, f"حدث خطأ أثناء إنشاء تطبيق Heroku: {e}")
             return
@@ -119,7 +121,11 @@ def handle_repo_deployment(message):
                 bot.edit_message_text(f"{progress}% - جاري رفع الملفات إلى Heroku...", chat_id=progress_message.chat.id, message_id=progress_message.message_id)
 
         try:
-            build = app.builds().create(source_blob=url)
+            source_blob = {
+                "url": f"https://github.com/{user.login}/{repo_name}/archive/master.zip",
+                "version": "master"
+            }
+            build = app.builds().create(source_blob=source_blob)
             while build.status in ['pending', 'building']:
                 time.sleep(5)
                 build = app.builds().get(build.id)
