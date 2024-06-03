@@ -168,6 +168,8 @@ def callback_query(call):
         add_account(call)
     elif call.data == "list_accounts":
         list_accounts(call)
+    elif call.data == "show_events":
+        show_events(call)
     elif call.data.startswith("select_account_"):
         account_index = int(call.data.split("_")[-1])
         bot.edit_message_text(f"إدارة حساب {account_index + 1}:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_control_buttons(account_index))
@@ -187,7 +189,17 @@ def callback_query(call):
         bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
     elif call.data == "github_section":
         bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
-# دالة لمعالجة اسم التطبيق للحذف
+    elif call.data == "upload_file":
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال ملف مضغوط بصيغة ZIP.")
+        bot.register_next_step_handler(msg, handle_zip_file)
+    elif call.data == "list_github_repos":
+        list_github_repos(call)
+    elif call.data == "delete_repo":
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم المستودع لحذفه.")
+        bot.register_next_step_handler(msg, handle_repo_deletion)
+    elif call.data == "delete_all_repos":
+        delete_all_repos(call)
+        #دالة الحذف
 def handle_app_name_for_deletion(message, account_index):
     app_name = message.text.strip()
     user_id = message.from_user.id
