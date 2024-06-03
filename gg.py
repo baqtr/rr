@@ -39,9 +39,12 @@ def create_main_buttons():
     button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
     button3 = telebot.types.InlineKeyboardButton("قسم جيتهاب 🛠️", callback_data="github_section")
     button4 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
+    button5 = telebot.types.InlineKeyboardButton("الاعدادات ⚙", callback_data="settings_section")
+    button6 = telebot.types.InlineKeyboardButton("المطور ✅", url="https://t.me/xx44g")
     markup.add(button1, button2)
     markup.add(button3)
-    markup.add(button4)
+    markup.add(button4, button5)
+    markup.add(button6)
     return markup
 
 def create_github_control_buttons():
@@ -55,6 +58,20 @@ def create_github_control_buttons():
     markup.add(list_repos_button)
     markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
     return markup
+
+# دالة لعرض قسم الإعدادات
+def settings_section(call):
+    markup = telebot.types.InlineKeyboardMarkup()
+    button1 = telebot.types.InlineKeyboardButton("إنشاء نسخة احتياطية 💾", callback_data="create_backup")
+    button2 = telebot.types.InlineKeyboardButton("تحميل نسخة احتياطية 📥", callback_data="upload_backup")
+    button3 = telebot.types.InlineKeyboardButton("حذف كل الحسابات المضافة 🗑️", callback_data="delete_all_accounts")
+    button4 = telebot.types.InlineKeyboardButton("تفعيل الوضع الآمن 🔒", callback_data="toggle_safe_mode")
+    markup.add(button1)
+    markup.add(button2)
+    markup.add(button3)
+    markup.add(button4)
+    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
+    bot.edit_message_text("قسم الإعدادات:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
 
 # دالة لإنشاء زر العودة
 def create_back_button():
