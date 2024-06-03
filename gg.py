@@ -200,7 +200,9 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_repo_deletion)
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
-        def callback_handler(call):
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback_handler(call):
     if call.data == "settings":
         show_settings(call)
     elif call.data == "toggle_safe_mode":
