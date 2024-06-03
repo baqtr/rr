@@ -21,9 +21,15 @@ HEROKU_BASE_URL = 'https://api.heroku.com'
 
 # قائمة التطبيقات المجدولة للحذف الذاتي
 self_deleting_apps = {}
+g = Github(github_token)
+# قائمة التطبيقات المجدولة للحذف الذاتي
+self_deleting_apps = {}
 
 # تخزين حسابات المستخدم
 user_accounts = {}
+
+# قائمة لتخزين الأحداث
+events = []
 
 # دالة لإنشاء الأزرار وتخصيصها
 def create_main_buttons():
@@ -31,8 +37,10 @@ def create_main_buttons():
     button1 = telebot.types.InlineKeyboardButton("إضافة حساب ➕", callback_data="add_account")
     button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
     button3 = telebot.types.InlineKeyboardButton("قسم جيتهاب 🛠️", callback_data="github_section")
+    button4 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
     markup.add(button1, button2)
-    markup.add(button3) 
+    markup.add(button3)
+    markup.add(button4)
     return markup
 
 def create_github_control_buttons():
@@ -40,10 +48,13 @@ def create_github_control_buttons():
     delete_all_button = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
     delete_repo_button = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
     upload_file_button = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
+    list_repos_button = telebot.types.InlineKeyboardButton("عرض مستودعات GitHub 📂", callback_data="list_github_repos")
     markup.row(delete_all_button, delete_repo_button)
     markup.row(upload_file_button)
+    markup.add(list_repos_button)
     markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
     return markup
+
 # دالة لإنشاء زر العودة
 def create_back_button():
     markup = telebot.types.InlineKeyboardMarkup()
@@ -71,6 +82,7 @@ def send_welcome(message):
     user_id = message.from_user.id
     if user_id not in user_accounts:
         user_accounts[user_id] = []
+        events.append(f"انضم مستخدم جديد: [{message.from_user.first_name}](tg://user?id={user_id})")
     bot.send_message(message.chat.id, "مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", reply_markup=create_main_buttons())
 
 # دالة لإضافة حساب جديد
@@ -85,10 +97,10 @@ def handle_new_account(message):
         bot.send_message(message.chat.id, "هذا الحساب مضاف مسبقًا.", reply_markup=create_main_buttons())
     elif validate_heroku_api_key(api_key):
         user_accounts[user_id].append({'api_key': api_key})
+        events.append(f"أضاف [{message.from_user.first_name}](tg://user?id={user_id}) حساب جديد: `{api_key[:-4]}****`")
         bot.send_message(message.chat.id, "تمت إضافة حساب Heroku بنجاح!", reply_markup=create_main_buttons())
     else:
         bot.send_message(message.chat.id, "مفتاح API غير صحيح. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons())
-
 # التحقق من صحة مفتاح API
 def validate_heroku_api_key(api_key):
     headers = {
