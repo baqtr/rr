@@ -383,21 +383,6 @@ def delete_all_repos(call):
         repo.delete()
     bot.edit_message_text(f"تم حذف جميع المستودعات بنجاح.\nعدد المستودعات المحذوفة: {repo_count}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
-def show_settings(call):
-    markup = telebot.types.InlineKeyboardMarkup()
-    backup_button = telebot.types.InlineKeyboardButton("إنشاء نسخة احتياطية 📂", callback_data="create_backup")
-    restore_button = telebot.types.InlineKeyboardButton("استعادة النسخة الاحتياطية 🔙", callback_data="restore_backup")
-    safe_mode_button_text = "وضع آمن: معطل ❌"
-    if safe_mode_enabled:
-        safe_mode_button_text = "وضع آمن: مفعل ✅"
-    safe_mode_button = telebot.types.InlineKeyboardButton(safe_mode_button_text, callback_data="toggle_safe_mode")
-    delete_all_accounts_button = telebot.types.InlineKeyboardButton("حذف كل الحسابات 🗑️", callback_data="delete_all_accounts")
-    markup.add(backup_button, restore_button)
-    markup.add(safe_mode_button)
-    markup.add(delete_all_accounts_button)
-    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
-    bot.edit_message_text("الإعدادات:", chat_id=call.message.chat.id
-    
 # التشغيل
 if __name__ == "__main__":
     bot.polling()
