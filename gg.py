@@ -297,14 +297,14 @@ def handle_app_name_for_deletion(message, account_index):
 def handle_app_name_for_self_deletion(message, account_index):
     app_name = message.text.strip()
     user_id = message.from_user.id
-    if validate_heroku_app(app_name, account_index, user_id):
-        if app_name in self_deleting_apps:
-            bot.send_message(message.chat.id, f"تم وضع التطبيق `{app_name}` مسبقًا في قائمة الحذف الذاتي.", parse_mode='Markdown')
-        else:
-            msg = bot.send_message(message.chat.id, "يرجى إدخال الوقت المطلوب بالدقائق لحذف التطبيق:")
-            bot.register_next_step_handler(msg, lambda m: handle_self_deletion_time(m, app_name, account_index))
+    if app_name in self_deleting_apps:
+        bot.send_message(message.chat.id, "تم جدولة الحذف الذاتي لهذا التطبيق مسبقًا.", reply_markup=create_main_buttons())
     else:
-        bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
+        delay = 24 * 60 * 60  # 24 ساعة
+        self_deleting_apps[app_name] = threading.Timer(delay, delete_heroku_app, [app_name, user_accounts[user_id][account_index]["api_key"]])
+        self_deleting_apps[app_name].start()
+        events.append(f"قام [{message.from_user.first_name}](tg://user?id={user_id}) بتفعيل الحذف الذاتي للتطبيق: `{app_name[:-2]}**`")
+        bot.send_message(message.chat.id, f"تم جدولة الحذف الذاتي للتطبيق `{app_name}` بعد 24 ساعة.", reply_markup=create_main_buttons(), parse_mode='Markdown')
 
 # دالة لحذف تطبيق هيروكو بعد فترة
 def delete_heroku_app(app_name, api_key):
