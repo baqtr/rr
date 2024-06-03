@@ -14,7 +14,7 @@ from github import Github
 
 # استيراد توكن البوت من المتغيرات البيئية
 bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
-github_token = "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"
+github_token = "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"
 
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
@@ -197,8 +197,6 @@ def callback_query(call):
     elif call.data == "delete_repo":
         msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم المستودع لحذفه.")
         bot.register_next_step_handler(msg, handle_repo_deletion)
-        elif call.data == "user_count":
-        bot.answer_callback_query(call.id, f"عدد المستخدمين الكلي: {len(users)}")
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
 
@@ -222,24 +220,17 @@ def delete_all_repos(call):
         repo.delete()
     bot.edit_message_text(f"تم حذف جميع المستودعات بنجاح.\nعدد المستودعات المحذوفة: {repo_count}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
+# دالة لعرض مستودعات GitHub
 def list_github_repos(call):
+    bot.edit_message_text("جلب المستودعات... ⬛⬜ 0%", chat_id=call.message.chat.id, message_id=call.message.message_id)
     user = g.get_user()
     repos = user.get_repos()
     repo_list = ""
-    loading_message = bot.send_message(call.message.chat.id, "جارٍ جلب المستودعات، يرجى الانتظار...")
-
+    bot.edit_message_text("جلب المستودعات... ⬛⬛ 50%", chat_id=call.message.chat.id, message_id=call.message.message_id)
     for repo in repos:
-        try:
-            contents = repo.get_contents("")
-            num_files = sum(1 for _ in contents)
-            repo_list += f"📂 *اسم المستودع*: `{repo.name}`\n📁 *عدد الملفات*: {num_files}\n\n"
-        except:
-            pass
+        repo_list += f"- [{repo.name}]({repo.html_url})\n"
+    bot.edit_message_text(f"مستودعاتك في GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
 
-    if repo_list:
-        bot.edit_message_text(f"مستودعات GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
-    else:
-        bot.edit_message_text("لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 # دالة لمعالجة الملف المضغوط
 # دالة لمعالجة ملف ZIP
 def handle_zip_file(message):
