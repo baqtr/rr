@@ -40,15 +40,15 @@ def send_welcome(message):
 def callback_query(call):
     if call.data == "deploy_repo":
         msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم مستودع GitHub للنشر.")
-        bot.register_next_step_handler(msg, ask_for_heroku_app_name)
+        bot.register_next_step_handler(msg, ask_for_repo_name)
     elif call.data == "list_github_repos":
         list_github_repos(call)
 
-# دالة لطلب اسم تطبيق Heroku
-def ask_for_heroku_app_name(message):
+# دالة لطلب اسم التطبيق Heroku
+def ask_for_repo_name(message):
     repo_name = message.text.strip()
     progress_tracking[message.chat.id] = {'repo_name': repo_name}
-    msg = bot.send_message(message.chat.id, "يرجى إرسال اسم تطبيق Heroku.")
+    msg = bot.send_message(message.chat.id, "يرجى إرسال اسم التطبيق Heroku للنشر عليه.")
     bot.register_next_step_handler(msg, handle_repo_deployment)
 
 # دالة لعرض مستودعات GitHub
@@ -93,7 +93,7 @@ def handle_repo_deployment(message):
             zip_ref.extractall(temp_dir)
 
             try:
-                app = heroku_conn.create_app(name=app_name, stack_id='heroku-22')
+                app = heroku_conn.create_app(name=app_name, stack_id='heroku-20')
             except Exception as e:
                 bot.send_message(chat_id, f"حدث خطأ أثناء إنشاء تطبيق Heroku: {e}")
                 return
