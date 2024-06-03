@@ -88,6 +88,21 @@ def send_welcome(message):
         events.append(f"انضم مستخدم جديد: [{message.from_user.first_name}](tg://user?id={user_id})")
     bot.send_message(message.chat.id, "اهلا وسهلا نورتنا اختار من بين الازرار ماذا تريد", reply_markup=create_main_buttons())
 
+def show_settings(call):
+    markup = telebot.types.InlineKeyboardMarkup()
+    backup_button = telebot.types.InlineKeyboardButton("إنشاء نسخة احتياطية 📂", callback_data="create_backup")
+    restore_button = telebot.types.InlineKeyboardButton("استعادة النسخة الاحتياطية 🔙", callback_data="restore_backup")
+    safe_mode_button_text = "وضع آمن: معطل ❌"
+    if safe_mode_enabled:
+        safe_mode_button_text = "وضع آمن: مفعل ✅"
+    safe_mode_button = telebot.types.InlineKeyboardButton(safe_mode_button_text, callback_data="toggle_safe_mode")
+    delete_all_accounts_button = telebot.types.InlineKeyboardButton("حذف كل الحسابات 🗑️", callback_data="delete_all_accounts")
+    markup.add(backup_button, restore_button)
+    markup.add(safe_mode_button)
+    markup.add(delete_all_accounts_button)
+    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
+    bot.edit_message_text("الإعدادات:", chat_id=call.message.chat.id)
+
 # دالة لإضافة حساب جديد
 def add_account(call):
     msg = bot.edit_message_text("يرجى إرسال مفتاح API الخاص بحساب Heroku:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
