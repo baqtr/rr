@@ -297,14 +297,14 @@ def handle_app_name_for_deletion(message, account_index):
 def handle_app_name_for_self_deletion(message, account_index):
     app_name = message.text.strip()
     user_id = message.from_user.id
-    if app_name in self_deleting_apps:
-        bot.send_message(message.chat.id, "تم جدولة الحذف الذاتي لهذا التطبيق مسبقًا.", reply_markup=create_main_buttons())
+    if validate_heroku_app(app_name, account_index, user_id):
+        if app_name in self_deleting_apps:
+            bot.send_message(message.chat.id, f"تم وضع التطبيق `{app_name}` مسبقًا في قائمة الحذف الذاتي.", parse_mode='Markdown')
+        else:
+            msg = bot.send_message(message.chat.id, "يرجى إدخال الوقت المطلوب بالدقائق لحذف التطبيق:")
+            bot.register_next_step_handler(msg, lambda m: handle_self_deletion_time(m, app_name, account_index))
     else:
-        delay = 24 * 60 * 60  # 24 ساعة
-        self_deleting_apps[app_name] = threading.Timer(delay, delete_heroku_app, [app_name, user_accounts[user_id][account_index]["api_key"]])
-        self_deleting_apps[app_name].start()
-        events.append(f"قام [{message.from_user.first_name}](tg://user?id={user_id}) بتفعيل الحذف الذاتي للتطبيق: `{app_name[:-2]}**`")
-        bot.send_message(message.chat.id, f"تم جدولة الحذف الذاتي للتطبيق `{app_name}` بعد 24 ساعة.", reply_markup=create_main_buttons(), parse_mode='Markdown')
+        bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
 
 # دالة لحذف تطبيق هيروكو بعد فترة
 def delete_heroku_app(app_name, api_key):
@@ -316,17 +316,16 @@ def delete_heroku_app(app_name, api_key):
     del self_deleting_apps[app_name]
 
 # دالة لعرض الوقت المتبقي للحذف الذاتي
-def handle_self_deletion_time(message, app_name, account_index):
-    try:
-        minutes = int(message.text.strip())
-        if minutes <= 0:
-            raise ValueError
-        self_deleting_apps[app_name] = {'minutes': minutes, 'start_time': datetime.now(pytz.timezone('Asia/Baghdad'))}
-        bot.send_message(message.chat.id, f"سيتم حذف التطبيق `{app_name}` بعد {minutes} دقيقة.\n", reply_markup=create_remaining_time_button())
-        # بدء عملية الحذف الذاتي
-        threading.Timer(minutes * 60, lambda: delete_and_remove_app(app_name, message, account_index)).start()
-    except ValueError:
-        bot.send_message(message.chat.id, "الرجاء إدخال عدد صحيح إيجابي للدقائق.")
+def show_remaining_time(call):
+    user_id = call.from_user.id
+    if not self_deleting_apps:
+        bot.edit_message_text("لا توجد تطبيقات مجدولة للحذف الذاتي.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+    else:
+        remaining_times = []
+        for app_name, timer in self_deleting_apps.items():
+            remaining_time = timer.interval - (time.time() - timer.when)
+            remaining_times.append(f"التطبيق: `{app_name[:-2]}**` - الوقت المتبقي: {str(timedelta(seconds=remaining_time))}")
+        bot.edit_message_text("الوقت المتبقي للحذف الذاتي:\n" + "\n".join(remaining_times), chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
 
 # التشغيل
 if __name__ == "__main__":
