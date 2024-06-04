@@ -40,10 +40,9 @@ def create_main_buttons():
     button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
     button3 = telebot.types.InlineKeyboardButton("قسم جيتهاب 🛠️", callback_data="github_section")
     button4 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
-    button5 = telebot.types.InlineKeyboardButton("الاعدادت ⚙", callback_data="settings") 
     markup.add(button1, button2)
     markup.add(button3)
-    markup.add(button4, button5)
+    markup.add(button4)
     return markup
 
 def create_github_control_buttons():
@@ -87,21 +86,6 @@ def send_welcome(message):
         user_accounts[user_id] = []
         events.append(f"انضم مستخدم جديد: [{message.from_user.first_name}](tg://user?id={user_id})")
     bot.send_message(message.chat.id, "اهلا وسهلا نورتنا اختار من بين الازرار ماذا تريد", reply_markup=create_main_buttons())
-
-def show_settings(call):
-    markup = telebot.types.InlineKeyboardMarkup()
-    backup_button = telebot.types.InlineKeyboardButton("إنشاء نسخة احتياطية 📂", callback_data="create_backup")
-    restore_button = telebot.types.InlineKeyboardButton("استعادة النسخة الاحتياطية 🔙", callback_data="restore_backup")
-    safe_mode_button_text = "وضع آمن: معطل ❌"
-    if safe_mode_enabled:
-        safe_mode_button_text = "وضع آمن: مفعل ✅"
-    safe_mode_button = telebot.types.InlineKeyboardButton(safe_mode_button_text, callback_data="toggle_safe_mode")
-    delete_all_accounts_button = telebot.types.InlineKeyboardButton("حذف كل الحسابات 🗑️", callback_data="delete_all_accounts")
-    markup.add(backup_button, restore_button)
-    markup.add(safe_mode_button)
-    markup.add(delete_all_accounts_button)
-    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
-    bot.edit_message_text("الإعدادات:", chat_id=call.message.chat.id)
 
 # دالة لإضافة حساب جديد
 def add_account(call):
@@ -215,16 +199,6 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_repo_deletion)
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
-    elif call.data == "settings":
-        show_settings(call)
-    elif call.data == "toggle_safe_mode":
-        toggle_safe_mode(call)
-    elif call.data == "create_backup":
-        create_backup(call)
-    elif call.data == "restore_backup":
-        restore_backup(call)
-    elif call.data == "delete_all_accounts":
-        delete_all_accounts(call)
         #دالة الحذف
 def handle_app_name_for_deletion(message, account_index):
     app_name = message.text.strip()
@@ -394,6 +368,8 @@ def delete_all_repos(call):
     for repo in repos:
         repo.delete()
     bot.edit_message_text(f"تم حذف جميع المستودعات بنجاح.\nعدد المستودعات المحذوفة: {repo_count}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
+
+
 
 # التشغيل
 if __name__ == "__main__":
