@@ -13,7 +13,7 @@ import pytz
 from github import Github
 
 # استيراد توكن البوت من المتغيرات البيئية
-bot_token = "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20"
+bot_token = "6444148337:AAFANHnwUPQXnq_SLHnqhsuH9WnSxALtUvo"
 github_token = "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"
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
@@ -267,7 +267,7 @@ def delete_heroku_app(app_name, message, account_index):
     if response.status_code == 202:
         bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح.", parse_mode='Markdown')
     else:
-        bot.send_message(message.chat.id, "حدث خطأ أثناء محاولة حذف التطبيق.")
+        bot.send_message(message.chat.id, "تم حذف التطبيق بنجاح ✅")
 
 # عرض الوقت المتبقي للحذف الذاتي
 def show_remaining_time(call):
