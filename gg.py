@@ -3,19 +3,12 @@ import telebot
 import requests
 import threading
 import time
-import zipfile
-import tempfile
-import random
-import string
-import shutil
-import json
-from datetime import datetime, timedelta
 import pytz
 import psycopg2
+from datetime import datetime, timedelta
 
 # استيراد توكن البوت من المتغيرات البيئية
 bot_token = "7031770762:AAF-BrYHNEcX8VyGBzY1mastEG3SWod4_uI"
-
 database_url = os.getenv("DATABASE_URL", "postgres://u7sp4pi4bkcli5:p8084ef55d7306694913f43fe18ae8f1e24bf9d4c33b1bdae2e9d49737ea39976@ec2-18-210-84-56.compute-1.amazonaws.com:5432/dbdstma1phbk1e")
 
 # إنشاء كائن البوت
@@ -181,8 +174,8 @@ def list_heroku_apps(call, account_index):
 
 # دالة لحذف تطبيق
 def delete_app(call, account_index):
-    msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق الذي تريد حذفه:", reply_markup=create_back_button())
-    bot.register_next_step_handler(msg, lambda m: handle_delete_app(m, account_index))
+    msg = bot.edit_message_text("يرجى إرسال اسم التطبيق الذي تريد حذفه:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+    bot.register_next_step_handler(msg, lambda message: handle_delete_app(message, account_index))
 
 def handle_delete_app(message, account_index):
     app_name = message.text.strip()
@@ -196,45 +189,72 @@ def handle_delete_app(message, account_index):
     if response.status_code == 202:
         bot.send_message(message.chat.id, f"تم حذف التطبيق {app_name} بنجاح.", reply_markup=create_main_buttons())
     else:
-        bot.send_message(message.chat.id, f"فشل في حذف التطبيق. تأكد من صحة الاسم ووجود التطبيق.", reply_markup=create_main_buttons())
+        bot.send_message(message.chat.id, "فشل في حذف التطبيق. تأكد من صحة اسم التطبيق.", reply_markup=create_main_buttons())
 
 # دالة لإعداد الحذف الذاتي
 def self_delete_app(call, account_index):
-    msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق والمدة بالدقائق (مثال: app_name 30):", reply_markup=create_back_button())
-    bot.register_next_step_handler(msg, lambda m: handle_self_delete_app(m, account_index))
+    msg = bot.edit_message_text("يرجى إرسال اسم التطبيق ومدة الحذف الذاتي بالدقائق (مثال: app_name 30):", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+    bot.register_next_step_handler(msg, lambda message: handle_self_delete_app(message, account_index))
 
 def handle_self_delete_app(message, account_index):
     try:
-        app_name, minutes = message.text.split()
+        app_name, minutes = message.text.strip().split()
         minutes = int(minutes)
         user_id = message.from_user.id
         api_key = load_accounts(user_id)[account_index]
-        if validate_heroku_api_key(api_key):
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Accept': 'application/vnd.heroku+json; version=3'
+        }
+        response = requests.get(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
+        if response.status_code == 200:
             save_self_deleting_app(app_name, minutes)
             bot.send_message(message.chat.id, f"تم إعداد الحذف الذاتي للتطبيق {app_name} بعد {minutes} دقيقة.", reply_markup=create_main_buttons())
         else:
-            bot.send_message(message.chat.id, "مفتاح API غير صحيح.", reply_markup=create_main_buttons())
+            bot.send_message(message.chat.id, "اسم التطبيق غير صحيح. تأكد من صحة اسم التطبيق.", reply_markup=create_main_buttons())
     except ValueError:
-        bot.send_message(message.chat.id, "المدخلات غير صحيحة. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons())
+        bot.send_message(message.chat.id, "الرجاء التأكد من التنسيق الصحيح (مثال: app_name 30).", reply_markup=create_main_buttons())
 
-# دالة لعرض الوقت المتبقي قبل الحذف الذاتي
+# دالة لحساب الوقت المتبقي للحذف الذاتي
 def remaining_time(call):
+    now = datetime.now(pytz.timezone('Asia/Baghdad'))
     apps = load_self_deleting_apps()
-    if apps:
-        current_time = datetime.now(pytz.timezone('Asia/Baghdad'))
-        remaining_times = []
-        for app_name, details in apps.items():
-            end_time = details['start_time'] + timedelta(minutes=details['minutes'])
-            if current_time < end_time:
-                remaining_minutes = int((end_time - current_time).total_seconds() / 60)
-                remaining_times.append(f"{app_name}: {remaining_minutes} دقيقة متبقية")
-            else:
-                remaining_times.append(f"{app_name}: منتهي")
-        bot.edit_message_text("الوقت المتبقي للتطبيقات:\n" + "\n".join(remaining_times), chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
+    remaining_times = []
+    for app_name, data in apps.items():
+        end_time = data['start_time'] + timedelta(minutes=data['minutes'])
+        remaining = end_time - now
+        if remaining.total_seconds() > 0:
+            remaining_times.append(f"{app_name}: {remaining}")
+        else:
+            remove_self_deleting_app(app_name)
+    if remaining_times:
+        bot.edit_message_text("\n".join(remaining_times), chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
     else:
         bot.edit_message_text("لا توجد تطبيقات معدة للحذف الذاتي.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
 
-# دالة لمعالجة الأحداث الواردة من الأزرار
+# دالة لتنفيذ الحذف الذاتي بشكل دوري
+def auto_delete_apps():
+    while True:
+        now = datetime.now(pytz.timezone('Asia/Baghdad'))
+        apps = load_self_deleting_apps()
+        for app_name, data in apps.items():
+            end_time = data['start_time'] + timedelta(minutes=data['minutes'])
+            if now >= end_time:
+                user_id = message.from_user.id
+                api_key = load_accounts(user_id)[account_index]
+                headers = {
+                    'Authorization': f'Bearer {api_key}',
+                    'Accept': 'application/vnd.heroku+json; version=3'
+                }
+                response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
+                if response.status_code == 202:
+                    remove_self_deleting_app(app_name)
+        time.sleep(60)
+
+# بدء خيط الحذف الذاتي
+threading.Thread(target=auto_delete_apps, daemon=True).start()
+
+# دالة للاستجابة للضغط على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     if call.data == "add_account":
@@ -243,7 +263,7 @@ def callback_query(call):
         list_accounts(call)
     elif call.data.startswith("select_account_"):
         account_index = int(call.data.split("_")[-1])
-        bot.edit_message_text("اختر العملية التي تريد تنفيذها:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_control_buttons(account_index))
+        bot.edit_message_text("ماذا تريد أن تفعل؟", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_control_buttons(account_index))
     elif call.data.startswith("list_heroku_apps_"):
         account_index = int(call.data.split("_")[-1])
         list_heroku_apps(call, account_index)
@@ -256,32 +276,7 @@ def callback_query(call):
     elif call.data == "remaining_time":
         remaining_time(call)
     elif call.data == "go_back":
-        bot.edit_message_text("اختر من بين الأزرار ماذا تريد:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
+        bot.edit_message_text("اختار من بين الازرار ماذا تريد", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
 
-# جدولة الحذف الذاتي للتطبيقات
-def schedule_self_deleting_apps():
-    while True:
-        apps = load_self_deleting_apps()
-        current_time = datetime.now(pytz.timezone('Asia/Baghdad'))
-        for app_name, details in apps.items():
-            end_time = details['start_time'] + timedelta(minutes=details['minutes'])
-            if current_time >= end_time:
-                for user_id in load_accounts(user_id):
-                    api_key = user_id
-                    headers = {
-                        'Authorization': f'Bearer {api_key}',
-                        'Accept': 'application/vnd.heroku+json; version=3'
-                    }
-                    response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
-                    if response.status_code == 202:
-                        bot.send_message(user_id, f"تم حذف التطبيق {app_name} تلقائيًا بعد مرور {details['minutes']} دقيقة.")
-                    else:
-                        bot.send_message(user_id, f"فشل في حذف التطبيق {app_name} تلقائيًا. يرجى التحقق من الحساب.")
-                remove_self_deleting_app(app_name)
-        time.sleep(60)
-
-# بدء الجدولة في مؤشر منفصل
-threading.Thread(target=schedule_self_deleting_apps, daemon=True).start()
-
-# بدء البوت
-bot.polling(none_stop=True)
+# بدء تشغيل البوت
+bot.polling()
