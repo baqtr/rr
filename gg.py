@@ -28,7 +28,7 @@ bot = telebot.TeleBot(bot_token)
 HEROKU_BASE_URL = 'https://api.heroku.com'
 
 # إعداد قاعدة البيانات
-connection = psycopg2.connect(DATABASE_URL)
+connection = psycopg2.connect(database_url)
 cursor = connection.cursor()
 
 # دالة لإنشاء الجداول إذا لم تكن موجودة
