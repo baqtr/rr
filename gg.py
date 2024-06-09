@@ -240,15 +240,19 @@ def auto_delete_apps():
         for app_name, data in apps.items():
             end_time = data['start_time'] + timedelta(minutes=data['minutes'])
             if now >= end_time:
-                user_id = message.from_user.id
-                api_key = load_accounts(user_id)[account_index]
-                headers = {
-                    'Authorization': f'Bearer {api_key}',
-                    'Accept': 'application/vnd.heroku+json; version=3'
-                }
-                response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
-                if response.status_code == 202:
-                    remove_self_deleting_app(app_name)
+                # حدد الحساب الذي يجب استخدامه لحذف التطبيق
+                cursor.execute('SELECT user_id, api_keys FROM accounts WHERE %s = ANY(api_keys);', (app_name,))
+                result = cursor.fetchone()
+                if result:
+                    user_id, api_keys = result
+                    api_key = api_keys[0]  # باستخدام أول مفتاح API لحذف التطبيق
+                    headers = {
+                        'Authorization': f'Bearer {api_key}',
+                        'Accept': 'application/vnd.heroku+json; version=3'
+                    }
+                    response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
+                    if response.status_code == 202:
+                        remove_self_deleting_app(app_name)
         time.sleep(60)
 
 # بدء خيط الحذف الذاتي
