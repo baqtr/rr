@@ -1,1 +1,1 @@
-buildpack: python gg.py
+web: python gg.py
