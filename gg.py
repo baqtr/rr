@@ -1,7 +1,8 @@
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
+import os
 
-# استبدل 'YOUR_BOT_TOKEN' برمز التوكن الخاص بالبوت الذي تحصلت عليه من @BotFather
+# احصل على رمز التوكن من متغير البيئة
 BOT_TOKEN = '6444148337:AAFANHnwUPQXnq_SLHnqhsuH9WnSxALtUvo'
 
 def start(update: Update, context: CallbackContext) -> None:
