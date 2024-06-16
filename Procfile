@@ -1,1 +1,1 @@
-worker: python gg.py
+buildpack: python gg.py
