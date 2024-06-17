@@ -1,87 +1,119 @@
 import requests
-import hashlib
-import random
 import telebot
 from telebot.types import InlineKeyboardButton as Btn, InlineKeyboardMarkup as Mak
-import time
-from concurrent.futures import ThreadPoolExecutor
+from collections import defaultdict
 
-asa = '123456789'
-gigk = ''.join(random.choice(asa) for _ in range(10))
-
-md5 = hashlib.md5(gigk.encode()).hexdigest()[:16]
-
-# توكن البوت الخاص بك
-token = "6419562305:AAHioiCY3MewQREnsxAKczTI7HJVt1MuseI"
-bot = telebot.TeleBot(token)
-
-user_attempts = {}
-
-executor = ThreadPoolExecutor(max_workers=10)
-
-@bot.message_handler(commands=['start'])
-def start(message):
-    user_id = message.from_user.id
-    name = message.from_user.first_name
-    user_attempts[user_id] = 0
-    bot.reply_to(message, f'''اهلا بك عزيزي ابو جبار ارسل الرقم مع رمز الدوله 
-لديك {2 - user_attempts[user_id]} من الفرص على كل رقم  متبقية اليوم''', reply_markup=Mak().row(
-        Btn('شرح البوت 🔀', callback_data='click'),
-        Btn('تقييم البوت', url='https://t.me/TQEEMBOT?start=0007rsflzu')
-    ))
-
-def call_async(number):
-    global user_attempts
-    user_id = number
-    if user_id not in user_attempts:
-        user_attempts[user_id] = 0
+def info(user):
+    headers = {
+        'referer': 'https://storiesig.info/en/',
+    }
     
-    current_time = time.time()
+    response = requests.get(f'https://storiesig.info/api/ig/profile/{user}', headers=headers)
     
-    if user_attempts[user_id] < 2:
-        user_attempts[user_id] += 1
-
-        url = "https://account-asia-south1.truecaller.com/v3/sendOnboardingOtp"
-
-        headers = {
-            "Host": "account-asia-south1.truecaller.com",
-            "content-type": "application/json; charset=UTF-8",
-            "accept-encoding": "gzip",
-            "user-agent": "Truecaller/12.34.8 (Android; 8.1.2)",
-            "clientsecret": "lvc22mp3l1sfv6ujg83rd17btt"
-        }
-
-        data = {"countryCode": "eg","dialingCode": 20,"installationDetails": {"app": {"buildVersion": 8,"majorVersion": 12,"minorVersion": 34,"store": "GOOGLE_PLAY"},"device": {"deviceId": md5,"language": "ar","manufacturer": "Xiaomi","mobileServices": ["GMS"],"model": "Redmi Note 8A Prime","osName": "Android","osVersion": "7.1.2","simSerials": ["8920022021714943876f","8920022022805258505f"]},"language": "ar","sims": [{"imsi": "602022207634386","mcc": "602","mnc": "2","operator": "vodafone"},{"imsi": "602023133590849","mcc": "602","mnc": "2","operator": "vodafone"}],"storeVersion": {"buildVersion": 8,"majorVersion": 12,"minorVersion": 34}},"phoneNumber": number,"region": "region-2","sequenceNo": 1}
-
-        req = requests.post(url, headers=headers, json=data).json()
-        if req.get('status') == 40003:
-            return '❌ رقم الهاتف غير صحيح'
+    if response.status_code == 200:
+        data = response.json()
+        
+        id = data['result']['id']
+        user = data['result']['username']
+        bio = data['result']['biography']
+        name = data['result']['full_name']
+        mn = data['result']['edge_owner_to_timeline_media']['count']
+        followed = data['result']['edge_followed_by']['count']
+        follow = data['result']['edge_follow']['count']
+        img = data['result']['profile_pic_url']
+        private = data['result']['is_private']
+        
+        if private == False:
+            private = "عام"
         else:
-            phonum = req.get('parsedPhoneNumber')
-            coucode = req.get('parsedCountryCode')
-            text = f'''رقم الهاتف : {phonum} ☎️
-رمز البلد  :  {coucode} 🌏
-محاولة : {2 - user_attempts[user_id]} ♨️
-النتيجة : {'تم الاتصال بل رقم المطلوب✅' if req.get('status') == 1 else 'فشل الاتصال حاول غدا  ❌'}'''
-            return text
+            private = "خاص"
+        ok = f'🔹 الايدي : {id}\n🔹 اليوزر : {user}\n🔹 الاسم : {name}\n🔹 البايو : {bio}\n🔹 عدد المنشورات : {mn}\n🔹 عدد المتابعين : {followed}\n🔹 عدد الذين يتابعهم : {follow}\n🔹 حالة الحساب : {private}'
+        return ok, img
     else:
-        return '❌ لقد نفذت المحاولات على هذا الرقم جرب رقم اخر '
+        return None, None
+
+token = "6419562305:AAHioiCY3MewQREnsxAKczTI7HJVt1MuseI"
+bot = telebot.TeleBot(token, num_threads=30, skip_pending=True)
+
+user_favorites = defaultdict(list)  # to store favorite users for each user
+
+@bot.message_handler(commands=["start"])
+def Welcome(msg):
+    name = f"[{msg.from_user.first_name}](tg://settings)"
+    markup = Mak()
+    markup.add(Btn('🤖 بوتات أكثر', url="ttxxxn.t.me"))
+    markup.add(Btn('🔍 الأكثر بحثا', callback_data='most_searched'))
+    markup.add(Btn('⭐ المفضلة', callback_data='favorites'))
+    bot.reply_to(msg, f'مرحبا {name} في بوت معلومات الحساب على الانستقرام 🌟\nفقط ارسل اليوزر بدون @ او مع .', parse_mode="markdown", reply_markup=markup)
 
 @bot.message_handler(content_types=['text'])
-def num(message):
-    number = message.text
-    executor.submit(process_request, number, message)
+def Info(m):
+    user = m.text.replace("@", "")
+    inf, img_url = info(user)
+    
+    if inf is not None:
+        markup = Mak()
+        markup.add(Btn('🔗 مشاركة', switch_inline_query=user))
+        markup.add(Btn('⭐ إضافة إلى المفضلة', callback_data=f'add_favorite_{user}'))
+        bot.send_photo(m.chat.id, img_url, caption=inf, reply_to_message_id=m.message_id, reply_markup=markup)
+    else:
+        bot.reply_to(m, "⚠️ المستخدم غير موجود")
 
-def process_request(number, message):
-    spam = call_async(number)
-    bot.reply_to(message, spam)
+@bot.callback_query_handler(func=lambda call: call.data.startswith('add_favorite_'))
+def add_to_favorites(call):
+    user = call.data.split('_')[-1]
+    user_favorites[call.from_user.id].append(user)
+    bot.answer_callback_query(call.id, "تمت الإضافة إلى المفضلة! ⭐")
 
-@bot.callback_query_handler(func=lambda call: call.data == 'click')
-def all(call):
-    bot.send_message(call.message.chat.id, '''هذا البوت تكدر من خلاله  
-تسوي سبام اتصال مرتين على كل رقم بل يوم  مرتين ✅
-البوت شغال دائمي يطيك النتيجة بل مضبوط ذا وصل اتصال✅  وذا موصل ❌'
-المطور @XX44G
-تقييم البوت 🌝 >''')
+@bot.callback_query_handler(func=lambda call: call.data == 'favorites')
+def show_favorites(call):
+    favs = user_favorites[call.from_user.id]
+    if favs:
+        markup = Mak()
+        for user in favs:
+            markup.add(Btn(user, callback_data=f'view_favorite_{user}'))
+        markup.add(Btn('🔙 رجوع', callback_data='back_to_main'))
+        bot.send_message(call.message.chat.id, "⭐ المفضلة:", reply_markup=markup)
+    else:
+        bot.send_message(call.message.chat.id, "⚠️ لا توجد حسابات في المفضلة.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('view_favorite_'))
+def view_favorite(call):
+    user = call.data.split('_')[-1]
+    inf, img_url = info(user)
+    if inf is not None:
+        markup = Mak()
+        markup.add(Btn('❌ إزالة من المفضلة', callback_data=f'remove_favorite_{user}'))
+        markup.add(Btn('🔙 رجوع', callback_data='favorites'))
+        bot.send_photo(call.message.chat.id, img_url, caption=inf, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('remove_favorite_'))
+def remove_favorite(call):
+    user = call.data.split('_')[-1]
+    user_favorites[call.from_user.id].remove(user)
+    bot.answer_callback_query(call.id, "تمت الإزالة من المفضلة! ❌")
+    show_favorites(call)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'back_to_main')
+def back_to_main(call):
+    Welcome(call.message)
+
+@bot.inline_handler(lambda query: True)
+def inline_query(query):
+    user = query.query
+    inf, img_url = info(user)
+
+    us = bot.get_me().username
+    results = [
+        telebot.types.InlineQueryResultPhoto(
+            id='1',
+            photo_url=img_url,
+            thumb_url=img_url,
+            caption=inf, 
+            reply_markup=Mak().add(Btn('معلومات حسابك 📱', url=f'{us}.t.me'))
+        )
+    ]
+
+    bot.answer_inline_query(query.id, results=results)
 
 bot.infinity_polling()
