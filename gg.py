@@ -1,176 +1,144 @@
-import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-import subprocess
-import os
-import threading
-import time
-import ast
-import sys
+import requests
+import telebot
+from telebot.types import InlineKeyboardButton as Btn, InlineKeyboardMarkup as Mak
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-
-TOKEN = "7031770762:AAF-BrYHNEcX8VyGBzY1mastEG3SWod4_uI"
-
-user_files = {}
-lock = threading.Lock()
-MAX_FILES_PER_USER = 5
-
-def start(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-
-    if user_id in user_files:
-        for file_info in user_files[user_id]['files']:
-            file_path = file_info['path']
-            os.remove(file_path)
-        del user_files[user_id]
-
-    welcome_message = ":  @AsiacellI2 اهلا بيك في افضل بوت استضافة بايثون يقوم بتشغيل ملفات متعدده كل ماعليك فعله هوه ارسال ملف بايثون وسيتم تشغيله وذا كان يحتوى على اخطاء سايخبرك البوت المطور"
-    update.message.reply_text(welcome_message, reply_markup=main_menu_keyboard())
-
-def handle_file(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    user_files.setdefault(user_id, {'files': [], 'expiry_time': 0, 'last_result': ''})
-
-    if len(user_files[user_id]['files']) >= MAX_FILES_PER_USER:
-        update.message.reply_text("لقد تجاوزت الحد الأقصى لعدد الملفات المسموح بها. الرجاء المحاولة مرة أخرى لاحقًا.")
-        return
-
-    user_file = update.message.document
-    file_name = user_file.file_name
-
-    if not file_name.endswith('.py'):
-        update.message.reply_text("الرجاء إرسال ملف بايثون فقط.")
-        return
-
-    file_id = user_file.file_id
-    file_path = f"{user_id}_{file_name}"
-    user_file.get_file().download(file_path)
-
-    user_files[user_id]['files'].append({'path': file_path, 'start_time': 0, 'expiry_time': time.time() + float('inf'), 'last_result': ''})
-
-    update.message.reply_text("تم تشغيل الملف بنجاح ساخبرك بحال وجود اخطاء ✅", reply_markup=file_control_keyboard())
-
-    thread = threading.Thread(target=run_python_file, args=(update, user_id, len(user_files[user_id]['files']) - 1))
-    thread.start()
-
-def run_python_file(update: Update, user_id: int, file_index: int) -> None:
-    try:
-        lock.acquire()
-        file_info = user_files[user_id]['files'][file_index]
-        file_path = file_info['path']
-        user_files[user_id]['files'][file_index]['start_time'] = time.time()
-
-        with open(file_path, 'r') as f:
-            code = f.read()
-
-        try:
-            # Check syntax errors
-            ast.parse(code)
-        except SyntaxError as e:
-            # Attempt to fix syntax errors automatically
-            try:
-                fixed_code = ast.fix_syntax_error(code)
-                with open(file_path, 'w') as f:
-                    f.write(fixed_code)
-                # Re-run the corrected code
-                result = subprocess.run([sys.executable, '-O', file_path], capture_output=True, text=True)
-
-                if result.returncode == 0:
-                    message = f"تم تشغيل الملف ({file_index + 1}) بنجاح ✅:\n\n{result.stdout}"
-                else:
-                    message = f"فشل تشغيل الملف ({file_index + 1}) ❌:\n\n{result.stderr}"
-            except Exception as fix_error:
-                message = f"تعذر تصحيح الخطأ وتشغيل الملف ({file_index + 1}) ❌:\n\n{fix_error}"
-        else:
-            # No syntax errors, proceed with running the code
-            result = subprocess.run([sys.executable, '-O', file_path], capture_output=True, text=True)
-
-            if result.returncode == 0:
-                message = f"تم تشغيل الملف ({file_index + 1}) بنجاح ✅:\n\n{result.stdout}"
-            else:
-                message = f"فشل تشغيل الملف ({file_index + 1}) ❌:\n\n{result.stderr}"
-
-        user_files[user_id]['files'][file_index]['last_result'] = message
-        update.message.reply_text(message, reply_markup=file_control_keyboard())
-
-    except Exception as e:
-        user_files[user_id]['files'][file_index]['last_result'] = f"حدث خطأ أثناء التشغيل:\n\n{str(e)}"
-        update.message.reply_text(f"حدث خطأ أثناء التشغيل:\n\n{str(e)}")
-
-    finally:
-        os.remove(file_path)
-        lock.release()
-
-def main_menu_keyboard():
-    keyboard = [
-        [InlineKeyboardButton("بدء", callback_data='start')],
-        [InlineKeyboardButton("ملفاتك", callback_data='list_files')],
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-def file_control_keyboard():
-    keyboard = [
-        [InlineKeyboardButton("تفاصيل", callback_data='details')],
-        [InlineKeyboardButton("حذف", callback_data='delete')],
-        [InlineKeyboardButton("رجوع", callback_data='go_back')],
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-def handle_button(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
-
-    if query.data == 'start':
-        start(update, context)
-    elif query.data == 'list_files':
-        list_files(update, context)
-    elif query.data == 'details':
-        show_details(update, context)
-    elif query.data == 'delete':
-        delete_file(update, context)
-    elif query.data == 'go_back':
-        query.edit_message_text(text="يرجى اختيار الإعدادات:", reply_markup=main_menu_keyboard())
-
-def list_files(update: Update, context: CallbackContext) -> None:
-    user_id = update.callback_query.from_user.id
-    files = user_files.get(user_id, {}).get('files', [])
-    if files:
-        file_list = "\n".join([f"{i+1}. {os.path.basename(f['path'])}" for i, f in enumerate(files)])
-        update.callback_query.edit_message_text(f"ملفاتك:\n\n{file_list}", reply_markup=file_control_keyboard())
+def get_profile_info(user):
+    headers = {
+        'referer': 'https://storiesig.info/en/',
+    }
+    
+    response = requests.get(f'https://storiesig.info/api/ig/profile/{user}', headers=headers)
+    
+    if response.status_code == 200:
+        data = response.json()
+        
+        profile_info = {
+            'id': data['result']['id'],
+            'username': data['result']['username'],
+            'biography': data['result']['biography'],
+            'full_name': data['result']['full_name'],
+            'media_count': data['result']['edge_owner_to_timeline_media']['count'],
+            'followers_count': data['result']['edge_followed_by']['count'],
+            'following_count': data['result']['edge_follow']['count'],
+            'profile_pic_url': data['result']['profile_pic_url'],
+            'is_private': data['result']['is_private'],
+        }
+        
+        profile_info['status'] = 'عام' if not profile_info['is_private'] else 'خاص'
+        
+        return profile_info
     else:
-        update.callback_query.edit_message_text("لا توجد ملفات مضافة.", reply_markup=main_menu_keyboard())
+        return None
 
-def show_details(update: Update, context: CallbackContext) -> None:
-    user_id = update.callback_query.from_user.id
-    files = user_files.get(user_id, {}).get('files', [])
-    if files:
-        details = "\n\n".join([f"الملف {i+1}:\nالمسار: {f['path']}\nالنتيجة الأخيرة:\n{f['last_result']}" for i, f in enumerate(files)])
-        update.callback_query.edit_message_text(f"تفاصيل الملفات:\n\n{details}", reply_markup=file_control_keyboard())
+def get_followers_list(user):
+    headers = {
+        'referer': 'https://storiesig.info/en/',
+    }
+    
+    response = requests.get(f'https://storiesig.info/api/ig/followers/{user}', headers=headers)
+    
+    if response.status_code == 200:
+        data = response.json()
+        return data['result']
     else:
-        update.callback_query.edit_message_text("لا توجد ملفات مضافة.", reply_markup=main_menu_keyboard())
+        return None
 
-def delete_file(update: Update, context: CallbackContext) -> None:
-    user_id = update.callback_query.from_user.id
-    if user_id in user_files:
-        for file_info in user_files[user_id]['files']:
-            file_path = file_info['path']
-            os.remove(file_path)
-        del user_files[user_id]
-        update.callback_query.edit_message_text("تم حذف جميع الملفات بنجاح.", reply_markup=main_menu_keyboard())
+token = "6419562305:AAHioiCY3MewQREnsxAKczTI7HJVt1MuseI"
+bot = telebot.TeleBot(token, num_threads=30, skip_pending=True)
+
+@bot.message_handler(commands=["start"])
+def Welcome(msg):
+    name = f"[{msg.from_user.first_name}](tg://settings)"
+    welcome_message = (f"مرحبا {name} في بوت معلومات الحساب على الانستقرام. "
+                       "فقط ارسل اليوزر بدون @ او مع .", 
+                       parse_mode="markdown",
+                       reply_markup=Mak().add(Btn('بحث عن حساب', callback_data='search')))
+    bot.reply_to(msg, welcome_message)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'search')
+def prompt_for_username(call):
+    msg = bot.send_message(call.message.chat.id, "الرجاء إرسال اليوزر بدون @ أو مع .")
+    bot.register_next_step_handler(msg, process_username)
+
+def process_username(message):
+    user = message.text.replace("@", "")
+    profile_info = get_profile_info(user)
+    
+    if profile_info is not None:
+        inf = (f"الايدي : {profile_info['id']}\n"
+               f"اليوزر : {profile_info['username']}\n"
+               f"الاسم : {profile_info['full_name']}\n"
+               f"البايو : {profile_info['biography']}\n"
+               f"عدد المنشورات : {profile_info['media_count']}\n"
+               f"عدد المتابعين : {profile_info['followers_count']}\n"
+               f"عدد ليتابعهم : {profile_info['following_count']}\n"
+               f"حالة الحساب : {profile_info['status']}")
+        
+        bot.send_photo(message.chat.id, profile_info['profile_pic_url'], caption=inf, reply_to_message_id=message.message_id, reply_markup=Mak().add(
+            Btn('مشاركة', switch_inline_query=user),
+            Btn('عرض المتابعين', callback_data=f'followers:{user}')
+        ))
     else:
-        update.callback_query.edit_message_text("لا توجد ملفات لحذفها.", reply_markup=main_menu_keyboard())
+        bot.reply_to(message, "لم يتم العثور على المستخدم")
 
-def main():
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
+@bot.callback_query_handler(func=lambda call: call.data.startswith('followers:'))
+def show_followers(call):
+    user = call.data.split(":")[1]
+    followers = get_followers_list(user)
+    
+    if followers:
+        followers_list = []
+        for follower in followers:
+            followers_list.append([
+                Btn(follower['username'], url=f"https://instagram.com/{follower['username']}"),
+                Btn("التالي", callback_data=f'next_follower:{user}:{follower["username"]}')
+            ])
+        bot.send_message(call.message.chat.id, "المتابعين:", reply_markup=Mak(inline_keyboard=followers_list))
+    else:
+        bot.send_message(call.message.chat.id, "لم يتم العثور على المتابعين")
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.document & Filters.private, handle_file))
-    dp.add_handler(CallbackQueryHandler(handle_button))
+@bot.callback_query_handler(func=lambda call: call.data.startswith('next_follower:'))
+def next_follower(call):
+    data = call.data.split(":")
+    user = data[1]
+    current_follower = data[2]
+    
+    followers = get_followers_list(user)
+    if followers:
+        for i, follower in enumerate(followers):
+            if follower['username'] == current_follower:
+                next_index = (i + 1) % len(followers)
+                next_follower = followers[next_index]
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="المتابعين:", reply_markup=Mak().add(
+                    Btn(next_follower['username'], url=f"https://instagram.com/{next_follower['username']}"),
+                    Btn("التالي", callback_data=f'next_follower:{user}:{next_follower["username"]}')
+                ))
+                break
 
-    updater.start_polling()
-    updater.idle()
+@bot.inline_handler(lambda query: True)
+def inline_query(query):
+    user = query.query
+    profile_info = get_profile_info(user)
 
-if __name__ == '__main__':
-    main()
+    if profile_info:
+        inf = (f"الايدي : {profile_info['id']}\n"
+               f"اليوزر : {profile_info['username']}\n"
+               f"الاسم : {profile_info['full_name']}\n"
+               f"البايو : {profile_info['biography']}\n"
+               f"عدد المنشورات : {profile_info['media_count']}\n"
+               f"عدد المتابعين : {profile_info['followers_count']}\n"
+               f"عدد ليتابعهم : {profile_info['following_count']}\n"
+               f"حالة الحساب : {profile_info['status']}")
+        
+        results = [
+            telebot.types.InlineQueryResultPhoto(
+                id='1',
+                photo_url=profile_info['profile_pic_url'],
+                thumb_url=profile_info['profile_pic_url'],
+                caption=inf, 
+                reply_markup=Mak().add(Btn('معلومات حسابك', url=f't.me/{bot.get_me().username}'))
+            )
+        ]
+        bot.answer_inline_query(query.id, results=results)
+
+bot.infinity_polling()
