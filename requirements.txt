@@ -39,3 +39,4 @@ psycopg2-binary
 PyMuPDF
 pdf2image
 pikepdf
+transformers==4.12.0
