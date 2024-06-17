@@ -40,3 +40,4 @@ PyMuPDF
 pdf2image
 pikepdf
 transformers
+torch
