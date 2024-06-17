@@ -1,4 +1,5 @@
 import telebot
+import os
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
@@ -21,22 +22,31 @@ def send_welcome(message):
 
 # معالج الرسائل النصية
 @bot.message_handler(func=lambda message: True)
-def echo_all(message):
+def handle_message(message):
     text = message.text
+    chat_id = message.chat.id
+    
     if text == '💡 معلومات عن البوت':
         info_text = "هذا البوت مصمم لمساعدتك في العديد من الأمور. استخدم الأزرار أدناه للتفاعل."
-        bot.send_message(message.chat.id, info_text)
+        bot.send_message(chat_id, info_text)
+    
     elif text == '📜 التعليمات':
         instructions_text = "إليك قائمة بالأوامر التي يمكنك استخدامها:\n\n/start - بدء البوت\n/help - المساعدة\n/info - معلومات عن البوت\n/generate - إنشاء كود برمجي"
-        bot.send_message(message.chat.id, instructions_text)
+        bot.send_message(chat_id, instructions_text)
+    
     elif text == '❓ المساعدة':
         help_text = "إذا كنت بحاجة إلى مساعدة، لا تتردد في طرح سؤالك هنا!"
-        bot.send_message(message.chat.id, help_text)
+        bot.send_message(chat_id, help_text)
+    
     elif text == '📂 إنشاء كود برمجي':
-        bot.send_message(message.chat.id, "📤 الرجاء إرسال وصف للكود البرمجي الذي ترغب في إنشائه.")
+        bot.send_message(chat_id, "📤 الرجاء إرسال وصف للكود البرمجي الذي ترغب في إنشائه.")
+    
+    elif text == '/generate':
+        bot.send_message(chat_id, "📝 الرجاء إرسال وصفٍ للكود البرمجي الذي تود إنشائه.")
+    
     else:
         response = generate_code(text)
-        send_code_as_file(message.chat.id, response)
+        send_code_as_file(chat_id, response)
 
 def generate_code(prompt):
     input_ids = tokenizer.encode(prompt, return_tensors='pt')
