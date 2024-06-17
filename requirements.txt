@@ -40,4 +40,4 @@ PyMuPDF
 pdf2image
 pikepdf
 transformers
-torch==1.10.0
+PyTorch
