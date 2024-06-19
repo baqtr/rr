@@ -21,7 +21,8 @@ def start(update: Update, context: CallbackContext) -> None:
     if user_id in user_files:
         for file_info in user_files[user_id]['files']:
             file_path = file_info['path']
-            os.remove(file_path)
+            if os.path.exists(file_path):
+                os.remove(file_path)
         del user_files[user_id]
 
     welcome_message = (
@@ -68,7 +69,7 @@ def run_python_file(update: Update, user_id: int, file_index: int) -> None:
         file_path = file_info['path']
         user_files[user_id]['files'][file_index]['start_time'] = time.time()
 
-        process = subprocess.Popen([sys.executable, '-O', file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process = subprocess.Popen([sys.executable, file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         user_files[user_id]['files'][file_index]['process'] = process
         stdout, stderr = process.communicate()
 
@@ -78,11 +79,11 @@ def run_python_file(update: Update, user_id: int, file_index: int) -> None:
             message = f"فشل تشغيل الملف ({file_index + 1}) ❌:\n\n{stderr}"
 
         user_files[user_id]['files'][file_index]['last_result'] = message
-        update.message.reply_text(message)
+        context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
     except Exception as e:
         user_files[user_id]['files'][file_index]['last_result'] = f"حدث خطأ أثناء التشغيل:\n\n{str(e)}"
-        update.message.reply_text(f"حدث خطأ أثناء التشغيل:\n\n{str(e)}")
+        context.bot.send_message(chat_id=update.effective_chat.id, text=f"حدث خطأ أثناء التشغيل:\n\n{str(e)}")
 
     finally:
         lock.release()
@@ -159,7 +160,9 @@ def delete_file(update: Update, context: CallbackContext) -> None:
     if process and process.poll() is None:
         process.terminate()
 
-    os.remove(file_info['path'])
+    if os.path.exists(file_info['path']):
+        os.remove(file_info['path'])
+        
     query.message.reply_text("تم حذف الملف بنجاح.")
     show_files(update, context)
 
