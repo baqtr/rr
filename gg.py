@@ -116,6 +116,7 @@ def show_file_details(update: Update, context: CallbackContext) -> None:
     last_result = file_info['last_result']
 
     keyboard = [
+        [InlineKeyboardButton("عرض سجل التشغيل", callback_data=f'show_log_{file_index}')],
         [InlineKeyboardButton("حذف", callback_data=f'delete_file_{file_index}')],
         [InlineKeyboardButton("إيقاف التشغيل", callback_data=f'stop_file_{file_index}')],
         [InlineKeyboardButton("رجوع", callback_data='show_files')]
@@ -123,6 +124,25 @@ def show_file_details(update: Update, context: CallbackContext) -> None:
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     query.message.reply_text(f"تفاصيل ملف {file_index + 1}:\n\n{last_result}", reply_markup=reply_markup)
+
+def show_file_log(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    user_id = query.from_user.id
+    file_index = int(query.data.split('_')[2])
+
+    if user_id not in user_files or file_index >= len(user_files[user_id]['files']):
+        query.message.reply_text("ملف غير موجود.")
+        return
+
+    file_info = user_files[user_id]['files'][file_index]
+    last_result = file_info['last_result']
+
+    keyboard = [
+        [InlineKeyboardButton("رجوع", callback_data=f'show_file_{file_index}')],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    query.message.reply_text(f"سجل تشغيل ملف {file_index + 1}:\n\n{last_result}", reply_markup=reply_markup)
 
 def delete_file(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -168,6 +188,8 @@ def button_handler(update: Update, context: CallbackContext) -> None:
         show_files(update, context)
     elif query.data.startswith('show_file_'):
         show_file_details(update, context)
+    elif query.data.startswith('show_log_'):
+        show_file_log(update, context)
     elif query.data.startswith('delete_file_'):
         delete_file(update, context)
     elif query.data.startswith('stop_file_'):
