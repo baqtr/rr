@@ -5,7 +5,6 @@ import subprocess
 import os
 import threading
 import time
-import ast
 import sys
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -55,7 +54,7 @@ def handle_file(update: Update, context: CallbackContext) -> None:
     file_path = f"{user_id}_{file_name}"
     user_file.get_file().download(file_path)
 
-    user_files[user_id]['files'].append({'path': file_path, 'start_time': 0, 'expiry_time': time.time() + float('inf'), 'last_result': ''})
+    user_files[user_id]['files'].append({'path': file_path, 'start_time': 0, 'expiry_time': time.time() + float('inf'), 'last_result': '', 'process': None})
 
     update.message.reply_text("تم تشغيل الملف بنجاح ساخبرك بحال وجود اخطاء ✅")
 
@@ -69,35 +68,14 @@ def run_python_file(update: Update, user_id: int, file_index: int) -> None:
         file_path = file_info['path']
         user_files[user_id]['files'][file_index]['start_time'] = time.time()
 
-        with open(file_path, 'r') as f:
-            code = f.read()
+        process = subprocess.Popen([sys.executable, '-O', file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        user_files[user_id]['files'][file_index]['process'] = process
+        stdout, stderr = process.communicate()
 
-        try:
-            # Check syntax errors
-            ast.parse(code)
-        except SyntaxError as e:
-            # Attempt to fix syntax errors automatically
-            try:
-                fixed_code = ast.fix_syntax_error(code)
-                with open(file_path, 'w') as f:
-                    f.write(fixed_code)
-                # Re-run the corrected code
-                result = subprocess.run([sys.executable, '-O', file_path], capture_output=True, text=True)
-
-                if result.returncode == 0:
-                    message = f"تم تشغيل الملف ({file_index + 1}) بنجاح ✅:\n\n{result.stdout}"
-                else:
-                    message = f"فشل تشغيل الملف ({file_index + 1}) ❌:\n\n{result.stderr}"
-            except Exception as fix_error:
-                message = f"تعذر تصحيح الخطأ وتشغيل الملف ({file_index + 1}) ❌:\n\n{fix_error}"
+        if process.returncode == 0:
+            message = f"تم تشغيل الملف ({file_index + 1}) بنجاح ✅:\n\n{stdout}"
         else:
-            # No syntax errors, proceed with running the code
-            result = subprocess.run([sys.executable, '-O', file_path], capture_output=True, text=True)
-
-            if result.returncode == 0:
-                message = f"تم تشغيل الملف ({file_index + 1}) بنجاح ✅:\n\n{result.stdout}"
-            else:
-                message = f"فشل تشغيل الملف ({file_index + 1}) ❌:\n\n{result.stderr}"
+            message = f"فشل تشغيل الملف ({file_index + 1}) ❌:\n\n{stderr}"
 
         user_files[user_id]['files'][file_index]['last_result'] = message
         update.message.reply_text(message)
@@ -107,7 +85,6 @@ def run_python_file(update: Update, user_id: int, file_index: int) -> None:
         update.message.reply_text(f"حدث خطأ أثناء التشغيل:\n\n{str(e)}")
 
     finally:
-        os.remove(file_path)
         lock.release()
 
 def show_files(update: Update, context: CallbackContext) -> None:
@@ -157,6 +134,11 @@ def delete_file(update: Update, context: CallbackContext) -> None:
         return
 
     file_info = user_files[user_id]['files'].pop(file_index)
+    process = file_info['process']
+
+    if process and process.poll() is None:
+        process.terminate()
+
     os.remove(file_info['path'])
     query.message.reply_text("تم حذف الملف بنجاح.")
     show_files(update, context)
@@ -166,9 +148,18 @@ def stop_file(update: Update, context: CallbackContext) -> None:
     user_id = query.from_user.id
     file_index = int(query.data.split('_')[2])
 
-    # Stopping the file execution logic goes here (if any)
-    # For now, we'll just reply that the action is not implemented
-    query.message.reply_text("إيقاف التشغيل غير متاح حالياً.")
+    if user_id not in user_files or file_index >= len(user_files[user_id]['files']):
+        query.message.reply_text("ملف غير موجود.")
+        return
+
+    file_info = user_files[user_id]['files'][file_index]
+    process = file_info['process']
+
+    if process and process.poll() is None:
+        process.terminate()
+        query.message.reply_text("تم إيقاف تشغيل الملف بنجاح.")
+    else:
+        query.message.reply_text("الملف لا يعمل حالياً.")
 
 def button_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -193,7 +184,6 @@ def main():
     dp.add_handler(CallbackQueryHandler(button_handler))
 
     updater.start_polling()
-
     updater.idle()
 
 if __name__ == '__main__':
