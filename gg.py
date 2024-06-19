@@ -1,6 +1,6 @@
 import logging
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, CallbackContext
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 import subprocess
 import os
 import threading
@@ -10,7 +10,7 @@ import sys
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-TOKEN = "7031770762:AAF-BrYHNEcX8VyGBzY1mastEG3SWod4_uI"
+TOKEN = "6529257547:AAG2MGxNXMLGxQtyUtA2zWEylP9QD5m-hGE"
 
 user_files = {}
 lock = threading.Lock()
@@ -25,47 +25,16 @@ def start(update: Update, context: CallbackContext) -> None:
             os.remove(file_path)
         del user_files[user_id]
 
-    keyboard = [
-        [InlineKeyboardButton("تشغيل ملف جديد", callback_data='new_file')],
-        [InlineKeyboardButton("عرض الملفات الحالية", callback_data='show_files')],
-        [InlineKeyboardButton("مسح الملفات الحالية", callback_data='clear_files')],
-        [InlineKeyboardButton("عرض النتائج الأخيرة", callback_data='show_results')],
-        [InlineKeyboardButton("إعدادات", callback_data='settings')],
-    ]
+    welcome_message = (
+        "مرحباً بك في بوت استضافة بايثون! \n"
+        "قم بإرسال ملف بايثون (.py) وسيتم تشغيله. إذا كان هناك أي أخطاء، سأخبرك بها. ✅\n"
+        "يمكنك عرض ملفاتك بالنقر على الزر أدناه."
+    )
 
-    welcome_message = ":  @AsiacellI2 اهلا بيك في افضل بوت استضافة بايثون يقوم بتشغيل ملفات متعدده كل ماعليك فعله هوه ارسال ملف بايثون وسيتم تشغيله وذا كان يحتوى على اخطاء سايخبرك البوت المطور"
-    update.message.reply_text(welcome_message, reply_markup=InlineKeyboardMarkup(keyboard))
+    keyboard = [[InlineKeyboardButton("عرض الملفات", callback_data='show_files')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
-def button(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    user_id = query.message.chat.id
-
-    if query.data == 'new_file':
-        query.message.reply_text("الرجاء إرسال ملف بايثون جديد.")
-    elif query.data == 'show_files':
-        if user_id in user_files and user_files[user_id]['files']:
-            files_list = "\n".join([f"{i+1}. {file['path']}" for i, file in enumerate(user_files[user_id]['files'])])
-            query.message.reply_text(f"الملفات الحالية:\n{files_list}")
-        else:
-            query.message.reply_text("لا توجد ملفات حالية.")
-    elif query.data == 'clear_files':
-        if user_id in user_files:
-            for file_info in user_files[user_id]['files']:
-                file_path = file_info['path']
-                os.remove(file_path)
-            del user_files[user_id]
-            query.message.reply_text("تم مسح جميع الملفات بنجاح.")
-        else:
-            query.message.reply_text("لا توجد ملفات لمسحها.")
-    elif query.data == 'show_results':
-        if user_id in user_files and user_files[user_id]['files']:
-            results_list = "\n\n".join([file['last_result'] for file in user_files[user_id]['files']])
-            query.message.reply_text(f"النتائج الأخيرة:\n{results_list}")
-        else:
-            query.message.reply_text("لا توجد نتائج لعرضها.")
-    elif query.data == 'settings':
-        settings_message = "إعدادات البوت:\n1. الحد الأقصى للملفات لكل مستخدم: 5\n2. وقت انتهاء الملف: غير محدود"
-        query.message.reply_text(settings_message)
+    update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
 def handle_file(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
@@ -107,8 +76,22 @@ def run_python_file(update: Update, user_id: int, file_index: int) -> None:
             # Check syntax errors
             ast.parse(code)
         except SyntaxError as e:
-            message = f"تعذر تصحيح الخطأ وتشغيل الملف ({file_index + 1}) ❌:\n\n{e}"
+            # Attempt to fix syntax errors automatically
+            try:
+                fixed_code = ast.fix_syntax_error(code)
+                with open(file_path, 'w') as f:
+                    f.write(fixed_code)
+                # Re-run the corrected code
+                result = subprocess.run([sys.executable, '-O', file_path], capture_output=True, text=True)
+
+                if result.returncode == 0:
+                    message = f"تم تشغيل الملف ({file_index + 1}) بنجاح ✅:\n\n{result.stdout}"
+                else:
+                    message = f"فشل تشغيل الملف ({file_index + 1}) ❌:\n\n{result.stderr}"
+            except Exception as fix_error:
+                message = f"تعذر تصحيح الخطأ وتشغيل الملف ({file_index + 1}) ❌:\n\n{fix_error}"
         else:
+            # No syntax errors, proceed with running the code
             result = subprocess.run([sys.executable, '-O', file_path], capture_output=True, text=True)
 
             if result.returncode == 0:
@@ -127,13 +110,87 @@ def run_python_file(update: Update, user_id: int, file_index: int) -> None:
         os.remove(file_path)
         lock.release()
 
+def show_files(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    user_id = query.from_user.id
+
+    if user_id not in user_files or not user_files[user_id]['files']:
+        query.message.reply_text("لا توجد ملفات متاحة.")
+        return
+
+    keyboard = []
+    for i, file_info in enumerate(user_files[user_id]['files']):
+        keyboard.append([InlineKeyboardButton(f"ملف {i + 1}", callback_data=f'show_file_{i}')])
+
+    keyboard.append([InlineKeyboardButton("رجوع", callback_data='back')])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    query.message.reply_text("اختر ملفاً لعرض تفاصيله:", reply_markup=reply_markup)
+
+def show_file_details(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    user_id = query.from_user.id
+    file_index = int(query.data.split('_')[2])
+
+    if user_id not in user_files or file_index >= len(user_files[user_id]['files']):
+        query.message.reply_text("ملف غير موجود.")
+        return
+
+    file_info = user_files[user_id]['files'][file_index]
+    last_result = file_info['last_result']
+
+    keyboard = [
+        [InlineKeyboardButton("حذف", callback_data=f'delete_file_{file_index}')],
+        [InlineKeyboardButton("إيقاف التشغيل", callback_data=f'stop_file_{file_index}')],
+        [InlineKeyboardButton("رجوع", callback_data='show_files')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    query.message.reply_text(f"تفاصيل ملف {file_index + 1}:\n\n{last_result}", reply_markup=reply_markup)
+
+def delete_file(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    user_id = query.from_user.id
+    file_index = int(query.data.split('_')[2])
+
+    if user_id not in user_files or file_index >= len(user_files[user_id]['files']):
+        query.message.reply_text("ملف غير موجود.")
+        return
+
+    file_info = user_files[user_id]['files'].pop(file_index)
+    os.remove(file_info['path'])
+    query.message.reply_text("تم حذف الملف بنجاح.")
+    show_files(update, context)
+
+def stop_file(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    user_id = query.from_user.id
+    file_index = int(query.data.split('_')[2])
+
+    # Stopping the file execution logic goes here (if any)
+    # For now, we'll just reply that the action is not implemented
+    query.message.reply_text("إيقاف التشغيل غير متاح حالياً.")
+
+def button_handler(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+
+    if query.data == 'show_files':
+        show_files(update, context)
+    elif query.data.startswith('show_file_'):
+        show_file_details(update, context)
+    elif query.data.startswith('delete_file_'):
+        delete_file(update, context)
+    elif query.data.startswith('stop_file_'):
+        stop_file(update, context)
+    elif query.data == 'back':
+        start(update, context)
+
 def main():
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CallbackQueryHandler(button))
     dp.add_handler(MessageHandler(Filters.document & Filters.private, handle_file))
+    dp.add_handler(CallbackQueryHandler(button_handler))
 
     updater.start_polling()
 
