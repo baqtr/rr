@@ -149,13 +149,13 @@ def list_heroku_apps(call):
         'Authorization': f'Bearer {user_accounts[user_id][account_index]["api_key"]}',
         'Accept': 'application/vnd.heroku+json; version=3'
     }
-    bot.edit_message_text("يتم جلب التطبيقات خلي عندك صبر... ", chat_id=call.message.chat.id, message_id=call.message.message_id)
+    bot.edit_message_text("جلب التطبيقات... ⬛⬜ 0%", chat_id=call.message.chat.id, message_id=call.message.message_id)
     time.sleep(2)
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
     if response.status_code == 200:
         apps = response.json()
         apps_list = "\n".join([f"`{app['name']}`" for app in apps])
-        bot.edit_message_text("وصلنه مابقه شي 🌝🌹", chat_id=call.message.chat.id, message_id=call.message.message_id)
+        bot.edit_message_text("جلب التطبيقات... ⬛⬛ 50%", chat_id=call.message.chat.id, message_id=call.message.message_id)
         time.sleep(2)
         bot.edit_message_text(f"التطبيقات المتاحة في هيروكو:\n{apps_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
     else:
@@ -267,7 +267,7 @@ def delete_heroku_app(app_name, message, account_index):
     if response.status_code == 202:
         bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح.", parse_mode='Markdown')
     else:
-        bot.send_message(message.chat.id, "تم حذف التطبيق بنجاح ✅")
+        bot.send_message(message.chat.id, "حدث خطأ أثناء محاولة حذف التطبيق.")
 
 # عرض الوقت المتبقي للحذف الذاتي
 def show_remaining_time(call):
