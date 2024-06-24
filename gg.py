@@ -13,7 +13,7 @@ import pytz
 from github import Github
 
 # استيراد توكن البوت من المتغيرات البيئية
-bot_token = "6444148337:AAGeZw7Ym7HfPgFrt77k4lbiOXEq9oxfl4Y"
+bot_token = "6519207627:AAFJ1-e8k4QWQ0YhPmHdfbxd6rdSfNGX5SA"
 github_token = "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"
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
