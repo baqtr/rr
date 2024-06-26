@@ -92,10 +92,7 @@ def fix_errors(query, file_path, context):
     with open(file_path, 'r') as f:
         content = f.read()
 
-    # Attempt to correct common syntax errors
     content = re.sub(r'print\s+"', 'print("', content)
-    content = re.sub(r'"\s*$', '")', content)
-    content = re.sub(r'(?<!\w)exec\s+"', 'exec("', content)
     content = re.sub(r'"\s*$', '")', content)
 
     with open(file_path, 'w') as f:
@@ -169,5 +166,5 @@ def main() -> None:
     updater.start_polling()
     updater.idle()
 
-if __name__ == "__main__":
-    bot.polling()
+if __name__ == '__main__':
+    main()
