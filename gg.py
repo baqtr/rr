@@ -1,170 +1,137 @@
-import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 import os
-import re
-import subprocess
+import telebot
+import requests
+import time
+from github import Github
 
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
+# استيراد التوكنات من المتغيرات البيئية
+bot_token = "7031770762:AAF-BrYHNEcX8VyGBzY1mastEG3SWod4_uI"
+github_token = "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"
+koyeb_token = "cbaa3j79e6se7juh0qkte6a7geck1z51ff6p3t38dl11u26idyllrbkq7cg40hnc"
 
-TOKEN = "7031770762:AAF-BrYHNEcX8VyGBzY1mastEG3SWod4_uI"
+# إنشاء كائن البوت
+bot = telebot.TeleBot(bot_token)
+g = Github(github_token)
 
-def start(update: Update, context: CallbackContext) -> None:
-    file_path = context.user_data.get('file_path')
-    if file_path:
-        show_menu(update.message.reply_text, "📂 تم استقبال الملف مسبقاً. اختر عملية:")
-    else:
-        update.message.reply_text("👋 مرحباً! أنا بوت إدارة ملفات بايثون. الرجاء إرسال ملف بايثون لتبدأ.")
+# الدالة لإنشاء الأزرار وتخصيصها
+def create_main_buttons():
+    markup = telebot.types.InlineKeyboardMarkup()
+    button1 = telebot.types.InlineKeyboardButton("🚀 نشر تطبيق", callback_data="deploy_app")
+    button2 = telebot.types.InlineKeyboardButton("📊 عرض التطبيقات", callback_data="list_apps")
+    button3 = telebot.types.InlineKeyboardButton("🗂️ عرض المستودعات", callback_data="list_repos")
+    button4 = telebot.types.InlineKeyboardButton("🗑️ حذف تطبيق", callback_data="delete_app")
+    markup.add(button1, button2)
+    markup.add(button3, button4)
+    return markup
 
-def handle_file(update: Update, context: CallbackContext) -> None:
-    file = update.message.document
-    if file.file_name.endswith('.py'):
-        file_path = file.get_file().download()
-        context.user_data['file_path'] = file_path
-        context.user_data['file_name'] = file.file_name
-        context.user_data['modifications'] = []
+# دالة للرد على /start
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    bot.send_message(message.chat.id, "أهلاً بك! اختر من الأزرار أدناه:", reply_markup=create_main_buttons())
 
-        show_menu(update.message.reply_text, "📂 تم استقبال الملف. اختر عملية:")
-    else:
-        update.message.reply_text("❌ الرجاء إرسال ملف بايثون بامتداد .py")
+# دالة لنشر التطبيق
+def deploy_app(call):
+    bot.send_message(call.message.chat.id, "اختر مستودع GitHub لنشر التطبيق:", reply_markup=create_repos_buttons())
 
-def button(update: Update, context: CallbackContext) -> None:
-    query = update.callback_query
-    query.answer()
+# دالة لإنشاء أزرار المستودعات
+def create_repos_buttons():
+    markup = telebot.types.InlineKeyboardMarkup()
+    repos = g.get_user().get_repos()
+    for repo in repos:
+        button = telebot.types.InlineKeyboardButton(repo.name, callback_data=f"deploy_repo:{repo.full_name}")
+        markup.add(button)
+    return markup
 
-    if 'file_path' not in context.user_data:
-        query.edit_message_text(text="⚠️ لم يتم استقبال ملف بعد. الرجاء إرسال ملف بايثون أولاً.")
-        return
+# دالة لمعالجة نشر التطبيق
+def handle_deploy_repo(call, repo_full_name):
+    bot.send_message(call.message.chat.id, f"جاري نشر المستودع: {repo_full_name}. يرجى الانتظار...")
 
-    file_path = context.user_data['file_path']
-
-    if query.data == 'show_commands':
-        show_commands(query, file_path)
-    elif query.data == 'show_libraries':
-        show_libraries(query, file_path)
-    elif query.data == 'fix_errors':
-        fix_errors(query, file_path, context)
-    elif query.data == 'clean_file':
-        clean_file(query, file_path, context)
-    elif query.data == 'format_code':
-        format_code(query, file_path, context)
-    elif query.data == 'optimize':
-        optimize(query, file_path, context)
-    elif query.data == 'send_file':
-        send_file(query, context)
-    elif query.data == 'reload_file':
-        reload_file(query, context)
-    elif query.data == 'test_file':
-        test_file(query, file_path)
-    elif query.data == 'back_to_menu':
-        back_to_menu(query, context)
-
-def show_menu(reply_func, message):
-    keyboard = [
-        [InlineKeyboardButton("🔍 عرض الأوامر", callback_data='show_commands')],
-        [InlineKeyboardButton("📚 عرض المكاتب", callback_data='show_libraries')],
-        [InlineKeyboardButton("🛠️ تصحيح الأخطاء", callback_data='fix_errors')],
-        [InlineKeyboardButton("🧹 تنظيف الملف", callback_data='clean_file')],
-        [InlineKeyboardButton("🗂️ تنظيم الكود", callback_data='format_code')],
-        [InlineKeyboardButton("🚀 تحسين الأداء", callback_data='optimize')],
-        [InlineKeyboardButton("📤 إرسال الملف", callback_data='send_file')],
-        [InlineKeyboardButton("🔄 تحديث الملف", callback_data='reload_file')],
-        [InlineKeyboardButton("⚙️ اختبار الملف", callback_data='test_file')],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    reply_func(message, reply_markup=reply_markup)
-
-def show_commands(query, file_path):
-    with open(file_path, 'r') as f:
-        content = f.read()
-    commands = [line for line in content.split('\n') if line.strip().startswith('def ')]
-    query.edit_message_text(text="الأوامر:\n" + '\n'.join(commands), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
-
-def show_libraries(query, file_path):
-    with open(file_path, 'r') as f:
-        content = f.read()
-    libraries = [line for line in content.split('\n') if line.strip().startswith('import ') or line.strip().startswith('from ')]
-    library_text = "\n".join([f"`{lib}`" for lib in libraries])
-    query.edit_message_text(text=f"المكاتب:\n{library_text}\n(يمكنك نسخ المكتبة بالنقر عليها)", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]), parse_mode='Markdown')
-
-def fix_errors(query, file_path, context):
-    with open(file_path, 'r') as f:
-        content = f.read()
-
-    content = re.sub(r'print\s+"', 'print("', content)
-    content = re.sub(r'"\s*$', '")', content)
-
-    with open(file_path, 'w') as f:
-        f.write(content)
-
-    context.user_data['modifications'].append("تصحيح الأخطاء")
-    query.edit_message_text(text="✅ تم تصحيح الأخطاء.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
-
-def clean_file(query, file_path, context):
-    with open(file_path, 'r') as f:
-        content = f.read()
-    cleaned_content = '\n'.join([line for line in content.split('\n') if not line.strip().startswith('#')])
-    with open(file_path, 'w') as f:
-        f.write(cleaned_content)
-    context.user_data['modifications'].append("تنظيف الملف من التعليقات")
-    query.edit_message_text(text="🧹 تم تنظيف الملف من التعليقات.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
-
-def format_code(query, file_path, context):
-    with open(file_path, 'r') as f:
-        content = f.read()
-    formatted_content = '\n'.join([line.strip() for line in content.split('\n')])
-    with open(file_path, 'w') as f:
-        f.write(formatted_content)
-    context.user_data['modifications'].append("تنظيم الكود")
-    query.edit_message_text(text="🗂️ تم تنظيم الكود.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
-
-def optimize(query, file_path, context):
-    context.user_data['modifications'].append("تسريع الأداء")
-    query.edit_message_text(text="🚀 تم تسريع الأداء (مبدئي).", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
-
-def reload_file(query, context):
-    file_path = context.user_data['file_path']
-    context.user_data['modifications'] = []
-    query.edit_message_text(text="🔄 تم تحديث الملف. اختر عملية من جديد.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
-
-def send_file(query, context):
-    file_path = context.user_data['file_path']
-    modifications = context.user_data['modifications']
-    modifications_text = "التعديلات التي تمت على الملف:\n" + '\n'.join(modifications)
-    line_count = sum(1 for line in open(file_path))
-
-    with open(file_path, 'rb') as f:
-        context.bot.send_document(chat_id=query.message.chat_id, document=InputFile(f, filename=context.user_data['file_name']))
+    headers = {
+        'Authorization': f'Bearer {koyeb_token}',
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        "name": repo_full_name.split('/')[-1],
+        "repository": f"https://github.com/{repo_full_name}.git",
+        "branch": "main"
+    }
+    response = requests.post('https://app.koyeb.com/v1/deployments', headers=headers, json=payload)
     
-    result_text = f"{modifications_text}\nعدد التعديلات: {len(modifications)}\nعدد سطور الملف: {line_count}\nنسبة نجاح العملية: ✅"
-    context.bot.send_message(chat_id=query.message.chat_id, text=result_text)
-    query.edit_message_text(text="📤 تم إرسال الملف المعدل.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
+    if response.status_code == 201:
+        deployment_id = response.json()['id']
+        bot.send_message(call.message.chat.id, f"تم بدء عملية النشر بنجاح! معرف النشر: {deployment_id}")
+        track_deployment_status(call.message.chat.id, deployment_id)
+    else:
+        bot.send_message(call.message.chat.id, f"حدث خطأ أثناء عملية النشر. الرمز: {response.status_code} - الرسالة: {response.text}")
 
-def test_file(query, file_path):
-    query.edit_message_text(text="⚙️ جارٍ اختبار الملف...")
-    try:
-        result = subprocess.run(['python', file_path], capture_output=True, text=True, timeout=30)
-        if result.returncode == 0:
-            query.edit_message_text(text=f"✅ تم اختبار الملف بنجاح:\n{result.stdout}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
+# دالة لمتابعة حالة النشر
+def track_deployment_status(chat_id, deployment_id):
+    headers = {
+        'Authorization': f'Bearer {koyeb_token}',
+        'Content-Type': 'application/json'
+    }
+    while True:
+        response = requests.get(f'https://app.koyeb.com/v1/deployments/{deployment_id}', headers=headers)
+        status = response.json().get('status')
+        bot.send_message(chat_id, f"حالة النشر الحالية: {status}")
+        
+        if status in ['success', 'failed']:
+            break
+        
+        time.sleep(10)
+
+# دالة لعرض التطبيقات
+def list_apps(call):
+    headers = {
+        'Authorization': f'Bearer {koyeb_token}',
+        'Content-Type': 'application/json'
+    }
+    response = requests.get('https://app.koyeb.com/v1/apps', headers=headers)
+    if response.status_code == 200:
+        apps = response.json()['apps']
+        if apps:
+            apps_list = "\n".join([f"معرف: {app['id']} - اسم: {app['name']}" for app in apps])
+            bot.send_message(call.message.chat.id, f"التطبيقات المتاحة:\n{apps_list}")
         else:
-            query.edit_message_text(text=f"❌ فشل اختبار الملف:\n{result.stderr}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
-    except subprocess.TimeoutExpired:
-        query.edit_message_text(text="⏰ تجاوز وقت اختبار الملف 30 ثانية.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 العودة", callback_data='back_to_menu')]]))
+            bot.send_message(call.message.chat.id, "لا يوجد تطبيقات متاحة حالياً.")
+    else:
+        bot.send_message(call.message.chat.id, f"حدث خطأ أثناء جلب التطبيقات. الرمز: {response.status_code} - الرسالة: {response.text}")
 
-def back_to_menu(query, context):
-    show_menu(query.edit_message_text, "تم العودة إلى القائمة الرئيسية. اختر عملية:")
+# دالة لعرض المستودعات
+def list_repos(call):
+    bot.send_message(call.message.chat.id, "اختر مستودع من القائمة أدناه:", reply_markup=create_repos_buttons())
 
-def main() -> None:
-    updater = Updater(TOKEN)
-    dp = updater.dispatcher
+# دالة لحذف تطبيق
+def delete_app(call):
+    msg = bot.send_message(call.message.chat.id, "أرسل معرف التطبيق الذي تريد حذفه:")
+    bot.register_next_step_handler(msg, handle_delete_app)
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.document, handle_file))
-    dp.add_handler(CallbackQueryHandler(button))
+def handle_delete_app(message):
+    app_id = message.text.strip()
+    headers = {
+        'Authorization': f'Bearer {koyeb_token}',
+        'Content-Type': 'application/json'
+    }
+    response = requests.delete(f'https://app.koyeb.com/v1/apps/{app_id}', headers=headers)
+    if response.status_code == 204:
+        bot.send_message(message.chat.id, f"تم حذف التطبيق بنجاح! معرف التطبيق: {app_id}")
+    else:
+        bot.send_message(message.chat.id, f"حدث خطأ أثناء حذف التطبيق. الرمز: {response.status_code} - الرسالة: {response.text}")
 
-    updater.start_polling()
-    updater.idle()
+# دالة لمعالجة النقرات على الأزرار
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    if call.data == "deploy_app":
+        deploy_app(call)
+    elif call.data == "list_apps":
+        list_apps(call)
+    elif call.data == "list_repos":
+        list_repos(call)
+    elif call.data == "delete_app":
+        delete_app(call)
+    elif call.data.startswith("deploy_repo:"):
+        repo_full_name = call.data.split(":")[1]
+        handle_deploy_repo(call, repo_full_name)
 
-if __name__ == '__main__':
-    main()
+# تشغيل البوت
+bot.polling()
