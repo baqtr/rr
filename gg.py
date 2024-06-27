@@ -58,8 +58,10 @@ def handle_deploy_repo(call, repo_full_name):
     response = requests.post('https://app.koyeb.com/v1/apps', headers=headers, json=payload)
     
     if response.status_code == 201:
-        deployment_id = response.json()['id']
+        app_details = response.json()
+        deployment_id = app_details['app']['id']
         bot.send_message(call.message.chat.id, f"تم بدء عملية النشر بنجاح! معرف النشر: {deployment_id}")
+        bot.send_message(call.message.chat.id, f"حالة التطبيق: {app_details['app']['status']}\nالرابط: {app_details['app']['domains'][0]['name']}")
         track_deployment_status(call.message.chat.id, deployment_id)
     else:
         bot.send_message(call.message.chat.id, f"حدث خطأ أثناء عملية النشر. الرمز: {response.status_code} - الرسالة: {response.text}")
@@ -71,13 +73,18 @@ def track_deployment_status(chat_id, deployment_id):
         'Content-Type': 'application/json'
     }
     while True:
-        response = requests.get(f'https://app.koyeb.com/v1/deployments/{deployment_id}', headers=headers)
-        status = response.json().get('status')
-        bot.send_message(chat_id, f"حالة النشر الحالية: {status}")
-        
-        if status in ['success', 'failed']:
-            break
-        
+        response = requests.get(f'https://app.koyeb.com/v1/apps/{deployment_id}', headers=headers)
+        status = response.json()['app'].get('status')
+        if status:
+            bot.send_message(chat_id, f"حالة النشر الحالية: {status}")
+
+            if status in ['success', 'failed']:
+                break
+
+            if 'error' in response.json():
+                bot.send_message(chat_id, f"خطأ في عملية النشر: {response.json()['error']}")
+                break
+
         time.sleep(10)
 
 # دالة لعرض التطبيقات
@@ -90,7 +97,7 @@ def list_apps(call):
     if response.status_code == 200:
         apps = response.json()['apps']
         if apps:
-            apps_list = "\n".join([f"معرف: {app['id']} - اسم: {app['name']}" for app in apps])
+            apps_list = "\n".join([f"معرف: {app['id']} - اسم: {app['name']} - حالة: {app['status']}" for app in apps])
             bot.send_message(call.message.chat.id, f"التطبيقات المتاحة:\n{apps_list}")
         else:
             bot.send_message(call.message.chat.id, "لا يوجد تطبيقات متاحة حالياً.")
