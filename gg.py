@@ -55,7 +55,7 @@ def handle_deploy_repo(call, repo_full_name):
         "repository": f"https://github.com/{repo_full_name}.git",
         "branch": "main"
     }
-    response = requests.post('https://app.koyeb.com/v1/deployments', headers=headers, json=payload)
+    response = requests.post('https://app.koyeb.com/v1/apps', headers=headers, json=payload)
     
     if response.status_code == 201:
         deployment_id = response.json()['id']
