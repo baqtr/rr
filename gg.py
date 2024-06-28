@@ -6,9 +6,9 @@ from github import Github
 from datetime import datetime
 
 # استيراد التوكنات من المتغيرات البيئية
-bot_token = "7031770762:AAF-BrYHNEcX8VyGBzY1mastEG3SWod4_uI"
-github_token = "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"
-koyeb_token = "cbaa3j79e6se7juh0qkte6a7geck1z51ff6p3t38dl11u26idyllrbkq7cg40hnc"
+bot_token = os.getenv("BOT_TOKEN")
+github_token = os.getenv("GITHUB_TOKEN")
+koyeb_token = os.getenv("KOYEB_TOKEN")
 
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
@@ -50,9 +50,9 @@ def update_trial_button_markup(markup):
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     buttons = create_main_buttons()
-    bot.send_message(message.chat.id, "أهلاً بك! جاري جلب معلومات الاشتراك...", reply_markup=buttons)
+    sent_message = bot.send_message(message.chat.id, "أهلاً بك! جاري جلب معلومات الاشتراك...", reply_markup=buttons)
     buttons = update_trial_button_markup(buttons)
-    bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=message.message_id + 1, reply_markup=buttons)
+    bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=sent_message.message_id, reply_markup=buttons)
 
 # دالة لنشر التطبيق
 def deploy_app(call):
@@ -183,12 +183,7 @@ def handle_get_app_log(message):
         'Authorization': f'Bearer {koyeb_token}',
         'Content-Type': 'application/json'
     }
-    response = requests.get(f'https://app.koyeb.com/v1/apps/{app_id}', headers=headers)
-    if response.status_code == 200:
-        app_details = response.json()
-        app_name = app_details['app']['name']
-        created_at = app_details['app']['created_at']
-        region = app_details['app']['region']
+    region = app_details['app']['region']
         status = app_details['app']['status']
         last_error = app_details['app'].get('last_error', 'لا توجد أخطاء')
 
