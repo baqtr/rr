@@ -21,16 +21,34 @@ def create_main_buttons():
     button2 = telebot.types.InlineKeyboardButton("📊 عرض التطبيقات", callback_data="list_apps")
     button3 = telebot.types.InlineKeyboardButton("🗂️ عرض المستودعات", callback_data="list_repos")
     button4 = telebot.types.InlineKeyboardButton("🗑️ حذف تطبيق", callback_data="delete_app")
-    button5 = telebot.types.InlineKeyboardButton("⏳ الفترة التجريبية المتبقية", callback_data="trial_period")
+    button5 = telebot.types.InlineKeyboardButton("اشتراكك: 0", callback_data="trial_period")
     markup.add(button1, button2)
     markup.add(button3, button4)
     markup.add(button5)
     return markup
 
+# تحديث زر الاشتراك بالأيام المتبقية
+def update_trial_button():
+    headers = {
+        'Authorization': f'Bearer {koyeb_token}',
+        'Content-Type': 'application/json'
+    }
+    response = requests.get('https://app.koyeb.com/v1/account', headers=headers)
+    if response.status_code == 200:
+        account_details = response.json()
+        trial_end_date_str = account_details['account']['trial_period_end']
+        trial_end_date = datetime.strptime(trial_end_date_str, "%Y-%m-%dT%H:%M:%SZ")
+        days_remaining = (trial_end_date - datetime.utcnow()).days
+        button_text = f"اشتراكك: {days_remaining}"
+    else:
+        button_text = "اشتراكك: خطأ"
+    return button_text
+
 # دالة للرد على /start
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.send_message(message.chat.id, "أهلاً بك! اختر من الأزرار أدناه:", reply_markup=create_main_buttons())
+    buttons = create_main_buttons()
+    bot.send_message(message.chat.id, "أهلاً بك! اختر من الأزرار أدناه:", reply_markup=buttons)
 
 # دالة لنشر التطبيق
 def deploy_app(call):
@@ -143,7 +161,7 @@ def trial_period(call):
         trial_end_date_str = account_details['account']['trial_period_end']
         trial_end_date = datetime.strptime(trial_end_date_str, "%Y-%m-%dT%H:%M:%SZ")
         days_remaining = (trial_end_date - datetime.utcnow()).days
-        bot.send_message(call.message.chat.id, f"ايام اشتراكك المتبقية: {days_remaining}")
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"اشتراكك: {days_remaining}")
     else:
         bot.send_message(call.message.chat.id, f"حدث خطأ أثناء جلب معلومات الحساب. الرمز: {response.status_code} - الرسالة: {response.text}")
 
