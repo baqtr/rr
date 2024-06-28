@@ -20,8 +20,10 @@ def create_main_buttons():
     button2 = telebot.types.InlineKeyboardButton("📊 عرض التطبيقات", callback_data="list_apps")
     button3 = telebot.types.InlineKeyboardButton("🗂️ عرض المستودعات", callback_data="list_repos")
     button4 = telebot.types.InlineKeyboardButton("🗑️ حذف تطبيق", callback_data="delete_app")
+    button5 = telebot.types.InlineKeyboardButton("⏳ الفترة التجريبية المتبقية", callback_data="trial_period")
     markup.add(button1, button2)
     markup.add(button3, button4)
+    markup.add(button5)
     return markup
 
 # دالة للرد على /start
@@ -60,8 +62,8 @@ def handle_deploy_repo(call, repo_full_name):
     if response.status_code == 201:
         app_details = response.json()
         deployment_id = app_details['app']['id']
-        bot.send_message(call.message.chat.id, f"تم بدء عملية النشر بنجاح! معرف النشر: {deployment_id}")
-        bot.send_message(call.message.chat.id, f"حالة التطبيق: {app_details['app']['status']}\nالرابط: {app_details['app']['domains'][0]['name']}")
+        app_name = app_details['app']['name']
+        bot.send_message(call.message.chat.id, f"تم بدء عملية النشر بنجاح! معرف النشر: `{deployment_id}`\nاسم التطبيق: `{app_name}`", parse_mode='Markdown')
         track_deployment_status(call.message.chat.id, deployment_id)
     else:
         bot.send_message(call.message.chat.id, f"حدث خطأ أثناء عملية النشر. الرمز: {response.status_code} - الرسالة: {response.text}")
@@ -97,8 +99,8 @@ def list_apps(call):
     if response.status_code == 200:
         apps = response.json()['apps']
         if apps:
-            apps_list = "\n".join([f"معرف: {app['id']} - اسم: {app['name']} - حالة: {app['status']}" for app in apps])
-            bot.send_message(call.message.chat.id, f"التطبيقات المتاحة:\n{apps_list}")
+            apps_list = "\n".join([f"معرف: `{app['id']}` - اسم: `{app['name']}` - حالة: {app['status']}" for app in apps])
+            bot.send_message(call.message.chat.id, f"التطبيقات المتاحة:\n{apps_list}", parse_mode='Markdown')
         else:
             bot.send_message(call.message.chat.id, "لا يوجد تطبيقات متاحة حالياً.")
     else:
@@ -121,9 +123,22 @@ def handle_delete_app(message):
     }
     response = requests.delete(f'https://app.koyeb.com/v1/apps/{app_id}', headers=headers)
     if response.status_code == 204:
-        bot.send_message(message.chat.id, f"تم حذف التطبيق بنجاح! معرف التطبيق: {app_id}")
+        bot.send_message(message.chat.id, f"تم حذف التطبيق بنجاح! معرف التطبيق: `{app_id}`", parse_mode='Markdown')
     else:
         bot.send_message(message.chat.id, f"حدث خطأ أثناء حذف التطبيق. الرمز: {response.status_code} - الرسالة: {response.text}")
+
+# دالة لمعرفة الفترة التجريبية المتبقية
+def trial_period(call):
+    headers = {
+        'Authorization': f'Bearer {koyeb_token}',
+        'Content-Type': 'application/json'
+    }
+    response = requests.get('https://app.koyeb.com/v1/account', headers=headers)
+    if response.status_code == 200:
+        trial_end_date = response.json()['account']['trial_period_end']
+        bot.send_message(call.message.chat.id, f"تاريخ انتهاء الفترة التجريبية: {trial_end_date}")
+    else:
+        bot.send_message(call.message.chat.id, f"حدث خطأ أثناء جلب معلومات الحساب. الرمز: {response.status_code} - الرسالة: {response.text}")
 
 # دالة لمعالجة النقرات على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
@@ -136,6 +151,8 @@ def callback_query(call):
         list_repos(call)
     elif call.data == "delete_app":
         delete_app(call)
+    elif call.data == "trial_period":
+        trial_period(call)
     elif call.data.startswith("deploy_repo:"):
         repo_full_name = call.data.split(":")[1]
         handle_deploy_repo(call, repo_full_name)
