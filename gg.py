@@ -22,9 +22,11 @@ def create_main_buttons():
     button3 = telebot.types.InlineKeyboardButton("🗂️ عرض المستودعات", callback_data="list_repos")
     button4 = telebot.types.InlineKeyboardButton("🗑️ حذف تطبيق", callback_data="delete_app")
     button5 = telebot.types.InlineKeyboardButton("جاري جلب الاشتراك...", callback_data="trial_period")
+    button6 = telebot.types.InlineKeyboardButton("🔍 جلب سجل تطبيق", callback_data="get_app_log")
     markup.add(button1, button2)
     markup.add(button3, button4)
     markup.add(button5)
+    markup.add(button6)
     return markup
 
 # دالة لتحديث زر الاشتراك
@@ -170,6 +172,36 @@ def trial_period(call):
     else:
         bot.send_message(call.message.chat.id, f"حدث خطأ أثناء جلب معلومات الحساب. الرمز: {response.status_code} - الرسالة: {response.text}")
 
+# دالة لجلب سجل تطبيق
+def get_app_log(call):
+    msg = bot.send_message(call.message.chat.id, "أرسل معرف التطبيق الذي تريد جلب سجله:")
+    bot.register_next_step_handler(msg, handle_get_app_log)
+
+def handle_get_app_log(message):
+    app_id = message.text.strip()
+    headers = {
+        'Authorization': f'Bearer {koyeb_token}',
+        'Content-Type': 'application/json'
+    }
+    response = requests.get(f'https://app.koyeb.com/v1/apps/{app_id}', headers=headers)
+    if response.status_code == 200:
+        app_details = response.json()
+        app_name = app_details['app']['name']
+        created_at = app_details['app']['created_at']
+        region = app_details['app']['region']
+        status = app_details['app']['status']
+        last_error = app_details['app'].get('last_error', 'لا توجد أخطاء')
+
+        status_emoji = '✅' if status == 'running' else '❌'
+        bot.send_message(message.chat.id, f"معلومات التطبيق:\n"
+                                          f"اسم التطبيق: {app_name}\n"
+                                          f"تاريخ الإنشاء: {created_at}\n"
+                                          f"المنطقة: {region}\n"
+                                          f"الحالة: {status} {status_emoji}\n"
+                                          f"آخر خطأ: {last_error}")
+    else:
+        bot.send_message(message.chat.id, f"حدث خطأ أثناء جلب سجل التطبيق. الرمز: {response.status_code} - الرسالة: {response.text}")
+
 # دالة لمعالجة النقرات على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
@@ -183,9 +215,11 @@ def callback_query(call):
         delete_app(call)
     elif call.data == "trial_period":
         trial_period(call)
+    elif call.data == "get_app_log":
+        get_app_log(call)
     elif call.data.startswith("deploy_repo:"):
         repo_full_name = call.data.split(":")[1]
         handle_deploy_repo(call, repo_full_name)
 
 # تشغيل البوت
-bot.polling(none_stop=True) 
+bot.polling(none_stop=True)
