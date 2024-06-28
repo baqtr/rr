@@ -21,14 +21,14 @@ def create_main_buttons():
     button2 = telebot.types.InlineKeyboardButton("📊 عرض التطبيقات", callback_data="list_apps")
     button3 = telebot.types.InlineKeyboardButton("🗂️ عرض المستودعات", callback_data="list_repos")
     button4 = telebot.types.InlineKeyboardButton("🗑️ حذف تطبيق", callback_data="delete_app")
-    button5 = telebot.types.InlineKeyboardButton("اشتراكك: 0", callback_data="trial_period")
+    button5 = telebot.types.InlineKeyboardButton("جاري جلب الاشتراك...", callback_data="trial_period")
     markup.add(button1, button2)
     markup.add(button3, button4)
     markup.add(button5)
     return markup
 
-# تحديث زر الاشتراك بالأيام المتبقية
-def update_trial_button():
+# دالة لتحديث زر الاشتراك
+def update_trial_button_markup(markup):
     headers = {
         'Authorization': f'Bearer {koyeb_token}',
         'Content-Type': 'application/json'
@@ -39,16 +39,18 @@ def update_trial_button():
         trial_end_date_str = account_details['account']['trial_period_end']
         trial_end_date = datetime.strptime(trial_end_date_str, "%Y-%m-%dT%H:%M:%SZ")
         days_remaining = (trial_end_date - datetime.utcnow()).days
-        button_text = f"اشتراكك: {days_remaining}"
+        markup.keyboard[2][0].text = f"اشتراكك: {days_remaining}"
     else:
-        button_text = "اشتراكك: خطأ"
-    return button_text
+        markup.keyboard[2][0].text = "اشتراكك: خطأ"
+    return markup
 
 # دالة للرد على /start
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     buttons = create_main_buttons()
-    bot.send_message(message.chat.id, "أهلاً بك! اختر من الأزرار أدناه:", reply_markup=buttons)
+    bot.send_message(message.chat.id, "أهلاً بك! جاري جلب معلومات الاشتراك...", reply_markup=buttons)
+    buttons = update_trial_button_markup(buttons)
+    bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=message.message_id + 1, reply_markup=buttons)
 
 # دالة لنشر التطبيق
 def deploy_app(call):
@@ -110,6 +112,7 @@ def track_deployment_status(chat_id, deployment_id):
 
 # دالة لعرض التطبيقات
 def list_apps(call):
+    bot.send_message(call.message.chat.id, "جاري جلب التطبيقات...")
     headers = {
         'Authorization': f'Bearer {koyeb_token}',
         'Content-Type': 'application/json'
@@ -127,6 +130,7 @@ def list_apps(call):
 
 # دالة لعرض المستودعات
 def list_repos(call):
+    bot.send_message(call.message.chat.id, "جاري جلب المستودعات...")
     bot.send_message(call.message.chat.id, "اختر مستودع من القائمة أدناه:", reply_markup=create_repos_buttons())
 
 # دالة لحذف تطبيق
@@ -151,6 +155,7 @@ def handle_delete_app(message):
 
 # دالة لمعرفة الفترة التجريبية المتبقية
 def trial_period(call):
+    bot.send_message(call.message.chat.id, "جاري جلب معلومات الاشتراك...")
     headers = {
         'Authorization': f'Bearer {koyeb_token}',
         'Content-Type': 'application/json'
@@ -183,4 +188,4 @@ def callback_query(call):
         handle_deploy_repo(call, repo_full_name)
 
 # تشغيل البوت
-bot.polling()
+bot.polling(none_stop=True) 
