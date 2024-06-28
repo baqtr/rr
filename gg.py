@@ -3,6 +3,7 @@ import telebot
 import requests
 import time
 from github import Github
+from datetime import datetime
 
 # استيراد التوكنات من المتغيرات البيئية
 bot_token = "7031770762:AAF-BrYHNEcX8VyGBzY1mastEG3SWod4_uI"
@@ -125,7 +126,10 @@ def handle_delete_app(message):
     if response.status_code == 204:
         bot.send_message(message.chat.id, f"تم حذف التطبيق بنجاح! معرف التطبيق: `{app_id}`", parse_mode='Markdown')
     else:
-        bot.send_message(message.chat.id, f"حدث خطأ أثناء حذف التطبيق. الرمز: {response.status_code} - الرسالة: {response.text}")
+        if response.status_code == 200 and response.text == '{}':
+            bot.send_message(message.chat.id, f"التطبيق بمعرف `{app_id}` تم حذفه أو لا يوجد بالفعل.", parse_mode='Markdown')
+        else:
+            bot.send_message(message.chat.id, f"حدث خطأ أثناء حذف التطبيق. الرمز: {response.status_code} - الرسالة: {response.text}")
 
 # دالة لمعرفة الفترة التجريبية المتبقية
 def trial_period(call):
@@ -135,8 +139,11 @@ def trial_period(call):
     }
     response = requests.get('https://app.koyeb.com/v1/account', headers=headers)
     if response.status_code == 200:
-        trial_end_date = response.json()['account']['trial_period_end']
-        bot.send_message(call.message.chat.id, f"تاريخ انتهاء الفترة التجريبية: {trial_end_date}")
+        account_details = response.json()
+        trial_end_date_str = account_details['account']['trial_period_end']
+        trial_end_date = datetime.strptime(trial_end_date_str, "%Y-%m-%dT%H:%M:%SZ")
+        days_remaining = (trial_end_date - datetime.utcnow()).days
+        bot.send_message(call.message.chat.id, f"ايام اشتراكك المتبقية: {days_remaining}")
     else:
         bot.send_message(call.message.chat.id, f"حدث خطأ أثناء جلب معلومات الحساب. الرمز: {response.status_code} - الرسالة: {response.text}")
 
