@@ -1,220 +1,140 @@
 import os
 import telebot
 import requests
+import json
 import time
-from github import Github
-from datetime import datetime
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# استيراد التوكنات من المتغيرات البيئية
-bot_token = os.getenv("BOT_TOKEN")
-github_token = os.getenv("GITHUB_TOKEN")
-koyeb_token = os.getenv("KOYEB_TOKEN")
-
-# إنشاء كائن البوت
+# إعداد توكن البوت
+bot_token = "7464446606:AAE_uwUBeetbUCWc9sUoZws2O3NlqUKzTpA"
 bot = telebot.TeleBot(bot_token)
-g = Github(github_token)
 
-# الدالة لإنشاء الأزرار وتخصيصها
-def create_main_buttons():
-    markup = telebot.types.InlineKeyboardMarkup()
-    button1 = telebot.types.InlineKeyboardButton("🚀 نشر تطبيق", callback_data="deploy_app")
-    button2 = telebot.types.InlineKeyboardButton("📊 عرض التطبيقات", callback_data="list_apps")
-    button3 = telebot.types.InlineKeyboardButton("🗂️ عرض المستودعات", callback_data="list_repos")
-    button4 = telebot.types.InlineKeyboardButton("🗑️ حذف تطبيق", callback_data="delete_app")
-    button5 = telebot.types.InlineKeyboardButton("جاري جلب الاشتراك...", callback_data="trial_period")
-    button6 = telebot.types.InlineKeyboardButton("🔍 جلب سجل تطبيق", callback_data="get_app_log")
-    markup.add(button1, button2)
-    markup.add(button3, button4)
-    markup.add(button5)
-    markup.add(button6)
-    return markup
+# إعداد المتغيرات العامة
+total_money = 0
+Good = 0
+Bad = 0
+session_cookies = {}
 
-# دالة لتحديث زر الاشتراك
-def update_trial_button_markup(markup):
+# إعداد الألوان والرموز التعبيرية
+check_mark = "✅"
+cross_mark = "❌"
+money_bag = "💰"
+email_icon = "📧"
+password_icon = "🔑"
+wave_icon = "🌊"
+login_icon = "🔓"
+error_icon = "⚠️"
+
+# دالة لتسجيل الدخول
+def Login(email, password, chat_id):
+    global session_cookies
     headers = {
-        'Authorization': f'Bearer {koyeb_token}',
-        'Content-Type': 'application/json'
+        'authority': 'faucetearner.org',
+        'accept': 'application/json, text/javascript, */*; q=0.01',
+        'accept-language': 'ar-YE,ar;q=0.9,en-YE;q=0.8,en-US;q=0.7,en;q=0.6',
+        'content-type': 'application/json',
+        'origin': 'https://faucetearner.org',
+        'referer': 'https://faucetearner.org/login.php',
+        'sec-ch-ua': '"Not)A;Brand";v="24", "Chromium";v="116"',
+        'sec-ch-ua-mobile': '?1',
+        'sec-ch-ua-platform': '"Android"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, مثل Gecko) Chrome/116.0.0.0 Mobile Safari/537.36'.encode('latin-1', 'ignore').decode('latin-1'),
+        'x-requested-with': 'XMLHttpRequest',
     }
-    response = requests.get('https://app.koyeb.com/v1/account', headers=headers)
-    if response.status_code == 200:
-        account_details = response.json()
-        trial_end_date_str = account_details['account']['trial_period_end']
-        trial_end_date = datetime.strptime(trial_end_date_str, "%Y-%m-%dT%H:%M:%SZ")
-        days_remaining = (trial_end_date - datetime.utcnow()).days
-        markup.keyboard[2][0].text = f"اشتراكك: {days_remaining}"
-    else:
-        markup.keyboard[2][0].text = "اشتراكك: خطأ"
-    return markup
 
-# دالة للرد على /start
+    params = {
+        'act': 'login',
+    }
+
+    json_data = {
+        'email': email,
+        'password': password,
+    }
+
+    response = requests.post('https://faucetearner.org/api.php', params=params, headers=headers, json=json_data)
+    
+    if "Login successful" in response.text:
+        session_cookies = response.cookies.get_dict()
+        bot.send_message(chat_id, f'{login_icon} تسجيل الدخول ناجح!')
+        Money(chat_id)
+    elif "wrong username or password" in response.text:
+        bot.send_message(chat_id, f'{cross_mark} اسم المستخدم أو كلمة المرور خاطئة.')
+    else:
+        bot.send_message(chat_id, f'{error_icon} خطأ أثناء تسجيل الدخول.')
+
+# دالة لجلب المال بشكل دوري
+def Money(chat_id):
+    global total_money, Good, Bad, session_cookies
+    while True:
+        time.sleep(5)
+        headers = {
+            'authority': 'faucetearner.org',
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'accept-language': 'ar-YE,ar;q=0.9,en-YE;q=0.8,en-US;q=0.7,en;q=0.6',
+            'origin': 'https://faucetearner.org',
+            'referer': 'https://faucetearner.org/faucet.php',
+            'sec-ch-ua': '"Not)A;Brand";v="24", "Chromium";v="116"',
+            'sec-ch-ua-mobile': '?1',
+            'sec-ch-ua-platform': '"Android"',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-origin',
+            'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML، مثل Gecko) Chrome/116.0.0.0 Mobile Safari/537.36'.encode('latin-1', 'ignore').decode('latin-1'),
+            'x-requested-with': 'XMLHttpRequest',
+        }
+
+        params = {
+            'act': 'faucet',
+        }
+
+        rr = requests.post('https://faucetearner.org/api.php', params=params, cookies=session_cookies, headers=headers).text
+        
+        if 'Congratulations on receiving' in rr:
+            Good += 1
+            json_data = json.loads(rr)
+            message = json_data["message"]
+            start_index = message.find(">") + 1
+            end_index = message.find(" ", start_index)
+            balance = message[start_index:end_index]
+            total_money += float(balance)
+            bot.send_message(chat_id, f"[{Good}]{check_mark} تم الحصول على {balance} XRP. المجموع الكلي: {total_money} {money_bag}")
+        elif 'You have already claimed, please wait for the next wave!' in rr:
+            Bad += 1
+            bot.send_message(chat_id, f'[{Bad}]{cross_mark} الرجاء الانتظار للجولة القادمة {wave_icon}.')
+        else:
+            bot.send_message(chat_id, f'{error_icon} خطأ أثناء المطالبة.')
+
+# دالة لمعالجة أوامر البوت
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    buttons = create_main_buttons()
-    sent_message = bot.send_message(message.chat.id, "أهلاً بك! جاري جلب معلومات الاشتراك...", reply_markup=buttons)
-    buttons = update_trial_button_markup(buttons)
-    bot.edit_message_reply_markup(chat_id=message.chat.id, message_id=sent_message.message_id, reply_markup=buttons)
+    bot.send_message(message.chat.id, "مرحبًا بك في بوت الصنبور! استخدم /login لبدء التسجيل.")
 
-# دالة لنشر التطبيق
-def deploy_app(call):
-    bot.send_message(call.message.chat.id, "اختر مستودع GitHub لنشر التطبيق:", reply_markup=create_repos_buttons())
+@bot.message_handler(commands=['login'])
+def handle_login(message):
+    msg = bot.send_message(message.chat.id, f"{email_icon} يرجى إدخال بريدك الإلكتروني:")
+    bot.register_next_step_handler(msg, process_email_step)
 
-# دالة لإنشاء أزرار المستودعات
-def create_repos_buttons():
-    markup = telebot.types.InlineKeyboardMarkup()
-    repos = g.get_user().get_repos()
-    for repo in repos:
-        button = telebot.types.InlineKeyboardButton(repo.name, callback_data=f"deploy_repo:{repo.full_name}")
-        markup.add(button)
-    return markup
+def process_email_step(message):
+    email = message.text
+    msg = bot.send_message(message.chat.id, f"{password_icon} يرجى إدخال كلمة المرور:")
+    bot.register_next_step_handler(msg, process_password_step, email)
 
-# دالة لمعالجة نشر التطبيق
-def handle_deploy_repo(call, repo_full_name):
-    bot.send_message(call.message.chat.id, f"جاري نشر المستودع: {repo_full_name}. يرجى الانتظار...")
+def process_password_step(message, email):
+    password = message.text
+    Login(email, password, message.chat.id)
 
-    headers = {
-        'Authorization': f'Bearer {koyeb_token}',
-        'Content-Type': 'application/json'
-    }
-    payload = {
-        "name": repo_full_name.split('/')[-1],
-        "repository": f"https://github.com/{repo_full_name}.git",
-        "branch": "main"
-    }
-    response = requests.post('https://app.koyeb.com/v1/apps', headers=headers, json=payload)
-    
-    if response.status_code == 201:
-        app_details = response.json()
-        deployment_id = app_details['app']['id']
-        app_name = app_details['app']['name']
-        bot.send_message(call.message.chat.id, f"تم بدء عملية النشر بنجاح! معرف النشر: `{deployment_id}`\nاسم التطبيق: `{app_name}`", parse_mode='Markdown')
-        track_deployment_status(call.message.chat.id, deployment_id)
-    else:
-        bot.send_message(call.message.chat.id, f"حدث خطأ أثناء عملية النشر. الرمز: {response.status_code} - الرسالة: {response.text}")
+# دالة لمعرفة الرصيد الحالي
+@bot.message_handler(commands=['balance'])
+def send_balance(message):
+    bot.send_message(message.chat.id, f"{money_bag} المجموع الكلي للرصيد: {total_money}")
 
-# دالة لمتابعة حالة النشر
-def track_deployment_status(chat_id, deployment_id):
-    headers = {
-        'Authorization': f'Bearer {koyeb_token}',
-        'Content-Type': 'application/json'
-    }
-    while True:
-        response = requests.get(f'https://app.koyeb.com/v1/apps/{deployment_id}', headers=headers)
-        status = response.json()['app'].get('status')
-        if status:
-            bot.send_message(chat_id, f"حالة النشر الحالية: {status}")
-
-            if status in ['success', 'failed']:
-                break
-
-            if 'error' in response.json():
-                bot.send_message(chat_id, f"خطأ في عملية النشر: {response.json()['error']}")
-                break
-
-        time.sleep(10)
-
-# دالة لعرض التطبيقات
-def list_apps(call):
-    bot.send_message(call.message.chat.id, "جاري جلب التطبيقات...")
-    headers = {
-        'Authorization': f'Bearer {koyeb_token}',
-        'Content-Type': 'application/json'
-    }
-    response = requests.get('https://app.koyeb.com/v1/apps', headers=headers)
-    if response.status_code == 200:
-        apps = response.json()['apps']
-        if apps:
-            apps_list = "\n".join([f"معرف: `{app['id']}` - اسم: `{app['name']}` - حالة: {app['status']}" for app in apps])
-            bot.send_message(call.message.chat.id, f"التطبيقات المتاحة:\n{apps_list}", parse_mode='Markdown')
-        else:
-            bot.send_message(call.message.chat.id, "لا يوجد تطبيقات متاحة حالياً.")
-    else:
-        bot.send_message(call.message.chat.id, f"حدث خطأ أثناء جلب التطبيقات. الرمز: {response.status_code} - الرسالة: {response.text}")
-
-# دالة لعرض المستودعات
-def list_repos(call):
-    bot.send_message(call.message.chat.id, "جاري جلب المستودعات...")
-    bot.send_message(call.message.chat.id, "اختر مستودع من القائمة أدناه:", reply_markup=create_repos_buttons())
-
-# دالة لحذف تطبيق
-def delete_app(call):
-    msg = bot.send_message(call.message.chat.id, "أرسل معرف التطبيق الذي تريد حذفه:")
-    bot.register_next_step_handler(msg, handle_delete_app)
-
-def handle_delete_app(message):
-    app_id = message.text.strip()
-    headers = {
-        'Authorization': f'Bearer {koyeb_token}',
-        'Content-Type': 'application/json'
-    }
-    response = requests.delete(f'https://app.koyeb.com/v1/apps/{app_id}', headers=headers)
-    if response.status_code == 204:
-        bot.send_message(message.chat.id, f"تم حذف التطبيق بنجاح! معرف التطبيق: `{app_id}`", parse_mode='Markdown')
-    else:
-        if response.status_code == 200 and response.text == '{}':
-            bot.send_message(message.chat.id, f"التطبيق بمعرف `{app_id}` تم حذفه أو لا يوجد بالفعل.", parse_mode='Markdown')
-        else:
-            bot.send_message(message.chat.id, f"حدث خطأ أثناء حذف التطبيق. الرمز: {response.status_code} - الرسالة: {response.text}")
-
-# دالة لمعرفة الفترة التجريبية المتبقية
-def trial_period(call):
-    bot.send_message(call.message.chat.id, "جاري جلب معلومات الاشتراك...")
-    headers = {
-        'Authorization': f'Bearer {koyeb_token}',
-        'Content-Type': 'application/json'
-    }
-    response = requests.get('https://app.koyeb.com/v1/account', headers=headers)
-    if response.status_code == 200:
-        account_details = response.json()
-        trial_end_date_str = account_details['account']['trial_period_end']
-        trial_end_date = datetime.strptime(trial_end_date_str, "%Y-%m-%dT%H:%M:%SZ")
-        days_remaining = (trial_end_date - datetime.utcnow()).days
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"اشتراكك: {days_remaining}")
-    else:
-        bot.send_message(call.message.chat.id, f"حدث خطأ أثناء جلب معلومات الحساب. الرمز: {response.status_code} - الرسالة: {response.text}")
-
-# دالة لجلب سجل تطبيق
-def get_app_log(call):
-    msg = bot.send_message(call.message.chat.id, "أرسل معرف التطبيق الذي تريد جلب سجله:")
-    bot.register_next_step_handler(msg, handle_get_app_log)
-
-def handle_get_app_log(message):
-    app_id = message.text.strip()
-    headers = {
-        'Authorization': f'Bearer {koyeb_token}',
-        'Content-Type': 'application/json'
-    }
-    region = app_details['app']['region']
-        status = app_details['app']['status']
-        last_error = app_details['app'].get('last_error', 'لا توجد أخطاء')
-
-        status_emoji = '✅' if status == 'running' else '❌'
-        bot.send_message(message.chat.id, f"معلومات التطبيق:\n"
-                                          f"اسم التطبيق: {app_name}\n"
-                                          f"تاريخ الإنشاء: {created_at}\n"
-                                          f"المنطقة: {region}\n"
-                                          f"الحالة: {status} {status_emoji}\n"
-                                          f"آخر خطأ: {last_error}")
-    else:
-        bot.send_message(message.chat.id, f"حدث خطأ أثناء جلب سجل التطبيق. الرمز: {response.status_code} - الرسالة: {response.text}")
-
-# دالة لمعالجة النقرات على الأزرار
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    if call.data == "deploy_app":
-        deploy_app(call)
-    elif call.data == "list_apps":
-        list_apps(call)
-    elif call.data == "list_repos":
-        list_repos(call)
-    elif call.data == "delete_app":
-        delete_app(call)
-    elif call.data == "trial_period":
-        trial_period(call)
-    elif call.data == "get_app_log":
-        get_app_log(call)
-    elif call.data.startswith("deploy_repo:"):
-        repo_full_name = call.data.split(":")[1]
-        handle_deploy_repo(call, repo_full_name)
+# دالة لمعرفة عدد المحاولات الناجحة والفاشلة
+@bot.message_handler(commands=['status'])
+def send_status(message):
+    bot.send_message(message.chat.id, f"{check_mark} المحاولات الناجحة: {Good}\n{cross_mark} المحاولات الفاشلة: {Bad}")
 
 # تشغيل البوت
 bot.polling(none_stop=True)
