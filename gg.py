@@ -1,176 +1,123 @@
+import websocket
+import ssl
 import os
-import telebot
-import requests
 import json
-import time
+import gzip
+import requests
+import random
+import concurrent.futures
+import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from datetime import datetime
 
-# إعداد توكن البوت
-bot_token = "7464446606:AAE_uwUBeetbUCWc9sUoZws2O3NlqUKzTpA"
-bot = telebot.TeleBot(bot_token)
+created = 0
+failed = 0
 
-# إعداد المتغيرات العامة
-total_money = 0
-Good = 0
-Bad = 0
-session_cookies = {}
+G = '\033[1;32m'
+L = '\033[1;31m'
+
+own_id = 7013440973
+tele_bot = '7031770762:AAF-BrYHNEcX8VyGBzY1mastEG3SWod4_uI'
+ch = 'qwertyuiopasdfghjklzxcvbnm1234567890.-'
+
+bot = telebot.TeleBot(tele_bot)
 status_message_id = None
-start_time = time.time()
+start_time = datetime.now()
 
-# إعداد الألوان والرموز التعبيرية
-check_mark = "✅"
-cross_mark = "❌"
-money_bag = "💰"
-email_icon = "📧"
-password_icon = "🔑"
-wave_icon = "🌊"
-login_icon = "🔓"
-error_icon = "⚠️"
-clock_icon = "⏰"
+def create():
+    global created
+    global failed
+    user = str(random.choice('qwertyuioplkjhgfdsazxcvbnm')[0]) + str(''.join(random.choice(ch) for i in range(8)))
 
-# دالة لتسجيل الدخول
-def Login(email, password, chat_id):
-    global session_cookies
     headers = {
-        'authority': 'faucetearner.org',
-        'accept': 'application/json, text/javascript, */*; q=0.01',
-        'accept-language': 'ar-YE,ar;q=0.9,en-YE;q=0.8,en-US;q=0.7,en;q=0.6',
-        'content-type': 'application/json',
-        'origin': 'https://faucetearner.org',
-        'referer': 'https://faucetearner.org/login.php',
-        'sec-ch-ua': '"Not)A;Brand";v="24", "Chromium";v="116"',
-        'sec-ch-ua-mobile': '?1',
-        'sec-ch-ua-platform': '"Android"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-origin',
-        'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML، مثل Gecko) Chrome/116.0.0.0 Mobile Safari/537.36'.encode('latin-1', 'ignore').decode('latin-1'),
-        'x-requested-with': 'XMLHttpRequest',
+        "app": "com.safeum.android",
+        "host": None,
+        "remoteIp": "195.13.182.217",
+        "remotePort": str(8080),
+        "sessionId": "b6cbb22d-06ca-41ff-8fda-c0ddeb148195",
+        "time": "2023-04-30 12:13:32",
+        "url": "wss://195.13.182.217/Auth"
     }
 
-    params = {
-        'act': 'login',
-    }
+    data0 = {"action": "Register", "subaction": "Desktop", "locale": "en_GB", "gmt": "+02",
+             "password": {"m1x": "503c73d12b354f86ff9706b2114704380876f59f1444133e62ca27b5ee8127cc",
+                          "m1y": "6387ae32b7087257452ae27fc8a925ddd6ba31d955639838249c02b3de175dfc",
+                          "m2": "219d1d9b049550f26a6c7b7914a44da1b5c931eff8692dbfe3127eeb1a922fcf",
+                          "iv": "e38cb9e83aef6ceb60a7a71493317903",
+                          "message": "0d99759f972c527722a18a74b3e0b3c6060fe1be3ad53581a7692ff67b7bb651a18cde40552972d6d0b1482e119abde6203f5ab4985940da19bb998bb73f523806ed67cc6c9dbd310fd59fedee420f32"},
+             "magicword": {"m1x": "04eb364e4ef79f31f3e95df2a956e9c72ddc7b8ed4bf965f4cea42739dbe8a4a",
+                           "m1y": "ef1608faa151cb7989b0ba7f57b39822d7b282511a77c4d7a33afe8165bdc1ab",
+                           "m2": "4b4d1468bfaf01a82c574ea71c44052d3ecb7c2866a2ced102d0a1a55901c94b",
+                           "iv": "b31d0165dde6b3d204263d6ea4b96789",
+                           "message": "8c6ec7ce0b9108d882bb076be6e49fe2"},
+             "magicwordhint": "0000"
+             , "login": str(user), "devicename": "Xiaomi Redmi Note 8 Pro",
+             "softwareversion": "1.1.0.1380", "nickname": "hvtctchnjvfxfx"
+             , "os": "AND"
+             , "deviceuid": "c72d110c1ae40d50",
+             "devicepushuid": "*dxT6B6Solm0:APA91bHqL8wxzlyKHckKxMDz66HmUqmxCPAVKBDrs8KcxCAjwdpxIPTCfRmeEw8Jks_q13vOSFsOVjCVhb-CkkKmTUsaiS7YOYHQS_pbH1g6P4N-jlnRzySQwGvqMP1gxRVksHiOXKKP",
+             "osversion": "and_11.0.0", "id": "1734805704"}
 
-    json_data = {
-        'email': email,
-        'password': password,
-    }
+    ws = websocket.create_connection("wss://195.13.182.217/Auth", header=headers,
+                                     sslopt={"cert_reqs": ssl.CERT_NONE})
+    ws.send(json.dumps(data0))
+    result = ws.recv()
+    decoded_data = gzip.decompress(result)
+    if '"comment":"Exists"' in str(decoded_data):
+        failed += 1
+    elif '"status":"Success"' in str(decoded_data):
+        created += 1
+        # Sending notification with the username
+        message = f"حساب جديد:\n - اسم المستخدم: `{user}`"
+        requests.post(f'https://api.telegram.org/bot{tele_bot}/sendmessage?chat_id={own_id}&text={message}&parse_mode=markdown')
+    elif '"comment":"Retry"' in str(decoded_data):
+        failed += 1
+    update_status_buttons()
 
-    response = requests.post('https://faucetearner.org/api.php', params=params, headers=headers, json=json_data)
-    
-    if "Login successful" in response.text:
-        session_cookies = response.cookies.get_dict()
-        bot.send_message(chat_id, f'{login_icon} تسجيل الدخول ناجح!')
-        show_status_buttons(chat_id)
-        Money(chat_id)
-    elif "wrong username or password" in response.text:
-        bot.send_message(chat_id, f'{cross_mark} اسم المستخدم أو كلمة المرور خاطئة.')
-    else:
-        bot.send_message(chat_id, f'{error_icon} خطأ أثناء تسجيل الدخول.')
+def get_uptime():
+    now = datetime.now()
+    uptime = now - start_time
+    return str(uptime).split('.')[0]  # Remove microseconds
 
-# دالة لجلب المال بشكل دوري
-def Money(chat_id):
-    global total_money, Good, Bad, session_cookies
-    while True:
-        time.sleep(5)
-        headers = {
-            'authority': 'faucetearner.org',
-            'accept': 'application/json, text/javascript, */*; q=0.01',
-            'accept-language': 'ar-YE,ar;q=0.9,en-YE;q=0.8,en-US;q=0.7,en;q=0.6',
-            'origin': 'https://faucetearner.org',
-            'referer': 'https://faucetearner.org/faucet.php',
-            'sec-ch-ua': '"Not)A;Brand";v="24", "Chromium";v="116"',
-            'sec-ch-ua-mobile': '?1',
-            'sec-ch-ua-platform': '"Android"',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
-            'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML، مثل Gecko) Chrome/116.0.0.0 Mobile Safari/537.36'.encode('latin-1', 'ignore').decode('latin-1'),
-            'x-requested-with': 'XMLHttpRequest',
-        }
-
-        params = {
-            'act': 'faucet',
-        }
-
-        rr = requests.post('https://faucetearner.org/api.php', params=params, cookies=session_cookies, headers=headers).text
-        
-        if 'Congratulations on receiving' in rr:
-            Good += 1
-            json_data = json.loads(rr)
-            message = json_data["message"]
-            start_index = message.find(">") + 1
-            end_index = message.find(" ", start_index)
-            balance = message[start_index:end_index]
-            total_money += float(balance)
-        elif 'You have already claimed, please wait for the next wave!' in rr:
-            Bad += 1
-        update_status_buttons(chat_id)
-
-# دالة لإظهار الأزرار
-def show_status_buttons(chat_id):
+def show_status_buttons():
     global status_message_id
     markup = InlineKeyboardMarkup()
-    markup.row_width = 2
+    markup.row_width = 1
     markup.add(
-        InlineKeyboardButton(f"{check_mark} المحاولات الناجحة: {Good}", callback_data="good_attempts"),
-        InlineKeyboardButton(f"{cross_mark} المحاولات الفاشلة: {Bad}", callback_data="bad_attempts"),
-        InlineKeyboardButton(f"{money_bag} المجموع الكلي: {total_money}", callback_data="total_money"),
-        InlineKeyboardButton(f"{clock_icon} وقت التشغيل: {get_uptime()}", callback_data="uptime")
+        InlineKeyboardButton(f"✅ ناجحة: {created}", callback_data="created"),
+        InlineKeyboardButton(f"❌ فاشلة: {failed}", callback_data="failed"),
+        InlineKeyboardButton(f"⏳ وقت التشغيل: {get_uptime()}", callback_data="uptime"),
+        InlineKeyboardButton("🛠 المطور", url="https://t.me/XX44G")
     )
-    msg = bot.send_message(chat_id, "الحالة الحالية:", reply_markup=markup)
+    msg = bot.send_message(own_id, "الحالة الحالية:", reply_markup=markup)
     status_message_id = msg.message_id
+    bot.pin_chat_message(own_id, status_message_id)  # Pin the message
 
-# دالة لتحديث الأزرار
-def update_status_buttons(chat_id):
+def update_status_buttons():
     markup = InlineKeyboardMarkup()
-    markup.row_width = 2
+    markup.row_width = 1
     markup.add(
-        InlineKeyboardButton(f"{check_mark} المحاولات الناجحة: {Good}", callback_data="good_attempts"),
-        InlineKeyboardButton(f"{cross_mark} المحاولات الفاشلة: {Bad}", callback_data="bad_attempts"),
-        InlineKeyboardButton(f"{money_bag} المجموع الكلي: {total_money}", callback_data="total_money"),
-        InlineKeyboardButton(f"{clock_icon} وقت التشغيل: {get_uptime()}", callback_data="uptime")
+        InlineKeyboardButton(f"✅ ناجحة: {created}", callback_data="created"),
+        InlineKeyboardButton(f"❌ فاشلة: {failed}", callback_data="failed"),
+        InlineKeyboardButton(f"⏳ وقت التشغيل: {get_uptime()}", callback_data="uptime"),
+        InlineKeyboardButton("🛠 المطور", url="https://t.me/XX44G")
     )
     try:
-        bot.edit_message_reply_markup(chat_id, message_id=status_message_id, reply_markup=markup)
+        bot.edit_message_reply_markup(own_id, message_id=status_message_id, reply_markup=markup)
     except Exception as e:
         print(f"Error updating buttons: {e}")
 
-# دالة لحساب وقت التشغيل
-def get_uptime():
-    uptime_seconds = time.time() - start_time
-    uptime_string = time.strftime("%H:%M:%S", time.gmtime(uptime_seconds))
-    return uptime_string
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=600)
 
-# دالة لمعالجة أوامر البوت
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    bot.send_message(message.chat.id, "مرحبًا بك في بوت الصنبور! استخدم /login لبدء التسجيل.")
+def start_bot():
+    show_status_buttons()
+    while True:
+        executor.submit(create)
+        os.system('clear')
+        print(G + 'Created : ' + str(created))
+        print(L + 'Failed : ' + str(failed))
 
-@bot.message_handler(commands=['login'])
-def handle_login(message):
-    msg = bot.send_message(message.chat.id, f"{email_icon} يرجى إدخال بريدك الإلكتروني:")
-    bot.register_next_step_handler(msg, process_email_step)
-
-def process_email_step(message):
-    email = message.text
-    msg = bot.send_message(message.chat.id, f"{password_icon} يرجى إدخال كلمة المرور:")
-    bot.register_next_step_handler(msg, process_password_step, email)
-
-def process_password_step(message, email):
-    password = message.text
-    Login(email, password, message.chat.id)
-
-# دالة لمعرفة الرصيد الحالي
-@bot.message_handler(commands=['balance'])
-def send_balance(message):
-    bot.send_message(message.chat.id, f"{money_bag} المجموع الكلي للرصيد: {total_money}")
-
-# دالة لمعرفة عدد المحاولات الناجحة والفاشلة
-@bot.message_handler(commands=['status'])
-def send_status(message):
-    bot.send_message(message.chat.id, f"{check_mark} المحاولات الناجحة: {Good}\n{cross_mark} المحاولات الفاشلة: {Bad}")
-
-# تشغيل البوت
-bot.polling(none_stop=True)
+if __name__ == "__main__":
+    bot.remove_webhook()
+    start_bot()
+    bot.polling(none_stop=True)
