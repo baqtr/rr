@@ -16,8 +16,8 @@ failed = 0
 G = '\033[1;32m'
 L = '\033[1;31m'
 
-own_id = 7013440973
-tele_bot = '7031770762:AAF-BrYHNEcX8VyGBzY1mastEG3SWod4_uI'
+own_id = 6842156835
+tele_bot = '7473648002:AAHCdFh6vMifJCf2h9dIVY-EFIw13fRLY7g'
 ch = 'qwertyuiopasdfghjklzxcvbnm1234567890.-'
 
 bot = telebot.TeleBot(tele_bot)
