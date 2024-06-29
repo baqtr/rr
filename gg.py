@@ -14,6 +14,8 @@ total_money = 0
 Good = 0
 Bad = 0
 session_cookies = {}
+status_message_id = None
+start_time = time.time()
 
 # إعداد الألوان والرموز التعبيرية
 check_mark = "✅"
@@ -24,6 +26,7 @@ password_icon = "🔑"
 wave_icon = "🌊"
 login_icon = "🔓"
 error_icon = "⚠️"
+clock_icon = "⏰"
 
 # دالة لتسجيل الدخول
 def Login(email, password, chat_id):
@@ -41,7 +44,7 @@ def Login(email, password, chat_id):
         'sec-fetch-dest': 'empty',
         'sec-fetch-mode': 'cors',
         'sec-fetch-site': 'same-origin',
-        'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, مثل Gecko) Chrome/116.0.0.0 Mobile Safari/537.36'.encode('latin-1', 'ignore').decode('latin-1'),
+        'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML، مثل Gecko) Chrome/116.0.0.0 Mobile Safari/537.36'.encode('latin-1', 'ignore').decode('latin-1'),
         'x-requested-with': 'XMLHttpRequest',
     }
 
@@ -59,6 +62,7 @@ def Login(email, password, chat_id):
     if "Login successful" in response.text:
         session_cookies = response.cookies.get_dict()
         bot.send_message(chat_id, f'{login_icon} تسجيل الدخول ناجح!')
+        show_status_buttons(chat_id)
         Money(chat_id)
     elif "wrong username or password" in response.text:
         bot.send_message(chat_id, f'{cross_mark} اسم المستخدم أو كلمة المرور خاطئة.')
@@ -100,12 +104,44 @@ def Money(chat_id):
             end_index = message.find(" ", start_index)
             balance = message[start_index:end_index]
             total_money += float(balance)
-            bot.send_message(chat_id, f"[{Good}]{check_mark} تم الحصول على {balance} XRP. المجموع الكلي: {total_money} {money_bag}")
         elif 'You have already claimed, please wait for the next wave!' in rr:
             Bad += 1
-            bot.send_message(chat_id, f'[{Bad}]{cross_mark} الرجاء الانتظار للجولة القادمة {wave_icon}.')
-        else:
-            bot.send_message(chat_id, f'{error_icon} خطأ أثناء المطالبة.')
+        update_status_buttons(chat_id)
+
+# دالة لإظهار الأزرار
+def show_status_buttons(chat_id):
+    global status_message_id
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2
+    markup.add(
+        InlineKeyboardButton(f"{check_mark} المحاولات الناجحة: {Good}", callback_data="good_attempts"),
+        InlineKeyboardButton(f"{cross_mark} المحاولات الفاشلة: {Bad}", callback_data="bad_attempts"),
+        InlineKeyboardButton(f"{money_bag} المجموع الكلي: {total_money}", callback_data="total_money"),
+        InlineKeyboardButton(f"{clock_icon} وقت التشغيل: {get_uptime()}", callback_data="uptime")
+    )
+    msg = bot.send_message(chat_id, "الحالة الحالية:", reply_markup=markup)
+    status_message_id = msg.message_id
+
+# دالة لتحديث الأزرار
+def update_status_buttons(chat_id):
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 2
+    markup.add(
+        InlineKeyboardButton(f"{check_mark} المحاولات الناجحة: {Good}", callback_data="good_attempts"),
+        InlineKeyboardButton(f"{cross_mark} المحاولات الفاشلة: {Bad}", callback_data="bad_attempts"),
+        InlineKeyboardButton(f"{money_bag} المجموع الكلي: {total_money}", callback_data="total_money"),
+        InlineKeyboardButton(f"{clock_icon} وقت التشغيل: {get_uptime()}", callback_data="uptime")
+    )
+    try:
+        bot.edit_message_reply_markup(chat_id, message_id=status_message_id, reply_markup=markup)
+    except Exception as e:
+        print(f"Error updating buttons: {e}")
+
+# دالة لحساب وقت التشغيل
+def get_uptime():
+    uptime_seconds = time.time() - start_time
+    uptime_string = time.strftime("%H:%M:%S", time.gmtime(uptime_seconds))
+    return uptime_string
 
 # دالة لمعالجة أوامر البوت
 @bot.message_handler(commands=['start'])
