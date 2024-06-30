@@ -4,11 +4,9 @@ import os
 import json
 import gzip
 import requests
+from time import sleep
 import random
 import concurrent.futures
-import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from datetime import datetime
 
 created = 0
 failed = 0
@@ -20,9 +18,6 @@ own_id = 6842156835
 tele_bot = '7473648002:AAHCdFh6vMifJCf2h9dIVY-EFIw13fRLY7g'
 ch = 'qwertyuiopasdfghjklzxcvbnm1234567890.-'
 
-bot = telebot.TeleBot(tele_bot)
-status_message_id = None
-start_time = datetime.now()
 
 def create():
     global created
@@ -68,56 +63,18 @@ def create():
     elif '"status":"Success"' in str(decoded_data):
         created += 1
         # Sending notification with the username
-        message = f"حساب جديد:\n - اسم المستخدم: `{user}`"
+        message = f"New user created: `{user}`"
         requests.post(f'https://api.telegram.org/bot{tele_bot}/sendmessage?chat_id={own_id}&text={message}&parse_mode=markdown')
     elif '"comment":"Retry"' in str(decoded_data):
         failed += 1
-    update_status_buttons()
+    else:
+        print(decoded_data)
 
-def get_uptime():
-    now = datetime.now()
-    uptime = now - start_time
-    return str(uptime).split('.')[0]  # Remove microseconds
-
-def show_status_buttons():
-    global status_message_id
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    markup.add(
-        InlineKeyboardButton(f"✅ ناجحة: {created}", callback_data="created"),
-        InlineKeyboardButton(f"❌ فاشلة: {failed}", callback_data="failed"),
-        InlineKeyboardButton(f"⏳ وقت التشغيل: {get_uptime()}", callback_data="uptime"),
-        InlineKeyboardButton("🛠 المطور", url="https://t.me/XX44G")
-    )
-    msg = bot.send_message(own_id, "الحالة الحالية:", reply_markup=markup)
-    status_message_id = msg.message_id
-    bot.pin_chat_message(own_id, status_message_id)  # Pin the message
-
-def update_status_buttons():
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    markup.add(
-        InlineKeyboardButton(f"✅ ناجحة: {created}", callback_data="created"),
-        InlineKeyboardButton(f"❌ فاشلة: {failed}", callback_data="failed"),
-        InlineKeyboardButton(f"⏳ وقت التشغيل: {get_uptime()}", callback_data="uptime"),
-        InlineKeyboardButton("🛠 المطور", url="https://t.me/XX44G")
-    )
-    try:
-        bot.edit_message_reply_markup(own_id, message_id=status_message_id, reply_markup=markup)
-    except Exception as e:
-        print(f"Error updating buttons: {e}")
 
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=600)
 
-def start_bot():
-    show_status_buttons()
-    while True:
-        executor.submit(create)
-        os.system('clear')
-        print(G + 'Created : ' + str(created))
-        print(L + 'Failed : ' + str(failed))
-
-if __name__ == "__main__":
-    bot.remove_webhook()
-    start_bot()
-    bot.polling(none_stop=True)
+while True:
+    executor.submit(create)
+    os.system('clear')
+    print(G + 'Created : ' + str(created))
+    print(L + 'Failed : ' + str(failed))
