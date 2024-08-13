@@ -7,34 +7,79 @@ import requests
 from time import sleep
 import random
 import concurrent.futures
-import telebot
+import webbrowser
+webbrowser.open('https://t.me/bsx_h2')
+
 created=0
 failed=0
 
 
-L = '\033[1;33m' 
-C = "\033[1;97m" 
-B = '\033[2;36m'
-Y = '\033[1;34m' 
-C = "\033[1;97m" 
-X = '\037' 
+Z = '\033[1;31m' #احمر
+X = '\033[1;33m' #اصفر
+F = '\033[2;32m' #اخضر
+C = "\033[1;97m" #ابيض
+B = '\033[2;36m'#سمائي
+Y = '\033[1;34m' #ازرق فاتح.
+C = "\033[1;97m" #ابيض
+y = '\033[1;35m'#وردي
+f = '\033[2;35m'#بنفسجي
+z = '\033[3;33m'#اصفر طوخ
+G = '\033[2;36m'
+E = '\033[1;31m'
+V = '\033[1;35m'
+Z = '\033[1;31m' #احمر
+X = '\033[1;33m' #اصفر
+Z1 = '\033[2;31m' #احمر ثاني
+F = '\033[2;32m' #اخضر
+A = '\033[2;34m'#ازرق
+#C = '\033[2;35m' #وردي
+B = '\033[2;36m'#سمائي
+Y = '\033[1;34m' #ازرق فاتح
+M = '\x1b[1;37m'#ابیض
+S = '\033[1;33m'
+U = '\x1b[1;37m'#ابیض
+BRed = '\x1b[1;31m'
+BGreen = '\x1b[1;32m'
+BYellow = '\x1b[1;33m'
+R = '\x1b[1;34m'
+BPurple = '\x1b[1;35m'
+BCyan = '\x1b[1;36m'
+BWhite = '\x1b[1;37m'
+Z = '\033[1;31m' #احمر
+X = '\033[1;33m' #اصفر
+F = '\033[2;32m' #اخضر
+O = '\x1b[38;5;208m' #برتقالي
+BL = '\x1b[38;5;21m' #ازاق طوخ
+YU = '\x1b[38;5;200m' #وردي طوخ
 G = '\033[1;32m'
 R = '\033[1;31m'
-id = "7072622935"
 
-token = "7349946397:AAHiEqfZ6wlXcFOVkS8pEuNlKeE1ZmFjzXU"
-bot = telebot.TeleBot(token)
+print(Y+'مرحبًا بك في إنشاء حساب لـ Safeum - @MRC_iq ~ ماࢪڪو') 
+print(C+"∞"*60)
+id ='7072622935'
+print('')
+os.system('clear')
 
-bot.send_message(id, text='تم تشغيل البوت بنجاح!')
+print(Y+'مرحبًا بك في إنشاء حساب لـ Safeum ') 
+print(C+"∞"*60)
+token ='7349946397:AAHiEqfZ6wlXcFOVkS8pEuNlKeE1ZmFjzXU'
+print(F+'h')
+os.system('clear')
 
-ch='qqwweerrttyyuuiiooppaassddffgghhjjkkllzzxxccvvbbnnmm..-1234567890'
+import time 
+print("مرحبا في اداة صنع حسابات تطبيق safeum")
+print("سوف تبدا الاداة في انشاء الحسابات بعد 5 ثوان ")
+time.sleep(0)
+
+
+ch='qwertyuioplkjhgfdsazxcvbnm1234567890'
 def create():
  global created
  global failed
- user=str(random.choice('qqwweerrttyyuuiiooppaassddffgghhjjkkllzzxxccvvbbnnmm..')[0])+str(''.join(random.choice(ch) for i in range(10)))
+ user=str(random.choice('qwertyuioplkjhgfdsazxcvbnm')[0])+str(''.join(random.choice(ch) for i in range(10)))
  
- tlg = f''' 
-{user}
+ tlg = f'''
+   <code>{user}</code>
    '''
  
  #user='kdvdfejevfsheh'
@@ -42,7 +87,7 @@ def create():
  headers = {
      "app": "com.safeum.android",
      "host": None,
-     "remoteIp": "134.209.93.111",
+     "remoteIp": "134.209.93.148",
      "remotePort": str(8080),
      "sessionId": "b6cbb22d-06ca-41ff-8fda-c0ddeb148195",
      "time": "2023-04-30 12:13:32",
@@ -61,29 +106,17 @@ def create():
   failed+=1
  elif '"status":"Success"' in str(decoded_data):
   created+=1
-  y = requests.post(f"https://api.telegram.org/bot{token}/sendmessage?chat_id={id}&text="+str(tlg))
+  requests.post(f"https://api.telegram.org/bot{token}/sendmessage?chat_id={id}&text="+str(tlg)+"&parse_mode=html")
  elif '"comment":"Retry"' in str(decoded_data):
   failed+=1
  else:
   print(decoded_data)
 
-def send_results_periodically():
-    global created
-    global failed
-    while True:
-        bot.send_message(id, f'تم الإنشاء بنجاح: {created}\nفشل الإنشاء: {failed}')
-        sleep(180)  
 
-executor=concurrent.futures.ThreadPoolExecutor(max_workers=5000)
-executor.submit(send_results_periodically)
-
+executor=concurrent.futures.ThreadPoolExecutor(max_workers=500)
 
 while True:
  executor.submit(create)
  os.system('clear')
- print(C+"Make free account for safeUm app ")
- print(L+"∞"*60)
- print(G+'Created : '+str(created))
- print(R+'Failed : '+str(failed))
- print(L+"∞"*60)
- print(C+"@AsiacellI2")
+ print('Created : '+str(created))
+ print('Failed : '+str(failed))
