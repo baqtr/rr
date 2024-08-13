@@ -56,20 +56,20 @@ R = '\033[1;31m'
 
 print(Y+'مرحبًا بك في إنشاء حساب لـ Safeum - @MRC_iq ~ ماࢪڪو') 
 print(C+"∞"*60)
-id ='5260517001'
+id ='7072622935'
 print('')
 os.system('clear')
 
 print(Y+'مرحبًا بك في إنشاء حساب لـ Safeum ') 
 print(C+"∞"*60)
-token ='6912801150:AAGQoZuaeB4ngJZZCbJ3uVb5hBHrV1fm8hI'
+token ='7349946397:AAHiEqfZ6wlXcFOVkS8pEuNlKeE1ZmFjzXU'
 print(F+'h')
 os.system('clear')
 
 import time 
 print("مرحبا في اداة صنع حسابات تطبيق safeum")
 print("سوف تبدا الاداة في انشاء الحسابات بعد 5 ثوان ")
-time.sleep(5)
+time.sleep(0)
 
 
 ch='qwertyuioplkjhgfdsazxcvbnm1234567890'
