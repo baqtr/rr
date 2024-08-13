@@ -1,1 +1,1 @@
-web: python gg.py
+worker: python gg.py
