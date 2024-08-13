@@ -56,13 +56,13 @@ R = '\033[1;31m'
 
 print(Y+'مرحبًا بك في إنشاء حساب لـ Safeum - @MRC_iq ~ ماࢪڪو') 
 print(C+"∞"*60)
-id ='6842156835'
+id ='5260517001'
 print('')
 os.system('clear')
 
 print(Y+'مرحبًا بك في إنشاء حساب لـ Safeum ') 
 print(C+"∞"*60)
-token ='7236429341:AAHXc1AdQLhcT2NKtwGn5H6fo6puphUKPMk'
+token ='6912801150:AAGQoZuaeB4ngJZZCbJ3uVb5hBHrV1fm8hI'
 print(F+'h')
 os.system('clear')
 
