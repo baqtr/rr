@@ -17,7 +17,7 @@ G = '\033[1;32m'
 L = '\033[1;31m'
 
 own_id = 6365543397
-tele_bot = '7302034329:AAGzCfFZzHNIIhtOxe2yBCek0hZI0Wpf5Oo'
+tele_bot = '7618185269:AAGGz6eg7lFfo7MJyQSeBdxAdVcQZiQUR6Q'
 ch = 'qwertyuiopasdfghjklzxcvbnm1234567890.-'
 
 bot = telebot.TeleBot(tele_bot)
