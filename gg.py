@@ -1,120 +1,123 @@
+import websocket
+import ssl
 import os
-import threading
+import json
+import gzip
 import requests
-from ssl import CERT_NONE
-from gzip import decompress
-from random import choice, choices
-from concurrent.futures import ThreadPoolExecutor
-from json import dumps
+import random
+import concurrent.futures
 import telebot
-from websocket import create_connection
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from datetime import datetime
 
-
+created = 0
 failed = 0
-success = 0
-retry = 0
-accounts = []
-lock = threading.Lock()  
 
+G = '\033[1;32m'
+L = '\033[1;31m'
 
-token = '7302034329:AAGzCfFZzHNIIhtOxe2yBCek0hZI0Wpf5Oo'
-bot = telebot.TeleBot(token)
-ID = '6365543397'
+own_id = 6365543397
+tele_bot = '7302034329:AAGzCfFZzHNIIhtOxe2yBCek0hZI0Wpf5Oo'
+ch = 'qwertyuiopasdfghjklzxcvbnm1234567890.-'
 
-def work(mes):
-    global failed, success, retry, accounts
-    username = choice("qwertyuioasdfghjklzxcvbnpm1234567890") + "".join(
-        choices(list("qwertyuioasdfghjklzxcvbnpm1234567890"), k=12)
+bot = telebot.TeleBot(tele_bot)
+status_message_id = None
+start_time = datetime.now()
+
+def create():
+    global created
+    global failed
+    user = str(random.choice('qwertyuioplkjhgfdsazxcvbnm')[0]) + str(''.join(random.choice(ch) for i in range(8)))
+
+    headers = {
+        "app": "com.safeum.android",
+        "host": None,
+        "remoteIp": "195.13.182.217",
+        "remotePort": str(8080),
+        "sessionId": "b6cbb22d-06ca-41ff-8fda-c0ddeb148195",
+        "time": "2023-04-30 12:13:32",
+        "url": "wss://195.13.182.217/Auth"
+    }
+
+    data0 = {"action": "Register", "subaction": "Desktop", "locale": "en_GB", "gmt": "+02",
+             "password": {"m1x": "503c73d12b354f86ff9706b2114704380876f59f1444133e62ca27b5ee8127cc",
+                          "m1y": "6387ae32b7087257452ae27fc8a925ddd6ba31d955639838249c02b3de175dfc",
+                          "m2": "219d1d9b049550f26a6c7b7914a44da1b5c931eff8692dbfe3127eeb1a922fcf",
+                          "iv": "e38cb9e83aef6ceb60a7a71493317903",
+                          "message": "0d99759f972c527722a18a74b3e0b3c6060fe1be3ad53581a7692ff67b7bb651a18cde40552972d6d0b1482e119abde6203f5ab4985940da19bb998bb73f523806ed67cc6c9dbd310fd59fedee420f32"},
+             "magicword": {"m1x": "04eb364e4ef79f31f3e95df2a956e9c72ddc7b8ed4bf965f4cea42739dbe8a4a",
+                           "m1y": "ef1608faa151cb7989b0ba7f57b39822d7b282511a77c4d7a33afe8165bdc1ab",
+                           "m2": "4b4d1468bfaf01a82c574ea71c44052d3ecb7c2866a2ced102d0a1a55901c94b",
+                           "iv": "b31d0165dde6b3d204263d6ea4b96789",
+                           "message": "8c6ec7ce0b9108d882bb076be6e49fe2"},
+             "magicwordhint": "0000"
+             , "login": str(user), "devicename": "Xiaomi Redmi Note 8 Pro",
+             "softwareversion": "1.1.0.1380", "nickname": "hvtctchnjvfxfx"
+             , "os": "AND"
+             , "deviceuid": "c72d110c1ae40d50",
+             "devicepushuid": "*dxT6B6Solm0:APA91bHqL8wxzlyKHckKxMDz66HmUqmxCPAVKBDrs8KcxCAjwdpxIPTCfRmeEw8Jks_q13vOSFsOVjCVhb-CkkKmTUsaiS7YOYHQS_pbH1g6P4N-jlnRzySQwGvqMP1gxRVksHiOXKKP",
+             "osversion": "and_11.0.0", "id": "1734805704"}
+
+    ws = websocket.create_connection("wss://195.13.182.217/Auth", header=headers,
+                                     sslopt={"cert_reqs": ssl.CERT_NONE})
+    ws.send(json.dumps(data0))
+    result = ws.recv()
+    decoded_data = gzip.decompress(result)
+    if '"comment":"Exists"' in str(decoded_data):
+        failed += 1
+    elif '"status":"Success"' in str(decoded_data):
+        created += 1
+        # Sending notification with the username
+        message = f"حساب جديد:\n - اسم المستخدم: `{user}`"
+        requests.post(f'https://api.telegram.org/bot{tele_bot}/sendmessage?chat_id={own_id}&text={message}&parse_mode=markdown')
+    elif '"comment":"Retry"' in str(decoded_data):
+        failed += 1
+    update_status_buttons()
+
+def get_uptime():
+    now = datetime.now()
+    uptime = now - start_time
+    return str(uptime).split('.')[0]  # Remove microseconds
+
+def show_status_buttons():
+    global status_message_id
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    markup.add(
+        InlineKeyboardButton(f"✅ ناجحة: {created}", callback_data="created"),
+        InlineKeyboardButton(f"❌ فاشلة: {failed}", callback_data="failed"),
+        InlineKeyboardButton(f"⏳ وقت التشغيل: {get_uptime()}", callback_data="uptime"),
+        InlineKeyboardButton("🛠 المطور", url="https://t.me/XX44G")
+    )
+    msg = bot.send_message(own_id, "الحالة الحالية:", reply_markup=markup)
+    status_message_id = msg.message_id
+    bot.pin_chat_message(own_id, status_message_id)  # Pin the message
+
+def update_status_buttons():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    markup.add(
+        InlineKeyboardButton(f"✅ ناجحة: {created}", callback_data="created"),
+        InlineKeyboardButton(f"❌ فاشلة: {failed}", callback_data="failed"),
+        InlineKeyboardButton(f"⏳ وقت التشغيل: {get_uptime()}", callback_data="uptime"),
+        InlineKeyboardButton("🛠 المطور", url="https://t.me/XX44G")
     )
     try:
-        con = create_connection(
-            "wss://51.79.208.190:8080/Reg",
-            header=[
-                "app: com.safeum.android",
-                "host: None",
-                "remoteIp: 51.79.208.190",
-                "remotePort: 8080",
-                "sessionId: None",
-                "time: 2024-04-11 11:00:00",
-                "url: wss://51.79.208.190:8080/Reg",
-            ],
-            sslopt={"cert_reqs": CERT_NONE},
-        )
-        con.send(dumps({
-            "action": "Register",
-            "subaction": "Desktop",
-            "locale": "ar_IQ",
-            "gmt": "+03",
-            "password": {
-                "m1x": "75097785def8dfddb7a5afeaa0f4076d01917475d8724483fd1f276bd8ae4797",
-                "m1y": "b66f4d55d281ac11bd68f5842788ced1757873dc7bdd1ac5b00bddbde8ede16a",
-                "m2": "ffec1e2d77f3a09b860bf038bbebae3fadd5b796acc99394ca668237542cb2ff",
-                "iv": "c052e647fe61d0ab5d56439da8b1118c",
-                "message": "426eb53ca91516a7a0569f711e0433b9728a03043fc93488fb860bfb7446699a027452b528f9e1efc146fbb2036ef6d303095426cd212c74d58f4dc0fc6274759a45a2b8d4fc9ca4c01cd22b0da41e16"
-            },
-            "magicword": {
-                "m1x": "aa0f2593c97af160b35a14c9ec9cd48b2115b3ae16c53eda021baf24d18f08c8",
-                "m1y": "cbeb17605d8d9f6637ffd311a4e89e4d98f0ec003b90dbaa98674c4e93524620",
-                "m2": "5e2c8fbe7ed3ac6e371ba3108123dfcc810511f1da5941532f283e4f4651f621",
-                "iv": "0d19c58775eb51becd5fc787c8818e38",
-                "message": "f975c09d6741a19b2ff76f6acf5591e2"
-            },
-            "magicwordhint": "0000",
-            "login": str(username),
-            "devicename": "Realme RMX3269",
-            "softwareversion": "1.1.0.1640",
-            "nickname": "usueudujdjhd",
-            "os": "AND",
-            "deviceuid": "f7a88f3e39abf27a",
-            "devicepushuid": "*cME2FmjeSj6-869LtFwnwI:APA91bGyMZ_7-tmCzlep7Fz_mWJ9AnTimC83urrBkFMXxTpZhD7Q2xBpUc4DFJIUcKzfzI9H5SqZ0_sY36rc1QJd61kprv7iHSyHtELbuPVTPBbdE75qqs6eTaCoBpmRL_i6RTZEYbFF",
-            "osversion": "and_11.0.0",
-            "id": "697978842"
-        }))
-
-        response = decompress(con.recv()).decode("utf-8")
-        if '"status":"Success"' in response:
-            with lock:
-                success += 1
-                accounts.append(username)
-                with open('users.txt', 'a') as file:
-                    file.write(username + "\n")
-                bot.send_message(mes.id, f'<strong> <code>{username}</code> </strong>', parse_mode='html')
-        else:
-            with lock:
-                failed += 1
+        bot.edit_message_reply_markup(own_id, message_id=status_message_id, reply_markup=markup)
     except Exception as e:
-        print(f"Error: {e}")
-        with lock:
-            retry += 1
+        print(f"Error updating buttons: {e}")
 
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=600)
 
-
-start = ThreadPoolExecutor(max_workers=1000)
-
-def main():
-    global success, failed, retry, accounts
-    mes = type('obj', (object,), {'id': ID}) 
-
+def start_bot():
+    show_status_buttons()
     while True:
-        start.submit(work, mes)
-        print(
-            f"\n{' ' * 25}Success : {success}\n"
-            '\n'
-            '\n'
-            f"{' ' * 25}Failed : {failed}\n"
-            '\n'
-            '\n'
-            f"{' ' * 25}ReTry : {retry}\n"
-        )
-        if success >= 2900:
-            print("Created Accounts Successfully Sent To Owner Group")
-            break
-
-        if success > 0:
-            z = "\n".join(accounts)
-            print("\n", z)
-
-        os.system("clear")
+        executor.submit(create)
+        os.system('clear')
+        print(G + 'Created : ' + str(created))
+        print(L + 'Failed : ' + str(failed))
 
 if __name__ == "__main__":
-    main()
+    bot.remove_webhook()
+    start_bot()
+    bot.polling(none_stop=True)
