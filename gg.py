@@ -30,12 +30,16 @@ db = uu('database/elhakem.ss', 'bot')
 if not db.exists("accounts"):
     db.set("accounts", [])
 
-main_buttons = [
-    [Button.inline("➕ إضافة حساب", data="add")],
-    [Button.inline("📲 حساباتك", data="your_accounts")],
-    [Button.inline("💾 نسخة احتياطية", data="backup")],
-    [Button.inline("📂 رفع نسخة احتياطية", data="restore")]
-]
+def update_main_buttons():
+    accounts = db.get("accounts")
+    accounts_count = len(accounts)
+    main_buttons = [
+        [Button.inline("➕ إضافة حساب", data="add")],
+        [Button.inline(f"📲 حساباتك ({accounts_count})", data="your_accounts")],
+        [Button.inline("💾 نسخة احتياطية", data="backup")],
+        [Button.inline("📂 رفع نسخة احتياطية", data="restore")]
+    ]
+    return main_buttons
 
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
@@ -44,7 +48,7 @@ async def start(event):
         await event.reply("👋 أهلاً بك عزيزي! هذا البوت مخصص لتخزين حسابات تيليجرام ويمكنك استرجاعها في أي وقت.", buttons=[[Button.inline("➕ إضافة حساب", data="add")]])
         return
 
-    await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=main_buttons)
+    await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=update_main_buttons())
 
 @client.on(events.callbackquery.CallbackQuery())
 async def callback_handler(event):
@@ -53,7 +57,7 @@ async def callback_handler(event):
     accounts = db.get("accounts")
 
     if data == "back":
-        await event.edit("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=main_buttons)
+        await event.edit("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=update_main_buttons())
 
     elif data == "add":
         async with bot.conversation(user_id) as x:
@@ -183,7 +187,7 @@ async def callback_handler(event):
                 await app.disconnect()
 
     elif data.startswith("delete_chats_"):
-        phone_number = data.split("_")[2]
+        phone_number = data.split("_")[1]
         for i in accounts:
             if phone_number == i['phone_number']:
                 app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
