@@ -130,7 +130,7 @@ async def callback_handler(event):
                 db.set("settings", settings)
                 await x.send_message(f"✅ تم تحديث وقت الإرسال إلى: {new_delay} ثانية", buttons=settings_buttons())
             except ValueError:
-                await x.send_message("❌ تأكد من إدخال رقم صالح للوقت.")
+                await x.send_message("❌ تأكد من إدخال رقم صالح للوقت.", buttons=settings_buttons())
 
     elif data == "set_repetitions":
         async with bot.conversation(user_id) as x:
@@ -142,7 +142,7 @@ async def callback_handler(event):
                 db.set("settings", settings)
                 await x.send_message(f"✅ تم تحديث عدد الرسائل إلى: {new_repetitions}", buttons=settings_buttons())
             except ValueError:
-                await x.send_message("❌ تأكد من إدخال رقم صالح للتكرار.")
+                await x.send_message("❌ تأكد من إدخال رقم صالح للتكرار.", buttons=settings_buttons())
 
     elif data == "back_to_main":
         await event.edit("👋 أهلاً بك! يمكنك اختيار أحد الخيارات أدناه.", buttons=main_buttons(account_exists))
