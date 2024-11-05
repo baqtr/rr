@@ -18,8 +18,8 @@ if not os.path.isdir('database'):
 
 API_ID = "21669021"
 API_HASH = "bcdae25b210b2cbe27c03117328648a2"
-admin = 7072622935
-token = "7315494223:AAFs_jejjsSrP7J8bDSprHM7KhAJ2nz3tSc"
+admin = 7013440973
+token = "7035086363:AAEwgOz_RKoPYIbFMILicHCWojZpZHhUdNw"
 client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
 bot = client
 
@@ -29,31 +29,35 @@ db = uu('database/elhakem.ss', 'bot')
 if not db.exists("accounts"):
     db.set("accounts", [])
 
-def main_buttons():
-    return [
-        [Button.inline("➕ إضافة حساب", data="add")],
-        [Button.inline("🔄 إرسال متكرر", data="send_repeatedly")],
-        [Button.inline("🔒 تسجيل خروج", data="logout")]
-    ]
+def main_buttons(account_exists):
+    buttons = [[Button.inline("➕ إضافة حساب", data="add")]]
+    if account_exists:
+        buttons.extend([
+            [Button.inline("🔄 إرسال متكرر", data="send_repeatedly")],
+            [Button.inline("🔒 تسجيل خروج", data="logout")]
+        ])
+    return buttons
 
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
     user_id = event.chat_id
     account = db.get("account")
-    if not account:
-        await event.reply("👋 أهلاً بك! يمكنك إضافة حساب واحد فقط.", buttons=main_buttons())
-    else:
-        await event.reply("👋 لديك حساب مضاف بالفعل. يمكنك اختيار أحد الخيارات أدناه.", buttons=main_buttons())
+    account_exists = bool(account)
+    await event.reply(
+        "👋 أهلاً بك! يمكنك اختيار أحد الخيارات أدناه.",
+        buttons=main_buttons(account_exists)
+    )
 
 @client.on(events.callbackquery.CallbackQuery())
 async def callback_handler(event):
     data = event.data.decode('utf-8') if isinstance(event.data, bytes) else str(event.data)
     user_id = event.chat_id
     account = db.get("account")
+    account_exists = bool(account)
 
     if data == "add":
-        if account:
-            await event.edit("⚠️ يمكنك إضافة حساب واحد فقط.", buttons=main_buttons())
+        if account_exists:
+            await event.edit("⚠️ يمكنك إضافة حساب واحد فقط.", buttons=main_buttons(account_exists))
             return
         async with bot.conversation(user_id) as x:
             await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
@@ -75,9 +79,9 @@ async def callback_handler(event):
                 await app.sign_in(phone_number, code)
                 string_session = app.session.save()
                 db.set("account", {"phone_number": phone_number, "session": string_session})
-                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=main_buttons())
+                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=main_buttons(True))
             except (PhoneCodeInvalidError, PhoneCodeExpiredError):
-                await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=main_buttons())
+                await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=main_buttons(account_exists))
             except SessionPasswordNeededError:
                 await x.send_message("- أرسل رمز التحقق بخطوتين الخاص بحسابك")
                 txt = await x.get_response()
@@ -86,19 +90,19 @@ async def callback_handler(event):
                     await app.sign_in(password=password)
                     string_session = app.session.save()
                     db.set("account", {"phone_number": phone_number, "session": string_session})
-                    await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=main_buttons())
+                    await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=main_buttons(True))
                 except PasswordHashInvalidError:
-                    await x.send_message("❌ رمز التحقق بخطوتين المدخل غير صحيح.", buttons=main_buttons())
+                    await x.send_message("❌ رمز التحقق بخطوتين المدخل غير صحيح.", buttons=main_buttons(account_exists))
             finally:
                 await app.disconnect()
 
     elif data == "logout":
         db.delete("account")
-        await event.edit("✅ تم تسجيل الخروج بنجاح. يمكنك إضافة حساب جديد.", buttons=main_buttons())
+        await event.edit("✅ تم تسجيل الخروج بنجاح. يمكنك إضافة حساب جديد.", buttons=main_buttons(False))
 
     elif data == "send_repeatedly":
         if not account:
-            await event.edit("⚠️ لا يوجد حساب مضاف حالياً. قم بإضافة حساب أولاً.", buttons=main_buttons())
+            await event.edit("⚠️ لا يوجد حساب مضاف حالياً. قم بإضافة حساب أولاً.", buttons=main_buttons(False))
             return
 
         async with bot.conversation(user_id) as x:
@@ -134,6 +138,7 @@ async def callback_handler(event):
                     await app.send_message(user, message_text)
                     await msg_status.edit(f"✅ تم إرسال حتى الآن: ({i + 1}/{repetitions})")
                     await asyncio.sleep(delay)
+                await msg_status.delete()
                 await x.send_message("✅ تم الانتهاء من إرسال الرسائل المتكررة.")
             except Exception as e:
                 await x.send_message(f"❌ حدث خطأ أثناء الإرسال المتكرر: {str(e)}")
