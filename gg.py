@@ -19,7 +19,7 @@ if not os.path.isdir('database'):
 
 API_ID = "21669021"
 API_HASH = "bcdae25b210b2cbe27c03117328648a2"
-admin = 855706229
+admin = 7072622935
 token = "7315494223:AAFs_jejjsSrP7J8bDSprHM7KhAJ2nz3tSc"
 client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
 bot = client
@@ -135,6 +135,7 @@ async def callback_handler(event):
                         [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
                         [Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
                         [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}")],
+                        [Button.inline("📴 إنهاء جميع الجلسات", data=f"terminate_sessions_{phone_number}")],
                         [Button.inline("🔙 رجوع", data="your_accounts")]
                     ]
                     await event.edit(text, buttons=account_action_buttons)
@@ -201,5 +202,27 @@ async def callback_handler(event):
                 
                 await app.disconnect()
                 await event.edit(f"✅ تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+
+    elif data.startswith("terminate_sessions_"):
+        phone_number = data.split("_")[1]
+        for i in accounts:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
+                
+                try:
+                    sessions = await app(functions.account.GetAuthorizationsRequest())
+                    total_sessions = len(sessions.authorizations)
+                    for session in sessions.authorizations:
+                        if not session.current:
+                            await app(functions.account.ResetAuthorizationRequest(session.hash))
+                    
+                    remaining_sessions = 1  # Only bot session should remain active
+                    await event.edit(f"✅ تم إنهاء جميع الجلسات المتصلة بالحساب: {phone_number}\n- الجلسات التي تم إزالتها: {total_sessions - remaining_sessions}\n- الجلسات المتبقية: {remaining_sessions}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                
+                except Exception as e:
+                    await event.edit("⚠️ حدث خطأ أثناء إنهاء الجلسات.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                finally:
+                    await app.disconnect()
 
 client.run_until_disconnected()
