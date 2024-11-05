@@ -18,25 +18,42 @@ if not os.path.isdir('database'):
 
 API_ID = "21669021"
 API_HASH = "bcdae25b210b2cbe27c03117328648a2"
-admin = 7072622935
-token = "7315494223:AAFs_jejjsSrP7J8bDSprHM7KhAJ2nz3tSc"
+admin = 7013440973
+token = "7035086363:AAEwgOz_RKoPYIbFMILicHCWojZpZHhUdNw"
 client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
 bot = client
 
-# Create DataBase
+# Default settings
+default_settings = {
+    "send_delay": 30,  # Default time between messages in seconds
+    "repetitions": 5   # Default number of repetitions
+}
+
+# Create Database
 db = uu('database/elhakem.ss', 'bot')
 
 if not db.exists("accounts"):
     db.set("accounts", [])
+if not db.exists("settings"):
+    db.set("settings", default_settings)
 
 def main_buttons(account_exists):
     buttons = [[Button.inline("➕ إضافة حساب", data="add")]]
     if account_exists:
         buttons.extend([
             [Button.inline("🔄 إرسال متكرر", data="send_repeatedly")],
+            [Button.inline("⚙️ الإعدادات", data="settings")],
             [Button.inline("🔒 تسجيل خروج", data="logout")]
         ])
     return buttons
+
+def settings_buttons():
+    settings = db.get("settings")
+    return [
+        [Button.inline(f"⏲️ تعيين وقت الإرسال: {settings['send_delay']} ثانية", data="set_send_delay")],
+        [Button.inline(f"🔢 عدد الرسائل: {settings['repetitions']}", data="set_repetitions")],
+        [Button.inline("⬅️ العودة", data="back_to_main")]
+    ]
 
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
@@ -100,6 +117,36 @@ async def callback_handler(event):
         db.delete("account")
         await event.edit("✅ تم تسجيل الخروج بنجاح. يمكنك إضافة حساب جديد.", buttons=main_buttons(False))
 
+    elif data == "settings":
+        await event.edit("⚙️ الإعدادات:", buttons=settings_buttons())
+
+    elif data == "set_send_delay":
+        async with bot.conversation(user_id) as x:
+            await x.send_message("⏲️ أرسل الوقت الجديد بين الرسائل بالثواني.")
+            try:
+                new_delay = int((await x.get_response()).text)
+                settings = db.get("settings")
+                settings["send_delay"] = new_delay
+                db.set("settings", settings)
+                await x.send_message(f"✅ تم تحديث وقت الإرسال إلى: {new_delay} ثانية", buttons=settings_buttons())
+            except ValueError:
+                await x.send_message("❌ تأكد من إدخال رقم صالح للوقت.")
+
+    elif data == "set_repetitions":
+        async with bot.conversation(user_id) as x:
+            await x.send_message("🔢 أرسل عدد مرات التكرار الجديد.")
+            try:
+                new_repetitions = int((await x.get_response()).text)
+                settings = db.get("settings")
+                settings["repetitions"] = new_repetitions
+                db.set("settings", settings)
+                await x.send_message(f"✅ تم تحديث عدد الرسائل إلى: {new_repetitions}", buttons=settings_buttons())
+            except ValueError:
+                await x.send_message("❌ تأكد من إدخال رقم صالح للتكرار.")
+
+    elif data == "back_to_main":
+        await event.edit("👋 أهلاً بك! يمكنك اختيار أحد الخيارات أدناه.", buttons=main_buttons(account_exists))
+
     elif data == "send_repeatedly":
         if not account:
             await event.edit("⚠️ لا يوجد حساب مضاف حالياً. قم بإضافة حساب أولاً.", buttons=main_buttons(False))
@@ -115,19 +162,9 @@ async def callback_handler(event):
             await x.send_message("💬 أرسل النص الذي تريد إرساله.")
             message_text = (await x.get_response()).text
 
-            await x.send_message("⏲️ أرسل الوقت بين الرسائل بالثواني.")
-            try:
-                delay = int((await x.get_response()).text)
-            except ValueError:
-                await x.send_message("❌ تأكد من إدخال رقم صالح للوقت.")
-                return
-
-            await x.send_message("🔢 أرسل عدد مرات التكرار.")
-            try:
-                repetitions = int((await x.get_response()).text)
-            except ValueError:
-                await x.send_message("❌ تأكد من إدخال رقم صالح للتكرار.")
-                return
+            settings = db.get("settings")
+            delay = settings["send_delay"]
+            repetitions = settings["repetitions"]
 
             app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
             await app.connect()
