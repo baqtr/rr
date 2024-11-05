@@ -20,7 +20,7 @@ if not os.path.isdir('database'):
 API_ID = "21669021"
 API_HASH = "bcdae25b210b2cbe27c03117328648a2"
 admin = 7013440973
-token = "7035086363:AAEwgOz_RKoPYIbFMILicHCWojZpZHhUdNw"
+token = "7315494223:AAFs_jejjsSrP7J8bDSprHM7KhAJ2nz3tSc"
 client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
 bot = client
 
