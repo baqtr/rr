@@ -25,8 +25,8 @@ bot = client
 
 # Default settings
 default_settings = {
-    "send_delay": 30,  # Default time between messages in seconds
-    "repetitions": 5   # Default number of repetitions
+    "send_delay": 30,
+    "repetitions": 5
 }
 
 # Create Database
@@ -36,6 +36,8 @@ if not db.exists("accounts"):
     db.set("accounts", [])
 if not db.exists("settings"):
     db.set("settings", default_settings)
+if not db.exists("groups"):
+    db.set("groups", [])
 
 def main_buttons(account_exists):
     buttons = [[Button.inline("➕ إضافة حساب", data="add")]]
@@ -43,7 +45,9 @@ def main_buttons(account_exists):
         buttons.extend([
             [Button.inline("🔄 إرسال متكرر", data="send_repeatedly")],
             [Button.inline("⚙️ الإعدادات", data="settings")],
-            [Button.inline("🔒 تسجيل خروج", data="logout")]
+            [Button.inline("🔒 تسجيل خروج", data="logout")],
+            [Button.inline("📑 المجموعات", data="groups")],
+            [Button.inline("➕ تعيين مجموعة", data="add_group")]
         ])
     return buttons
 
@@ -54,6 +58,12 @@ def settings_buttons():
         [Button.inline(f"🔢 عدد الرسائل: {settings['repetitions']}", data="set_repetitions")],
         [Button.inline("⬅️ العودة", data="back_to_main")]
     ]
+
+def groups_buttons():
+    groups = db.get("groups")
+    buttons = [[Button.inline(group["title"], data=f"group_{index}")] for index, group in enumerate(groups)]
+    buttons.append([Button.inline("⬅️ العودة", data="back_to_main")])
+    return buttons
 
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
@@ -179,6 +189,56 @@ async def callback_handler(event):
                 await x.send_message("✅ تم الانتهاء من إرسال الرسائل المتكررة.")
             except Exception as e:
                 await x.send_message(f"❌ حدث خطأ أثناء الإرسال المتكرر: {str(e)}")
+            finally:
+                await app.disconnect()
+
+    elif data == "add_group":
+        async with bot.conversation(user_id) as x:
+            await x.send_message("🔗 أرسل رابط المجموعة لإضافتها.")
+            txt = await x.get_response()
+            group_link = txt.text
+
+            try:
+                app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
+                await app.connect()
+                group = await app.get_entity(group_link)
+                groups = db.get("groups")
+                groups.append({"id": group.id, "title": group.title, "link": group_link})
+                db.set("groups", groups)
+                await x.send_message(f"✅ تم إضافة المجموعة: {group.title}", buttons=main_buttons(True))
+            except Exception as e:
+                await x.send_message(f"❌ حدث خطأ أثناء إضافة المجموعة: {str(e)}")
+            finally:
+                await app.disconnect()
+
+    elif data == "groups":
+        await event.edit("📑 المجموعات:", buttons=groups_buttons())
+
+    elif data.startswith("group_"):
+        group_index = int(data.split("_")[1])
+        groups = db.get("groups")
+        group = groups[group_index]
+
+        async with bot.conversation(user_id) as x:
+            await x.send_message(f"💬 أرسل النص الذي تريد إرساله إلى المجموعة '{group['title']}'.")
+            message_text = (await x.get_response()).text
+
+            settings = db.get("settings")
+            delay = settings["send_delay"]
+            repetitions = settings["repetitions"]
+
+            app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
+            await app.connect()
+            try:
+                msg_status = await x.send_message(f"✅ تم إرسال حتى الآن: (0/{repetitions}) إلى '{group['title']}'")
+                for i in range(repetitions):
+                    await app.send_message(group['id'], message_text)
+                    await msg_status.edit(f"✅ تم إرسال حتى الآن: ({i + 1}/{repetitions}) إلى '{group['title']}'")
+                    await asyncio.sleep(delay)
+                await msg_status.delete()
+                await x.send_message(f"✅ تم الانتهاء من إرسال الرسائل إلى المجموعة '{group['title']}'.")
+            except Exception as e:
+                await x.send_message(f"❌ حدث خطأ أثناء الإرسال إلى المجموعة: {str(e)}")
             finally:
                 await app.disconnect()
 
