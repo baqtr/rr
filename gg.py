@@ -4,6 +4,7 @@ from telethon.sessions import StringSession
 import asyncio, json, shutil
 from kvsqlite.sync import Client as uu
 from telethon import TelegramClient, events, Button
+from telethon.tl.types import DocumentAttributeFilename
 from telethon.errors import (
     ApiIdInvalidError,
     PhoneNumberInvalidError,
@@ -26,14 +27,14 @@ bot = client
 # Create DataBase
 db = uu('database/elhakem.ss', 'bot')
 
-if not db.exists("account"):
-    db.set("account", None)
+if not db.exists("accounts"):
+    db.set("accounts", [])
 
 def main_buttons():
-    account = db.get("account")
+    account = db.get("accounts")
     if account:
         return [
-            [Button.inline("📸 جلب ذاتية", data="fetch_self")],
+            [Button.inline("🖼️ جلب ذاتية", data="fetch_self")],
             [Button.inline("🔒 تسجيل خروج", data="logout")]
         ]
     else:
@@ -43,23 +44,24 @@ def main_buttons():
 async def start(event):
     user_id = event.chat_id
     if user_id != admin:
-        await event.reply("👋 أهلاً بك عزيزي! هذا البوت مخصص لإدارة حساب تيليجرام واحد فقط.")
+        await event.reply("👋 أهلاً بك عزيزي! هذا البوت مخصص للإدارة ولا يمكنك استخدامه.")
         return
 
-    await event.reply("👋 مرحبًا بك في بوت إدارة الحساب، اختر من الزر أدناه لإضافة حساب.", buttons=main_buttons())
+    await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=main_buttons())
 
 @client.on(events.callbackquery.CallbackQuery())
 async def callback_handler(event):
     data = event.data.decode('utf-8') if isinstance(event.data, bytes) else str(event.data)
     user_id = event.chat_id
-    account = db.get("account")
+    account = db.get("accounts")[0] if db.get("accounts") else None
 
     if data == "add":
         if account:
-            await event.edit("⚠️ حساب واحد مضاف بالفعل. لا يمكنك إضافة حساب آخر دون تسجيل الخروج من الحساب الحالي.", buttons=main_buttons())
+            await event.edit("⚠️ يمكنك إضافة حساب واحد فقط. سجل خروج أولاً لإضافة حساب جديد.", buttons=main_buttons())
             return
+
         async with bot.conversation(user_id) as x:
-            await x.send_message("✔️ أرسل رقمك مع رمز دولتك , مثال :+201000000000")
+            await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
             txt = await x.get_response()
             phone_number = txt.text.replace("+", "").replace(" ", "")
 
@@ -72,16 +74,17 @@ async def callback_handler(event):
                 await x.send_message("❌ هناك خطأ في API_ID أو HASH_ID أو رقم الهاتف.")
                 return
 
-            await x.send_message("- تم إرسال كود التحقق الخاص بك على تيليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
+            await x.send_message("- تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
             txt = await x.get_response()
             code = txt.text.replace(" ", "")
             try:
                 await app.sign_in(phone_number, code, password=None)
                 string_session = app.session.save()
-                db.set("account", {"phone_number": phone_number, "session": string_session, "two-step": "لا يوجد"})
-                await x.send_message("- تم إضافة الحساب بنجاح ✅", buttons=main_buttons())
+                data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
+                db.set("accounts", [data])
+                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=main_buttons())
             except (PhoneCodeInvalidError, PhoneCodeExpiredError):
-                await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.")
+                await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
                 return
             except SessionPasswordNeededError:
                 await x.send_message("- أرسل رمز التحقق بخطوتين الخاص بحسابك")
@@ -90,11 +93,12 @@ async def callback_handler(event):
                 try:
                     await app.sign_in(password=password)
                 except PasswordHashInvalidError:
-                    await x.send_message("❌ رمز التحقق بخطوتين المدخل غير صحيح.")
+                    await x.send_message("❌ رمز التحقق بخطوتين المدخل غير صحيح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
                     return
                 string_session = app.session.save()
-                db.set("account", {"phone_number": phone_number, "session": string_session, "two-step": password})
-                await x.send_message("- تم إضافة الحساب بنجاح ✅", buttons=main_buttons())
+                data = {"phone_number": phone_number, "two-step": password, "session": string_session}
+                db.set("accounts", [data])
+                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=main_buttons())
 
     elif data == "fetch_self":
         if not account:
@@ -102,17 +106,26 @@ async def callback_handler(event):
             return
 
         async with bot.conversation(user_id) as x:
-            await x.send_message("📝 أرسل اسم المستخدم المراد جلب الذاتية منه.")
+            await x.send_message("📝 أرسل اسم المستخدم المراد جلب آخر صورة منه.")
             txt = await x.get_response()
             username = txt.text
             app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
             await app.connect()
             try:
                 user = await app.get_entity(username)
-                photo = await app.download_profile_photo(user, file=bytes)
-                await x.send_file(file=photo, caption="📸 هذه هي الذاتية.")
+                messages = await app.get_messages(user, limit=10)  # جلب أحدث 10 رسائل للتحقق من وجود صورة
+
+                image_found = False
+                for message in messages:
+                    if message.photo or message.media and hasattr(message.media, 'ttl_seconds'):  # التحقق إذا كانت الرسالة تحتوي على صورة ذاتية التدمير
+                        image_found = True
+                        await x.send_file(file=message.media, caption="🖼️ هذه هي آخر صورة تم إرسالها من المستخدم.")
+                        break
+
+                if not image_found:
+                    await x.send_message("❌ لم يتم العثور على صور مرسلة من هذا المستخدم في أحدث 10 رسائل.")
             except Exception as e:
-                await x.send_message("❌ حدث خطأ أثناء جلب الذاتية. تأكد من صحة اسم المستخدم.")
+                await x.send_message("❌ حدث خطأ أثناء جلب الصورة. تأكد من صحة اسم المستخدم.")
             finally:
                 await app.disconnect()
 
@@ -125,8 +138,8 @@ async def callback_handler(event):
         await app.connect()
         await app.log_out()
         await app.disconnect()
-        
-        db.set("account", None)
-        await event.edit("- تم تسجيل الخروج وحذف الحساب بنجاح. يمكنك الآن إضافة حساب جديد.", buttons=main_buttons())
+
+        db.set("accounts", [])
+        await event.edit("🔒 تم تسجيل الخروج بنجاح. يمكنك الآن إضافة حساب جديد.", buttons=main_buttons())
 
 client.run_until_disconnected()
