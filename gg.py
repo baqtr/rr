@@ -4,7 +4,6 @@ from telethon.sessions import StringSession
 import asyncio, json, shutil
 from kvsqlite.sync import Client as uu
 from telethon import TelegramClient, events, Button
-from telethon.tl.types import DocumentAttributeFilename
 from telethon.errors import (
     ApiIdInvalidError,
     PhoneNumberInvalidError,
@@ -33,12 +32,7 @@ if not db.exists("accounts"):
 def main_buttons():
     return [
         [Button.inline("➕ إضافة حساب", data="add")],
-        [Button.inline("🔄 إرسال متكرر", data="send_repeatedly")]
-    ]
-
-def account_buttons():
-    return [
-        [Button.inline("📸 جلب ذاتية", data="fetch_self")],
+        [Button.inline("🔄 إرسال متكرر", data="send_repeatedly")],
         [Button.inline("🔒 تسجيل خروج", data="logout")]
     ]
 
@@ -49,7 +43,7 @@ async def start(event):
     if not account:
         await event.reply("👋 أهلاً بك! يمكنك إضافة حساب واحد فقط.", buttons=main_buttons())
     else:
-        await event.reply("👋 لديك حساب مضاف بالفعل. يمكنك اختيار أحد الخيارات أدناه.", buttons=account_buttons())
+        await event.reply("👋 لديك حساب مضاف بالفعل. يمكنك اختيار أحد الخيارات أدناه.", buttons=main_buttons())
 
 @client.on(events.callbackquery.CallbackQuery())
 async def callback_handler(event):
@@ -59,7 +53,7 @@ async def callback_handler(event):
 
     if data == "add":
         if account:
-            await event.edit("⚠️ يمكنك إضافة حساب واحد فقط.", buttons=account_buttons())
+            await event.edit("⚠️ يمكنك إضافة حساب واحد فقط.", buttons=main_buttons())
             return
         async with bot.conversation(user_id) as x:
             await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
@@ -81,7 +75,7 @@ async def callback_handler(event):
                 await app.sign_in(phone_number, code)
                 string_session = app.session.save()
                 db.set("account", {"phone_number": phone_number, "session": string_session})
-                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=account_buttons())
+                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=main_buttons())
             except (PhoneCodeInvalidError, PhoneCodeExpiredError):
                 await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=main_buttons())
             except SessionPasswordNeededError:
@@ -92,44 +86,9 @@ async def callback_handler(event):
                     await app.sign_in(password=password)
                     string_session = app.session.save()
                     db.set("account", {"phone_number": phone_number, "session": string_session})
-                    await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=account_buttons())
+                    await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=main_buttons())
                 except PasswordHashInvalidError:
                     await x.send_message("❌ رمز التحقق بخطوتين المدخل غير صحيح.", buttons=main_buttons())
-            finally:
-                await app.disconnect()
-
-    elif data == "fetch_self":
-        if not account:
-            await event.edit("⚠️ لا يوجد حساب مضاف حالياً. قم بإضافة حساب أولاً.", buttons=main_buttons())
-            return
-
-        async with bot.conversation(user_id) as x:
-            await x.send_message("📝 أرسل اسم المستخدم المراد جلب آخر صورة منه.")
-            txt = await x.get_response()
-            username = txt.text
-            if not username.startswith("@"):
-                username = "@" + username
-            app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
-            await app.connect()
-            try:
-                user = await app.get_entity(username)
-                messages = await app.get_messages(user, limit=10)
-
-                image_found = False
-                for message in messages:
-                    if message.photo:
-                        image_found = True
-                        await x.send_file(file=message.photo, caption="🖼️ هذه هي آخر صورة تم إرسالها من المستخدم.")
-                        break
-                    elif message.media and hasattr(message.media, 'ttl_seconds'):
-                        image_found = True
-                        await x.send_file(file=message.media, caption="🖼️ هذه هي آخر صورة ذاتية التدمير تم إرسالها من المستخدم.")
-                        break
-
-                if not image_found:
-                    await x.send_message("❌ لم يتم العثور على صور مرسلة من هذا المستخدم في أحدث 10 رسائل.")
-            except Exception as e:
-                await x.send_message(f"❌ حدث خطأ أثناء جلب الصورة: {str(e)}")
             finally:
                 await app.disconnect()
 
@@ -152,6 +111,13 @@ async def callback_handler(event):
             await x.send_message("💬 أرسل النص الذي تريد إرساله.")
             message_text = (await x.get_response()).text
 
+            await x.send_message("⏲️ أرسل الوقت بين الرسائل بالثواني.")
+            try:
+                delay = int((await x.get_response()).text)
+            except ValueError:
+                await x.send_message("❌ تأكد من إدخال رقم صالح للوقت.")
+                return
+
             await x.send_message("🔢 أرسل عدد مرات التكرار.")
             try:
                 repetitions = int((await x.get_response()).text)
@@ -162,11 +128,12 @@ async def callback_handler(event):
             app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
             await app.connect()
             try:
+                msg_status = await x.send_message(f"✅ تم إرسال حتى الآن: (0/{repetitions})")
                 for i in range(repetitions):
                     user = await app.get_entity(username)
                     await app.send_message(user, message_text)
-                    await x.send_message(f"✅ تم إرسال الرسالة {i + 1} من {repetitions}.")
-                    await asyncio.sleep(30)  # الانتظار 30 ثانية بين كل إرسال
+                    await msg_status.edit(f"✅ تم إرسال حتى الآن: ({i + 1}/{repetitions})")
+                    await asyncio.sleep(delay)
                 await x.send_message("✅ تم الانتهاء من إرسال الرسائل المتكررة.")
             except Exception as e:
                 await x.send_message(f"❌ حدث خطأ أثناء الإرسال المتكرر: {str(e)}")
