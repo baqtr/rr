@@ -132,10 +132,7 @@ async def callback_handler(event):
                            f"- التحقق بخطوتين : {i['two-step']}"
 
                     account_action_buttons = [
-                        [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
-                        [Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
-                        [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}")],
-                        [Button.inline("📴 إنهاء جميع الجلسات", data=f"terminate_sessions_{phone_number}")],
+                        [Button.inline("📱 عرض الجلسات", data=f"show_sessions_{phone_number}")],
                         [Button.inline("🔙 رجوع", data="your_accounts")]
                     ]
                     await event.edit(text, buttons=account_action_buttons)
@@ -146,6 +143,34 @@ async def callback_handler(event):
                 finally:
                     await app.disconnect()
                 break
+
+    elif data.startswith("show_sessions_"):
+        phone_number = data.split("_")[1]
+        for i in accounts:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
+                
+                sessions = await app(functions.account.GetAuthorizationsRequest())
+                session_buttons = [
+                    [Button.inline(f"{s.device_model} - {s.platform}", data=f"remove_session_{s.hash}")]
+                    for s in sessions.authorizations if not s.current
+                ]
+                session_buttons.append([Button.inline("🔴 إنهاء جميع الجلسات", data=f"terminate_all_sessions_{phone_number}")])
+                session_buttons.append([Button.inline("🔙 رجوع", data=f"get_{phone_number}")])
+                
+                await event.edit("📱 الجلسات المتصلة:\nاختر الجلسة التي تود انهاءها أو انهاء جميع الجلسات:", buttons=session_buttons)
+                await app.disconnect()
+                break
+
+    elif data.startswith("remove_session_"):
+        session_hash = int(data.split("_")[2])
+        for i in accounts:
+            app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+            await app.connect()
+            await app(functions.account.ResetAuthorizationRequest(session_hash))
+            await app.disconnect()
+            await event.edit("✅ تم إزالة الجلسة المحددة.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
 
     elif data == "backup":
         backup_data = {"accounts": accounts}
@@ -164,64 +189,63 @@ async def callback_handler(event):
                 db.set("accounts", backup_data["accounts"])
                 await x.send_message("✅ تم استعادة النسخة الاحتياطية بنجاح", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
-    elif data.startswith("logout_"):
-        phone_number = data.split("_")[1]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                await app.log_out()
-                await app.disconnect()
-
-                accounts.remove(i)
-                db.set("accounts", accounts)
-                await event.edit(f"- تم تسجيل الخروج من الحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-
-    elif data.startswith("code_"):
-        phone_number = data.split("_")[1]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                code = await app.get_messages(777000, limit=1)
-                await event.edit(f"اخر كود تم استلامه: {code[0].message}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-                await app.disconnect()
-
-    elif data.startswith("delete_chats_"):
-        phone_number = data.split("_")[1]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                
-                total_deleted = 0
-                async for dialog in app.iter_dialogs():
-                    await app.delete_dialog(dialog.id)
-                    total_deleted += 1
-                    await event.edit(f"جاري الحذف... تم حذف ({total_deleted}) محادثة حتى الآن.")
-                
-                await app.disconnect()
-                await event.edit(f"✅ تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-
     elif data.startswith("terminate_sessions_"):
         phone_number = data.split("_")[1]
         for i in accounts:
             if phone_number == i['phone_number']:
                 app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
                 await app.connect()
-                
+
                 try:
                     sessions = await app(functions.account.GetAuthorizationsRequest())
-                    total_sessions = len(sessions.authorizations)
+                    device_buttons = [
+                        [Button.inline(f"{session.device_model} - {session.app_name}", data=f"remove_session_{session.hash}")]
+                        for session in sessions.authorizations if not session.current
+                    ]
+                    device_buttons.append([Button.inline("🔴 إنهاء جميع الجلسات", data="terminate_all_sessions")])
+                    device_buttons.append([Button.inline("🔙 رجوع", data="your_accounts")])
+
+                    await event.edit(f"اختر الجلسة التي تود إنهاءها للحساب: {phone_number}", buttons=device_buttons)
+                
+                except Exception as e:
+                    await event.edit("⚠️ حدث خطأ أثناء عرض الجلسات.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                finally:
+                    await app.disconnect()
+
+    elif data.startswith("remove_session_"):
+        session_hash = int(data.split("_")[2])
+        phone_number = data.split("_")[1]
+        for i in accounts:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
+
+                try:
+                    await app(functions.account.ResetAuthorizationRequest(session_hash))
+                    await event.edit("✅ تم إنهاء الجلسة بنجاح.", buttons=[[Button.inline("🔙 رجوع", data=f"terminate_sessions_{phone_number}")]])
+
+                except Exception as e:
+                    await event.edit("⚠️ حدث خطأ أثناء إنهاء الجلسة.", buttons=[[Button.inline("🔙 رجوع", data=f"terminate_sessions_{phone_number}")]])
+                finally:
+                    await app.disconnect()
+
+    elif data == "terminate_all_sessions":
+        phone_number = data.split("_")[1]
+        for i in accounts:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
+
+                try:
+                    sessions = await app(functions.account.GetAuthorizationsRequest())
                     for session in sessions.authorizations:
                         if not session.current:
                             await app(functions.account.ResetAuthorizationRequest(session.hash))
                     
-                    remaining_sessions = 1  # Only bot session should remain active
-                    await event.edit(f"✅ تم إنهاء جميع الجلسات المتصلة بالحساب: {phone_number}\n- الجلسات التي تم إزالتها: {total_sessions - remaining_sessions}\n- الجلسات المتبقية: {remaining_sessions}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                    await event.edit(f"✅ تم إنهاء جميع الجلسات بنجاح للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
                 
                 except Exception as e:
-                    await event.edit("⚠️ حدث خطأ أثناء إنهاء الجلسات.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                    await event.edit("⚠️ حدث خطأ أثناء إنهاء جميع الجلسات.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
                 finally:
                     await app.disconnect()
 
