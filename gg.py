@@ -1,7 +1,8 @@
 import os
 from telethon.tl import functions
 from telethon.sessions import StringSession
-import asyncio, json, shutil
+import asyncio
+import shutil
 from kvsqlite.sync import Client as uu
 from telethon import TelegramClient, events, Button
 from telethon.errors import (
@@ -12,8 +13,6 @@ from telethon.errors import (
     SessionPasswordNeededError,
     PasswordHashInvalidError
 )
-from telethon.tl.functions.channels import JoinChannelRequest
-from telethon.tl.functions.messages import ImportChatInviteRequest
 
 if not os.path.isdir('database'):
     os.mkdir('database')
@@ -45,7 +44,7 @@ def main_buttons():
     account_count = len(db.get("accounts"))
     buttons = [[Button.inline(f"➕ إضافة حساب ({account_count})", data="add")]]
     if account_count > 0:
-        buttons.append([Button.inline("🔄 رشق رابط دعوة", data="send_invite")])
+        buttons.append([Button.inline("📥 جلب رسائل مستخدم", data="fetch_messages")])
     return buttons
 
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
@@ -107,99 +106,39 @@ async def callback_handler(event):
             finally:
                 await app.disconnect()
 
-    elif data == "send_invite":
+    elif data == "fetch_messages":
         account_count = len(db.get("accounts"))
         if account_count == 0:
             await event.edit("⚠️ لا يوجد حساب مضاف حاليًا. قم بإضافة حساب أولاً.", buttons=main_buttons())
             return
 
         async with bot.conversation(user_id) as conv:
-            await conv.send_message("أرسل عدد قنوات الاشتراك الإجباري كرقم.")
+            await conv.send_message("أدخل معرف المستخدم أو ID الخاص بالمستخدم المراد جلب رسائله.")
             txt = await conv.get_response()
-            try:
-                num_channels = int(txt.text)
-                if num_channels <= 0:
-                    await conv.send_message("❌ يجب أن يكون العدد أكبر من 0.", buttons=main_buttons())
-                    return
-            except ValueError:
-                await conv.send_message("❌ تأكد من إدخال رقم صالح.", buttons=main_buttons())
+            user_input = txt.text.strip()
+
+            if not user_input:
+                await conv.send_message("❌ تأكد من إدخال معرف المستخدم أو ID صحيح.", buttons=main_buttons())
                 return
 
-            channels = []
-            for i in range(num_channels):
-                await conv.send_message(f"أرسل رابط القناة رقم {i + 1}.")
-                txt = await conv.get_response()
-                channels.append(txt.text)
-
-            await conv.send_message("أرسل رابط الدعوة الخاص بالبوت المراد رشقها.")
-            invite_link = (await conv.get_response()).text
-
-            processing_msg = await conv.send_message(
-                "جاري المعالجة...\n"
-                "عدد القنوات المختارة (0)\n"
-                "عدد الانضمام الناجح (0)\n"
-                "عدد الحسابات التي تمت العملية بها (0)\n"
-                "عدد الحسابات قيد المعالجة (0)"
-            )
-
-            successful_joins = 0
-            processed_accounts = 0
-            messages = [processing_msg]
+            processing_msg = await conv.send_message("🔄 جاري جلب الرسائل...")
+            messages = []
 
             for account_data in db.get("accounts"):
                 try:
                     app = TelegramClient(StringSession(account_data['session']), API_ID, API_HASH)
                     await app.connect()
 
-                    for channel in channels:
-                        await app(JoinChannelRequest(channel))
-                        successful_joins += 1
-                        await processing_msg.edit(
-                            f"جاري المعالجة...\n"
-                            f"عدد القنوات المختارة ({len(channels)})\n"
-                            f"عدد الانضمام الناجح ({successful_joins})\n"
-                            f"عدد الحسابات التي تمت العملية بها ({processed_accounts + 1})\n"
-                            f"عدد الحسابات قيد المعالجة ({len(db.get('accounts')) - processed_accounts - 1})"
-                        )
-                        await asyncio.sleep(1)
+                    async for message in app.iter_messages(user_input, limit=100):
+                        messages.append(message.text)
 
-                    # Attempt to join bot invite link with retries
-                    retries = 2
-                    for attempt in range(retries):
-                        try:
-                            await app(ImportChatInviteRequest(invite_link.split("/")[-1]))
-                            await app.send_message(invite_link, '/start')
-                            await asyncio.sleep(1)
-                            await app.send_message(invite_link, '/start')
-                            await asyncio.sleep(1)
-                            await app.send_message(invite_link, '/start')
-                            break
-                        except Exception as e:
-                            if attempt < retries - 1:
-                                await asyncio.sleep(2)
-                            else:
-                                await conv.send_message(f"❌ فشل الانضمام إلى البوت: {str(e)}", buttons=main_buttons())
-                    
-                    processed_accounts += 1
+                    await conv.send_message(f"✅ تم جلب الرسائل بنجاح من الحساب {account_data['phone_number']}:\n\n" + "\n".join(messages[-10:]), buttons=main_buttons())
                 except Exception as e:
-                    await conv.send_message(f"❌ حدث خطأ أثناء الانضمام بالحساب: {str(e)}", buttons=main_buttons())
+                    await conv.send_message(f"❌ حدث خطأ أثناء جلب الرسائل بالحساب: {str(e)}", buttons=main_buttons())
                 finally:
                     await app.disconnect()
-
-            await cleanup_messages(conv, messages)
-            account_count = len(db.get("accounts"))
-            await conv.send_message(
-                f"✅ تم الانتهاء من المعالجة.\n\n"
-                f"🔹 عدد القنوات المختارة: {len(channels)}\n"
-                f"🔹 عدد الانضمام الناجح: {successful_joins}\n"
-                f"🔹 عدد الحسابات التي تمت العملية بها: {account_count}",
-                buttons=main_buttons()
-            )
-
-# وظيفة إزالة الرسائل المتكررة بعد الانتهاء من المعالجة
-async def cleanup_messages(conv, messages):
-    for message in messages:
-        await message.delete()
+            
+            await processing_msg.delete()
 
 # بدء تشغيل البوت
 print("Bot is running...")
