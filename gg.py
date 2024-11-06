@@ -12,6 +12,8 @@ from telethon.errors import (
     SessionPasswordNeededError,
     PasswordHashInvalidError
 )
+from telethon.tl.functions.channels import JoinChannelRequest  # تم إضافة هذا الاستيراد
+from telethon.tl.functions.messages import ImportChatInviteRequest
 
 if not os.path.isdir('database'):
     os.mkdir('database')
@@ -161,7 +163,14 @@ async def callback_handler(event):
                         )
                         await asyncio.sleep(1)
 
-                    await app(JoinChannelRequest(invite_link))
+                    # Attempt to join bot invite link
+                    await app(ImportChatInviteRequest(invite_link.split("/")[-1]))
+                    
+                    # Send /start command three times
+                    for _ in range(3):
+                        await app.send_message(invite_link, '/start')
+                        await asyncio.sleep(1)
+                    
                     processed_accounts += 1
                 except Exception as e:
                     await conv.send_message(f"❌ حدث خطأ أثناء الانضمام بالحساب: {str(e)}", buttons=main_buttons())
