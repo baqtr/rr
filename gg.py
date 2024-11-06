@@ -95,23 +95,27 @@ async def callback_handler(event):
             finally:
                 await app.disconnect()
 
-@client.on(events.NewMessage(incoming=True))
-async def incoming_message_handler(event):
+async def start_account_listener():
     account = db.get("account")
     if account:
-        sender = await event.get_sender()
-        sender_info = f"اسم المستخدم: {sender.username or 'غير متوفر'}\n" \
-                      f"اسم العرض: {sender.first_name or ''} {sender.last_name or ''}\n" \
-                      f"معرف المستخدم: {sender.id}\n"
-        
-        await bot.send_message(admin, f"رسالة جديدة من:\n{sender_info}\nنص الرسالة:\n{event.text}")
-        
-        if account:
-            app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
-            await app.connect()
-            try:
-                await app.send_message(sender.id, "تم")
-            finally:
-                await app.disconnect()
+        app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
+        await app.connect()
+
+        @app.on(events.NewMessage(incoming=True))
+        async def account_message_handler(event):
+            sender = await event.get_sender()
+            sender_info = f"اسم المستخدم: {sender.username or 'غير متوفر'}\n" \
+                          f"اسم العرض: {sender.first_name or ''} {sender.last_name or ''}\n" \
+                          f"معرف المستخدم: {sender.id}\n"
+
+            await bot.send_message(admin, f"رسالة جديدة من الحساب المضاف:\n{sender_info}\nنص الرسالة:\n{event.text}")
+            await app.send_message(sender.id, "تم")
+
+        await app.run_until_disconnected()
+
+@client.on(events.NewMessage(pattern="/start_listener", from_users=admin))
+async def start_listener_command(event):
+    await event.reply("✅ تم بدء استقبال الرسائل من الحساب المضاف.")
+    asyncio.create_task(start_account_listener())
 
 client.run_until_disconnected()
