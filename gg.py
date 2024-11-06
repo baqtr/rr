@@ -10,8 +10,7 @@ from telethon.errors import (
     PhoneCodeInvalidError,
     PhoneCodeExpiredError,
     SessionPasswordNeededError,
-    PasswordHashInvalidError,
-    UserAlreadyParticipantError
+    PasswordHashInvalidError
 )
 from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
@@ -134,7 +133,6 @@ async def callback_handler(event):
 
             await conv.send_message("أرسل رابط الدعوة الخاص بالبوت المراد رشقها.")
             invite_link = (await conv.get_response()).text
-            invite_hash = invite_link.split("/")[-1]
 
             processing_msg = await conv.send_message(
                 "جاري المعالجة...\n"
@@ -154,35 +152,37 @@ async def callback_handler(event):
                     await app.connect()
 
                     for channel in channels:
-                        try:
-                            await app(JoinChannelRequest(channel))
-                            successful_joins += 1
-                            await processing_msg.edit(
-                                f"جاري المعالجة...\n"
-                                f"عدد القنوات المختارة ({len(channels)})\n"
-                                f"عدد الانضمام الناجح ({successful_joins})\n"
-                                f"عدد الحسابات التي تمت العملية بها ({processed_accounts + 1})\n"
-                                f"عدد الحسابات قيد المعالجة ({len(db.get('accounts')) - processed_accounts - 1})"
-                            )
-                            await asyncio.sleep(1)
-                        except UserAlreadyParticipantError:
-                            await processing_msg.edit(f"تم الاشتراك مسبقًا في {channel}")
-                        except Exception as e:
-                            await conv.send_message(f"❌ خطأ في الانضمام إلى {channel}: {str(e)}")
+                        await app(JoinChannelRequest(channel))
+                        successful_joins += 1
+                        await processing_msg.edit(
+                            f"جاري المعالجة...\n"
+                            f"عدد القنوات المختارة ({len(channels)})\n"
+                            f"عدد الانضمام الناجح ({successful_joins})\n"
+                            f"عدد الحسابات التي تمت العملية بها ({processed_accounts + 1})\n"
+                            f"عدد الحسابات قيد المعالجة ({len(db.get('accounts')) - processed_accounts - 1})"
+                        )
+                        await asyncio.sleep(1)
 
-                    # Attempt to join bot invite link
-                    try:
-                        await app(ImportChatInviteRequest(invite_hash))
-                        # Send /start command three times
-                        for _ in range(3):
+                    # Attempt to join bot invite link with retries
+                    retries = 2
+                    for attempt in range(retries):
+                        try:
+                            await app(ImportChatInviteRequest(invite_link.split("/")[-1]))
                             await app.send_message(invite_link, '/start')
                             await asyncio.sleep(1)
-                    except Exception as e:
-                        await conv.send_message(f"❌ خطأ في الانضمام إلى الدعوة: {str(e)}")
-
+                            await app.send_message(invite_link, '/start')
+                            await asyncio.sleep(1)
+                            await app.send_message(invite_link, '/start')
+                            break
+                        except Exception as e:
+                            if attempt < retries - 1:
+                                await asyncio.sleep(2)
+                            else:
+                                await conv.send_message(f"❌ فشل الانضمام إلى البوت: {str(e)}", buttons=main_buttons())
+                    
                     processed_accounts += 1
                 except Exception as e:
-                    await conv.send_message(f"❌ حدث خطأ أثناء المعالجة بالحساب: {str(e)}", buttons=main_buttons())
+                    await conv.send_message(f"❌ حدث خطأ أثناء الانضمام بالحساب: {str(e)}", buttons=main_buttons())
                 finally:
                     await app.disconnect()
 
