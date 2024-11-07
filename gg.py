@@ -1,6 +1,5 @@
+```python
 import os
-import random
-import string
 from telethon.tl import functions
 from telethon.sessions import StringSession
 import asyncio, json
@@ -38,7 +37,9 @@ def update_main_buttons():
         [Button.inline("➕ إضافة حساب", data="add")],
         [Button.inline(f"📲 حساباتك ({accounts_count})", data="your_accounts")],
         [Button.inline("💾 نسخة احتياطية", data="backup")],
-        [Button.inline("📂 رفع نسخة احتياطية", data="restore")]
+        [Button.inline("📂 رفع نسخة احتياطية", data="restore")],
+        [Button.inline("🔍 البحث عن حساب", data="search_account")],
+        [Button.inline("📊 إحصائيات الحسابات", data="account_stats")]
     ]
     return main_buttons
 
@@ -62,7 +63,7 @@ async def callback_handler(event):
 
     elif data == "add":
         async with bot.conversation(user_id) as x:
-            await x.send_message("✔️ الآن ارسل رقمك مع رمز دولتك, مثال : +201000000000")
+            await x.send_message("✔️ الان ارسل رقمك مع رمز دولتك, مثال : +201000000000")
             txt = await x.get_response()
             phone_number = txt.text.replace("+", "").replace(" ", "")
 
@@ -88,21 +89,7 @@ async def callback_handler(event):
                 data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
-
-                # Check if two-step verification is enabled
-                if password is None:
-                    # Generate random 4-letter password
-                    random_password = ''.join(random.choices(string.ascii_letters, k=4))
-                    await app(functions.account.UpdatePasswordSettingsRequest(
-                        new_settings=functions.account.PasswordInputSettings(
-                            new_password=random_password,
-                            hint="رمز تحقق بخطوتين عشوائي",
-                            email=""
-                        )
-                    ))
-                    await x.send_message(f"🔐 - تم إضافة الحساب بنجاح.\n\n📜 رمز التحقق بخطوتين العشوائي: `{random_password}`\nقم بحفظه.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-                else:
-                    await x.send_message("✅ - تم حفظ الحساب بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                await x.send_message("✅ - تم حفظ الحساب بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             except (PhoneCodeInvalidError, PhoneCodeExpiredError):
                 await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
                 return
@@ -150,7 +137,8 @@ async def callback_handler(event):
                         [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
                         [Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
                         [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}")],
-                        [Button.inline("🔙 رجوع", data="your_accounts")]
+                        [Button.inline("🔙 رجوع", data="your_accounts")],
+                        [Button.inline("📩 إرسال رسالة", data=f"send_message_{phone_number}")]
                     ]
                     await event.edit(text, buttons=account_action_buttons)
                 except Exception as e:
@@ -216,5 +204,47 @@ async def callback_handler(event):
                 
                 await app.disconnect()
                 await event.edit(f"✅ - تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+
+    elif data.startswith("send_message_"):
+        phone_number = data.split("_")[1]
+        async with bot.conversation(user_id) as x:
+            await x.send_message("✏️ اكتب الرسالة التي تود إرسالها:")
+            message = await x.get_response()
+            for i in accounts:
+                if phone_number == i['phone_number']:
+                    app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                    await app.connect()
+                    await app.send_message("me", message.text)  # Send message to self as a test
+                    await app.disconnect()
+                    await x.send_message("✅ تم إرسال الرسالة بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                    break
+
+    elif data == "search_account":
+        async with bot.conversation(user_id) as x:
+            await x.send_message("🔍 اكتب رقم الهاتف للبحث عن الحساب:")
+            search_number = await x.get_response()
+            found_accounts = [acc for acc in accounts if search_number.text in acc['phone_number']]
+            if found_accounts:
+                result_buttons = [[Button.inline(f"📱 {acc['phone_number']}", data=f"get_{acc['phone_number']}")] for acc in found_accounts]
+                result_buttons.append([Button.inline("🔙 رجوع", data="back")])
+                await x.send_message("📋 الحسابات التي تم العثور عليها:", buttons=result_buttons)
+            else:
+                await x.send_message("❌ لم يتم العثور على حسابات بهذا الرقم.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    elif data == "account_stats":
+        if len(accounts) == 0:
+            await event.edit("⚠️ - لا يوجد حسابات مسجلة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            return
+        
+        total_accounts = len(accounts)
+        total_logged_in = sum(1 for acc in accounts if acc['two-step'] == "لا يوجد")
+        total_with_two_step = total_accounts - total_logged_in
+
+        stats_text = f"📊 إحصائيات الحسابات:\n" \
+                     f"• إجمالي الحسابات: {total_accounts}\n" \
+                     f"• الحسابات المسجلة بدون تحقق بخطوتين: {total_logged_in}\n" \
+                     f"• الحسابات المسجلة مع تحقق بخطوتين: {total_with_two_step}"
+
+        await event.edit(stats_text, buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
 client.run_until_disconnected()
