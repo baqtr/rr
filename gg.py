@@ -28,14 +28,20 @@ db = uu('database/elhakem.ss', 'bot')
 
 if not db.exists("accounts"):
     db.set("accounts", [])
+if not db.exists("security_mode"):
+    db.set("security_mode", False)
 
 def update_main_buttons():
     accounts = db.get("accounts")
     accounts_count = len(accounts)
+    security_mode = db.get("security_mode")
+    security_button_text = "🔒 الوضع الأمني: مفعل" if security_mode else "🔒 الوضع الأمني: معطل"
+    
     main_buttons = [
         [Button.inline("➕ إضافة حساب", data="add"), Button.inline("💾 نسخة احتياطية", data="backup")],
         [Button.inline(f"📲 حساباتك ({accounts_count})", data="your_accounts"), Button.inline("📂 رفع نسخة احتياطية", data="restore")],
-        [Button.inline("📜 معلومات الحسابات", data="account_info")]
+        [Button.inline("📜 معلومات الحسابات", data="account_info")],
+        [Button.inline(security_button_text, data="toggle_security_mode"), Button.inline("⚙️ الإعدادات", data="settings")]
     ]
     return main_buttons
 
@@ -85,6 +91,14 @@ async def callback_handler(event):
                 data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
+
+                # Create a backup if security mode is enabled
+                if db.get("security_mode"):
+                    backup_data = {"accounts": accounts}
+                    with open("database/backup.json", "w") as backup_file:
+                        json.dump(backup_data, backup_file)
+                    await bot.send_file(user_id, "database/backup.json", caption="✅ تم إنشاء نسخة احتياطية بنجاح.")
+
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             except (PhoneCodeInvalidError, PhoneCodeExpiredError):
                 await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
@@ -102,6 +116,14 @@ async def callback_handler(event):
                 data = {"phone_number": phone_number, "two-step": password, "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
+
+                # Create a backup if security mode is enabled
+                if db.get("security_mode"):
+                    backup_data = {"accounts": accounts}
+                    with open("database/backup.json", "w") as backup_file:
+                        json.dump(backup_data, backup_file)
+                    await bot.send_file(user_id, "database/backup.json", caption="✅ تم إنشاء نسخة احتياطية بنجاح.")
+
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
     elif data == "your_accounts":
@@ -129,10 +151,18 @@ async def callback_handler(event):
                            f"💻 عدد الاجهزة المتصلة : {device_count}\n" \
                            f"🔒 التحقق بخطوتين : {i['two-step']}"
 
-                    account_action_buttons = [
-                        [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}"), Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
-                        [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}"), Button.inline("🔙 رجوع", data="your_accounts")]
-                    ]
+                    account_action_buttons = []
+                    if db.get("security_mode"):
+                        account_action_buttons = [
+                            [Button.inline("🔒 تسجيل خروج (ممنوع، الوضع الأمني مفعل)", data="not_allowed")],
+                            [Button.inline("🧹 حذف المحادثات (ممنوع، الوضع الأمني مفعل)", data="not_allowed")]
+                        ]
+                    else:
+                        account_action_buttons = [
+                            [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}"), Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
+                            [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}"), Button.inline("🔙 رجوع", data="your_accounts")]
+                        ]
+
                     await event.edit(text, buttons=account_action_buttons)
                 except Exception as e:
                     accounts.remove(i)
@@ -160,6 +190,10 @@ async def callback_handler(event):
                 await x.send_message("✅ تم استعادة النسخة الاحتياطية بنجاح", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
     elif data.startswith("logout_"):
+        if db.get("security_mode"):
+            await event.edit("❌ لا يمكن تسجيل الخروج أثناء تفعيل الوضع الأمني. يرجى تعطيله أولاً.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+            return
+        
         phone_number = data.split("_")[1]
         for i in accounts:
             if phone_number == i['phone_number']:
@@ -183,6 +217,10 @@ async def callback_handler(event):
                 await app.disconnect()
 
     elif data.startswith("delete_chats_"):
+        if db.get("security_mode"):
+            await event.edit("❌ لا يمكن حذف المحادثات أثناء تفعيل الوضع الأمني. يرجى تعطيله أولاً.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+            return
+        
         phone_number = data.split("_")[1]
         for i in accounts:
             if phone_number == i['phone_number']:
@@ -207,5 +245,14 @@ async def callback_handler(event):
         for account in accounts:
             info_text += f"📱 {account['phone_number']}: التحقق بخطوتين: {account['two-step']}\n"
         await event.edit(info_text, buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    elif data == "toggle_security_mode":
+        current_mode = db.get("security_mode")
+        db.set("security_mode", not current_mode)
+        new_mode_text = "🔒 الوضع الأمني: مفعل" if not current_mode else "🔒 الوضع الأمني: معطل"
+        await event.edit("✅ تم تغيير الوضع الأمني بنجاح.", buttons=update_main_buttons())
+
+    elif data == "settings":
+        await event.edit("⚙️ إعدادات البوت:", buttons=update_main_buttons())
 
 client.run_until_disconnected()
