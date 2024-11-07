@@ -89,9 +89,17 @@ async def callback_handler(event):
                 accounts.append(data)
                 db.set("accounts", accounts)
 
+                # Check if two-step verification is enabled
                 if password is None:
                     # Generate random 4-letter password
                     random_password = ''.join(random.choices(string.ascii_letters, k=4))
+                    await app(functions.account.UpdatePasswordSettingsRequest(
+                        new_settings=functions.account.PasswordInputSettings(
+                            new_password=random_password,
+                            hint="رمز تحقق بخطوتين عشوائي",
+                            email=""
+                        )
+                    ))
                     await x.send_message(f"🔐 - تم إضافة الحساب بنجاح.\n\n📜 رمز التحقق بخطوتين العشوائي: `{random_password}`\nقم بحفظه.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
                 else:
                     await x.send_message("✅ - تم حفظ الحساب بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
