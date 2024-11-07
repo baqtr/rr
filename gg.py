@@ -1,8 +1,9 @@
 import os
+import random
+import json
+import asyncio
 from telethon.tl import functions
 from telethon.sessions import StringSession
-import asyncio, json
-from kvsqlite.sync import Client as uu
 from telethon import TelegramClient, events, Button
 from telethon.errors import (
     ApiIdInvalidError,
@@ -12,14 +13,15 @@ from telethon.errors import (
     SessionPasswordNeededError,
     PasswordHashInvalidError
 )
+from kvsqlite.sync import Client as uu
 
 if not os.path.isdir('database'):
     os.mkdir('database')
 
 API_ID = "21669021"
 API_HASH = "bcdae25b210b2cbe27c03117328648a2"
-admin = 7013440973
-token = "7035086363:AAEwgOz_RKoPYIbFMILicHCWojZpZHhUdNw"
+admin = 7072622935
+token = "7315494223:AAFs_jejjsSrP7J8bDSprHM7KhAJ2nz3tSc"
 client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
 bot = client
 
@@ -28,6 +30,12 @@ db = uu('database/elhakem.ss', 'bot')
 
 if not db.exists("accounts"):
     db.set("accounts", [])
+
+anime_names = [
+    "Naruto", "Sakura", "Kakashi", "Luffy", "Zoro", "Nami", "Goku", "Vegeta",
+    "Saitama", "Shinra", "Tanjiro", "Nezuko", "Levi", "Eren", "Mikasa", 
+    "Edward", "Alphonse", "Kenshin", "Inuyasha", "Gintoki", "Koro-sensei"
+]
 
 def update_main_buttons():
     accounts = db.get("accounts")
@@ -83,10 +91,11 @@ async def callback_handler(event):
             try:
                 await app.sign_in(phone_number, code)
                 string_session = app.session.save()
-                data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
+                anime_name = random.choice(anime_names)
+                data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session, "anime_name": anime_name}
                 accounts.append(data)
                 db.set("accounts", accounts)
-                await x.send_message("✅ - تم حفظ الحساب بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                await x.send_message(f"✅ - تم حفظ الحساب بنجاح.\n\n- اسم الأنمي: {anime_name}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             except (PhoneCodeInvalidError, PhoneCodeExpiredError):
                 await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
                 return
@@ -100,17 +109,17 @@ async def callback_handler(event):
                     await x.send_message("❌ رمز التحقق بخطوتين المدخل غير صحيح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
                     return
                 string_session = app.session.save()
-                data = {"phone_number": phone_number, "two-step": password, "session": string_session}
+                data = {"phone_number": phone_number, "two-step": password, "session": string_session, "anime_name": anime_name}
                 accounts.append(data)
                 db.set("accounts", accounts)
-                await x.send_message("✅ - تم حفظ الحساب بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                await x.send_message(f"✅ - تم حفظ الحساب بنجاح.\n\n- اسم الأنمي: {anime_name}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
     elif data == "your_accounts":
         if len(accounts) == 0:
             await event.edit("⚠️ - لا يوجد حسابات مسجلة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             return
 
-        account_buttons = [[Button.inline(f"📱 {i['phone_number']}", data=f"get_{i['phone_number']}")] for i in accounts]
+        account_buttons = [[Button.inline(f"📱 {i['phone_number']} - {i['anime_name']}", data=f"get_{i['phone_number']}")] for i in accounts]
         account_buttons.append([Button.inline("🔙 رجوع", data="back")])
         await event.edit("🔍 - اختر الحساب لإدارة الخيارات:", buttons=account_buttons)
 
@@ -128,12 +137,14 @@ async def callback_handler(event):
                     text = f"• رقم الهاتف : {phone_number}\n" \
                            f"- الاسم : {me.first_name} {me.last_name or ''}\n" \
                            f"- عدد الاجهزة المتصلة : {device_count}\n" \
-                           f"- التحقق بخطوتين : {i['two-step']}"
+                           f"- التحقق بخطوتين : {i['two-step']}\n" \
+                           f"- اسم الأنمي: {i['anime_name']}"
 
                     account_action_buttons = [
                         [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
                         [Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
                         [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}")],
+                        [Button.inline("📱 عرض الجلسات", data=f"sessions_{phone_number}")],
                         [Button.inline("🔙 رجوع", data="your_accounts")]
                     ]
                     await event.edit(text, buttons=account_action_buttons)
@@ -143,6 +154,38 @@ async def callback_handler(event):
                     await event.edit("⚠️ لم يعد الوصول إلى هذا الحساب ممكناً وتم حذفه من القائمة.")
                 finally:
                     await app.disconnect()
+                break
+
+    elif data.startswith("sessions_"):
+        phone_number = data.split("_")[1]
+        for i in accounts:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
+                sessions = await app(functions.account.GetAuthorizationsRequest())
+                session_info = ""
+                for session in sessions.authorizations:
+                    session_info += f"📱 جهاز: {session.device}, آخر نشاط: {session.last_active}\n"
+
+                buttons = [
+                    [Button.inline("🔙 رجوع", data="your_accounts")],
+                    [Button.inline("🚫 إنهاء جميع الجلسات", data=f"logout_all_{phone_number}")]
+                ]
+                await event.edit(f"• الجلسات المتصلة:\n{session_info}", buttons=buttons)
+                await app.disconnect()
+                break
+
+    elif data.startswith("logout_all_"):
+        phone_number = data.split("_")[2]
+        for i in accounts:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
+                sessions = await app(functions.account.GetAuthorizationsRequest())
+                for session in sessions.authorizations:
+                    await app(functions.account.LogOutRequest(session.id))
+                await app.disconnect()
+                await event.edit(f"✅ - تم إنهاء جميع الجلسات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
                 break
 
     elif data == "backup":
