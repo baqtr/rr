@@ -1,4 +1,3 @@
-```python
 import os
 from telethon.tl import functions
 from telethon.sessions import StringSession
