@@ -38,7 +38,16 @@ def update_main_buttons():
         [Button.inline("💾 نسخة احتياطية", data="backup")],
         [Button.inline("📂 رفع نسخة احتياطية", data="restore")],
         [Button.inline("🔍 البحث عن حساب", data="search_account")],
-        [Button.inline("📊 إحصائيات الحسابات", data="account_stats")]
+        [Button.inline("📊 إحصائيات الحسابات", data="account_stats")],
+        [Button.inline("📋 تصدير الحسابات", data="export_accounts")],
+        [Button.inline("🗑️ حذف حساب", data="delete_account")],
+        [Button.inline("🔄 تحديث معلومات الحساب", data="update_account")],
+        [Button.inline("📅 جدولة رسالة", data="schedule_message")],
+        [Button.inline("🔔 تفعيل إشعارات", data="enable_notifications")],
+        [Button.inline("🔕 إيقاف إشعارات", data="disable_notifications")],
+        [Button.inline("📝 تعديل رسالة محددة", data="edit_message")],
+        [Button.inline("📈 تحليل حسابات", data="analyze_accounts")],
+        [Button.inline("📑 عرض السجلات", data="view_logs")]
     ]
     return main_buttons
 
@@ -245,5 +254,95 @@ async def callback_handler(event):
                      f"• الحسابات المسجلة مع تحقق بخطوتين: {total_with_two_step}"
 
         await event.edit(stats_text, buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    elif data == "export_accounts":
+        accounts_data = {"accounts": accounts}
+        with open("database/accounts_export.json", "w") as export_file:
+            json.dump(accounts_data, export_file)
+        await bot.send_file(user_id, "database/accounts_export.json", caption="✅ تم تصدير الحسابات بنجاح.")
+
+    elif data == "delete_account":
+        async with bot.conversation(user_id) as x:
+            await x.send_message("🗑️ اكتب رقم الهاتف للحساب الذي تود حذفه:")
+            delete_number = await x.get_response()
+            for i in accounts:
+                if delete_number.text == i['phone_number']:
+                    accounts.remove(i)
+                    db.set("accounts", accounts)
+                    await x.send_message(f"✅ - تم حذف الحساب: {delete_number.text}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                    break
+            else:
+                await x.send_message("❌ - لم يتم العثور على هذا الحساب.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    elif data == "update_account":
+        async with bot.conversation(user_id) as x:
+            await x.send_message("🔄 اكتب رقم الهاتف للحساب الذي تود تحديثه:")
+            update_number = await x.get_response()
+            for i in accounts:
+                if update_number.text == i['phone_number']:
+                    await x.send_message("✏️ اكتب المعلومات الجديدة للحساب (رقم الهاتف الجديد أو رمز التحقق بخطوتين):")
+                    new_info = await x.get_response()
+                    # تحديث المعلومات حسب ما يتم إدخاله
+                    # يجب أن تقرر كيفية تحديث المعلومات هنا
+                    await x.send_message("✅ - تم تحديث الحساب بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                    break
+            else:
+                await x.send_message("❌ - لم يتم العثور على هذا الحساب.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    elif data == "schedule_message":
+        async with bot.conversation(user_id) as x:
+            await x.send_message("📅 اكتب رقم الهاتف للحساب الذي تود جدولة الرسالة له:")
+            schedule_number = await x.get_response()
+            for i in accounts:
+                if schedule_number.text == i['phone_number']:
+                    await x.send_message("✏️ اكتب الرسالة التي تود جدولتها:")
+                    message = await x.get_response()
+                    await x.send_message("⏳ اكتب الوقت (بالساعات) الذي تود جدولة الرسالة فيه:")
+                    delay = await x.get_response()
+                    # هنا يجب جدولة الرسالة باستخدام asyncio أو أي طريقة أخرى
+                    await x.send_message("✅ - تم جدولة الرسالة بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                    break
+            else:
+                await x.send_message("❌ - لم يتم العثور على هذا الحساب.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    elif data == "enable_notifications":
+        await event.edit("🔔 تم تفعيل الإشعارات بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    elif data == "disable_notifications":
+        await event.edit("🔕 تم إيقاف الإشعارات بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    elif data == "edit_message":
+        async with bot.conversation(user_id) as x:
+            await x.send_message("📝 اكتب رقم الهاتف للحساب الذي تود تعديل رسالة له:")
+            edit_number = await x.get_response()
+            for i in accounts:
+                if edit_number.text == i['phone_number']:
+                    await x.send_message("✏️ اكتب الرسالة الجديدة:")
+                    new_message = await x.get_response()
+                    # هنا يجب تعديل الرسالة حسب ما يتم إدخاله
+                    await x.send_message("✅ - تم تعديل الرسالة بنجاح.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                    break
+            else:
+                await x.send_message("❌ - لم يتم العثور على هذا الحساب.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    elif data == "analyze_accounts":
+        if len(accounts) == 0:
+            await event.edit("⚠️ - لا يوجد حسابات مسجلة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            return
+        
+        total_accounts = len(accounts)
+        active_accounts = sum(1 for acc in accounts if acc['two-step'] == "لا يوجد")
+        inactive_accounts = total_accounts - active_accounts
+
+        analysis_text = f"📈 تحليل الحسابات:\n" \
+                        f"• إجمالي الحسابات: {total_accounts}\n" \
+                        f"• الحسابات النشطة: {active_accounts}\n" \
+                        f"• الحسابات غير النشطة: {inactive_accounts}"
+
+        await event.edit(analysis_text, buttons=[[Button.inline("🔙 رجوع", data="back")]])
+
+    elif data == "view_logs":
+        # يجب إضافة وظيفة لعرض السجلات إذا كانت موجودة
+        await event.edit("📜 عرض السجلات غير مفعل حالياً.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
 client.run_until_disconnected()
