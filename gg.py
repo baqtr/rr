@@ -1,10 +1,10 @@
 import os
 from telethon.tl import functions
 from telethon.sessions import StringSession
-import asyncio, json, shutil
+import asyncio
+import json
 from kvsqlite.sync import Client as uu
 from telethon import TelegramClient, events, Button
-from telethon.tl.types import DocumentAttributeFilename
 from telethon.errors import (
     ApiIdInvalidError,
     PhoneNumberInvalidError,
@@ -14,36 +14,40 @@ from telethon.errors import (
     PasswordHashInvalidError
 )
 
+# Ensure the database directory exists
 if not os.path.isdir('database'):
     os.mkdir('database')
 
+# Configuration
 API_ID = "21669021"
 API_HASH = "bcdae25b210b2cbe27c03117328648a2"
 admin = 7072622935
 token = "7315494223:AAEwgOz_RKoPYIbFMILicHCWojZpZHhUdNw"
-client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
-bot = client
 
-# Create DataBase
+# Initialize the Telegram client
+client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
+
+# Create the database
 db = uu('database/elhakem.ss', 'bot')
 
+# Initialize accounts and banned users in the database
 if not db.exists("accounts"):
     db.set("accounts", [])
-
 if not db.exists("banned_users"):
     db.set("banned_users", [])
 
+# Function to update main buttons
 def update_main_buttons():
     accounts = db.get("accounts")
     accounts_count = len(accounts)
-    main_buttons = [
+    return [
         [Button.inline("➕ إضافة حساب", data="add")],
         [Button.inline(f"📲 حساباتك ({accounts_count})", data="your_accounts")],
         [Button.inline("💾 نسخة احتياطية", data="backup")],
         [Button.inline("📂 رفع نسخة احتياطية", data="restore")]
     ]
-    return main_buttons
 
+# Function to create admin buttons
 def admin_buttons():
     return [
         [Button.inline("🚫 حظر مستخدم", data="ban_user")],
@@ -52,6 +56,7 @@ def admin_buttons():
         [Button.inline("🔙 رجوع", data="back")]
     ]
 
+# Start command handler
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
     user_id = event.chat_id
@@ -60,16 +65,18 @@ async def start(event):
         if user_id in banned_users:
             await event.reply("❌ عذراً، لقد تم حظرك من استخدام هذا البوت.")
             return
-            
+
         await event.reply("👋 أهلاً بك عزيزي! هذا البوت مخصص لتخزين حسابات تيليجرام ويمكنك استرجاعها في أي وقت.", buttons=[[Button.inline("➕ إضافة حساب", data="add")]])
         return
 
     await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=update_main_buttons())
 
+# Admin command handler
 @client.on(events.NewMessage(pattern="/b", func=lambda x: x.chat_id == admin))
 async def admin_commands(event):
     await event.reply("⚙️ اختر الأمر الذي تود القيام به:", buttons=admin_buttons())
 
+# Callback query handler
 @client.on(events.callbackquery.CallbackQuery())
 async def callback_handler(event):
     data = event.data.decode('utf-8') if isinstance(event.data, bytes) else str(event.data)
@@ -81,7 +88,7 @@ async def callback_handler(event):
 
     elif data == "add":
         async with bot.conversation(user_id) as x:
-            await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
+            await x.send_message("✔️ الآن أرسل رقمك مع رمز دولتك, مثال: +201000000000")
             txt = await x.get_response()
             phone_number = txt.text.replace("+", "").replace(" ", "")
 
@@ -92,17 +99,19 @@ async def callback_handler(event):
             app = TelegramClient(StringSession(), API_ID, API_HASH)
             await app.connect()
             password = None
+
             try:
                 await app.send_code_request(phone_number)
             except (ApiIdInvalidError, PhoneNumberInvalidError):
                 await x.send_message("❌ هناك خطأ في API_ID أو HASH_ID أو رقم الهاتف.")
                 return
 
-            await x.send_message("- تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
+            await x.send_message("- تم إرسال كود التحقق الخاص بك على تليجرام. أرسل الكود بالتنسيق التالي: 1 2 3 4 5")
             txt = await x.get_response()
             code = txt.text.replace(" ", "")
+
             try:
-                await app.sign_in(phone_number, code, password=None)
+                await app.sign_in(phone_number, code)
                 string_session = app.session.save()
                 data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
                 accounts.append(data)
@@ -114,7 +123,7 @@ async def callback_handler(event):
                 await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
                 return
             except SessionPasswordNeededError:
-                await x.send_message("- أرسل رمز التحقق بخطوتين الخاص بحسابك")
+                await x.send_message("- أرسل رمز التحقق بخطوتين الخاص بحسابك.")
                 txt = await x.get_response()
                 password = txt.text
                 try:
