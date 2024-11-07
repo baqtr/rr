@@ -41,7 +41,7 @@ def update_main_buttons():
         [Button.inline("➕ إضافة حساب", data="add"), Button.inline("💾 نسخة احتياطية", data="backup")],
         [Button.inline(f"📲 حساباتك ({accounts_count})", data="your_accounts"), Button.inline("📂 رفع نسخة احتياطية", data="restore")],
         [Button.inline("📜 معلومات الحسابات", data="account_info")],
-        [Button.inline(security_button_text, data="toggle_security_mode"), Button.inline("⚙️ الإعدادات", data="settings")]
+        [Button.inline(security_button_text, data="toggle_security_mode")]
     ]
     return main_buttons
 
@@ -251,8 +251,5 @@ async def callback_handler(event):
         db.set("security_mode", not current_mode)
         new_mode_text = "🔒 الوضع الأمني: مفعل" if not current_mode else "🔒 الوضع الأمني: معطل"
         await event.edit("✅ تم تغيير الوضع الأمني بنجاح.", buttons=update_main_buttons())
-
-    elif data == "settings":
-        await event.edit("⚙️ إعدادات البوت:", buttons=update_main_buttons())
 
 client.run_until_disconnected()
