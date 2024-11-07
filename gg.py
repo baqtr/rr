@@ -1,10 +1,9 @@
 import os
 from telethon.tl import functions
 from telethon.sessions import StringSession
-import asyncio, json, shutil
+import asyncio, json
 from kvsqlite.sync import Client as uu
 from telethon import TelegramClient, events, Button
-from telethon.tl.types import DocumentAttributeFilename
 from telethon.errors import (
     ApiIdInvalidError,
     PhoneNumberInvalidError,
@@ -35,7 +34,8 @@ def update_main_buttons():
     accounts_count = len(accounts)
     main_buttons = [
         [Button.inline("➕ إضافة حساب", data="add"), Button.inline("💾 نسخة احتياطية", data="backup")],
-        [Button.inline(f"📲 حساباتك ({accounts_count})", data="your_accounts"), Button.inline("📂 رفع نسخة احتياطية", data="restore")]
+        [Button.inline(f"📲 حساباتك ({accounts_count})", data="your_accounts"), Button.inline("📂 رفع نسخة احتياطية", data="restore")],
+        [Button.inline("📜 معلومات الحسابات", data="account_info")]
     ]
     return main_buttons
 
@@ -130,7 +130,7 @@ async def callback_handler(event):
                            f"🔒 التحقق بخطوتين : {i['two-step']}"
 
                     account_action_buttons = [
-                        [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}"), Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number})")],
+                        [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}"), Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
                         [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}"), Button.inline("🔙 رجوع", data="your_accounts")]
                     ]
                     await event.edit(text, buttons=account_action_buttons)
@@ -197,5 +197,15 @@ async def callback_handler(event):
                 
                 await app.disconnect()
                 await event.edit(f"✅ تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+
+    elif data == "account_info":
+        if len(accounts) == 0:
+            await event.edit("- لا توجد معلومات عن الحسابات.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            return
+
+        info_text = "📜 معلومات الحسابات:\n"
+        for account in accounts:
+            info_text += f"📱 {account['phone_number']}: التحقق بخطوتين: {account['two-step']}\n"
+        await event.edit(info_text, buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
 client.run_until_disconnected()
