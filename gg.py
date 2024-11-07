@@ -22,7 +22,7 @@ if not os.path.isdir('database'):
 API_ID = "21669021"
 API_HASH = "bcdae25b210b2cbe27c03117328648a2"
 admin = 7072622935
-token = "7315494223:AAEwgOz_RKoPYIbFMILicHCWojZpZHhUdNw"
+token = "7315494223:AAH94iN98Tn72LqvELnq-AvCclnuB9VIPA0"
 
 # Initialize the Telegram client
 client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
