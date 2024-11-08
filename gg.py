@@ -250,6 +250,11 @@ async def callback_handler(event):
         current_mode = db.get("security_mode")
         db.set("security_mode", not current_mode)
         new_mode_text = "🔒 الوضع الأمني: مفعل" if not current_mode else "🔒 الوضع الأمني: معطل"
-        await event.edit("✅ تم تغيير الوضع الأمني بنجاح.", buttons=update_main_buttons())
+
+        # Show the status as an emoji
+        if not current_mode:
+            await event.edit("✅ تم تفعيل الوضع الأمني.", buttons=update_main_buttons())
+        else:
+            await event.edit("❌ تم تعطيل الوضع الأمني.", buttons=update_main_buttons())
 
 client.run_until_disconnected()
