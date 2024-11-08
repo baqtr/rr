@@ -1,7 +1,8 @@
 import os
 from telethon.tl import functions
 from telethon.sessions import StringSession
-import asyncio, json, shutil
+import asyncio
+import json
 from kvsqlite.sync import Client as uu
 from telethon import TelegramClient, events, Button
 from telethon.tl.types import DocumentAttributeFilename
@@ -14,6 +15,7 @@ from telethon.errors import (
     PasswordHashInvalidError
 )
 
+# إنشاء مجلد قاعدة البيانات إذا لم يكن موجودًا
 if not os.path.isdir('database'):
     os.mkdir('database')
 
@@ -24,7 +26,7 @@ token = "7315494223:AAH94iN98Tn72LqvELnq-AvCclnuB9VIPA0"
 client = TelegramClient('BotSession', API_ID, API_HASH).start(bot_token=token)
 bot = client
 
-# Create DataBase
+# إنشاء قاعدة البيانات
 db = uu('database/elhakem.ss', 'bot')
 
 if not db.exists("accounts"):
@@ -37,26 +39,17 @@ def update_main_buttons():
         [Button.inline("➕ إضافة حساب", data="add")],
         [Button.inline(f"📲 حساباتك ({accounts_count})", data="your_accounts")],
         [Button.inline("💾 نسخة احتياطية", data="backup")],
-        [Button.inline("📂 رفع نسخة احتياطية", data="restore")],
-        [Button.inline("⚙️ قسم التحكم", data="control_panel")]  # زر قسم التحكم
+        [Button.inline("📂 رفع نسخة احتياطية", data="restore")]
     ]
     return main_buttons
-
-def update_control_buttons():
-    control_buttons = [
-        [Button.inline("🗑️ حذف المجموعات", data="delete_groups")],
-        [Button.inline("🗑️ حذف القنوات", data="delete_channels")],
-        [Button.inline("🗑️ حذف البوتات", data="delete_bots")],
-        [Button.inline("🗑️ حذف المحادثات", data="delete_chats")],
-        [Button.inline("🔙 رجوع", data="back")]
-    ]
-    return control_buttons
 
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
     user_id = event.chat_id
+    greeting_message = "👋 أهلاً بك عزيزي! هذا البوت مخصص لتخزين حسابات تيليجرام ويمكنك استرجاعها في أي وقت."
+    
     if user_id != admin:
-        await event.reply("👋 أهلاً بك عزيزي! هذا البوت مخصص لتخزين حسابات تيليجرام ويمكنك استرجاعها في أي وقت.", buttons=[[Button.inline("➕ إضافة حساب", data="add")]])
+        await event.reply(greeting_message, buttons=[[Button.inline("➕ إضافة حساب", data="add")]])
         return
 
     await event.reply("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=update_main_buttons())
@@ -70,15 +63,12 @@ async def callback_handler(event):
     if data == "back":
         await event.edit("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=update_main_buttons())
 
-    elif data == "control_panel":
-        await event.edit("⚙️ اختر العملية التي تود القيام بها:", buttons=update_control_buttons())
-
     elif data == "add":
         async with bot.conversation(user_id) as x:
-            await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
+            await x.send_message("✔️ الآن أرسل رقمك مع رمز دولتك, مثال: +201000000000")
             txt = await x.get_response()
             phone_number = txt.text.replace("+", "").replace(" ", "")
-
+            
             if any(account['phone_number'] == phone_number for account in accounts):
                 await x.send_message("- هذا الحساب تم إضافته مسبقًا.")
                 return
@@ -92,7 +82,7 @@ async def callback_handler(event):
                 await x.send_message("❌ هناك خطأ في API_ID أو HASH_ID أو رقم الهاتف.")
                 return
 
-            await x.send_message("- تم ارسال كود التحقق الخاص بك علي تليجرام. أرسل الكود بالتنسيق التالي : 1 2 3 4 5")
+            await x.send_message("- تم إرسال كود التحقق الخاص بك على تيليجرام. أرسل الكود بالتنسيق التالي: 1 2 3 4 5")
             txt = await x.get_response()
             code = txt.text.replace(" ", "")
             try:
@@ -140,22 +130,22 @@ async def callback_handler(event):
                     sessions = await app(functions.account.GetAuthorizationsRequest())
                     device_count = len(sessions.authorizations)
 
-                    text = f"• رقم الهاتف : {phone_number}\n" \
-                           f"- الاسم : {me.first_name} {me.last_name or ''}\n" \
-                           f"- عدد الاجهزة المتصلة : {device_count}\n" \
-                           f"- التحقق بخطوتين : {i['two-step']}"
+                    text = f"• رقم الهاتف: {phone_number}\n" \
+                           f"- الاسم: {me.first_name} {me.last_name or ''}\n" \
+                           f"- عدد الأجهزة المتصلة: {device_count}\n" \
+                           f"- التحقق بخطوتين: {i['two-step']}"
 
                     account_action_buttons = [
                         [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
                         [Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
-                        [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}")],
+                        [Button.inline("📩 جلب آخر كود", data=f"code_{phone_number}")],
                         [Button.inline("🔙 رجوع", data="your_accounts")]
                     ]
                     await event.edit(text, buttons=account_action_buttons)
                 except Exception as e:
                     accounts.remove(i)
                     db.set("accounts", accounts)
-                    await event.edit("⚠️ لم يعد الوصول إلى هذا الحساب ممكناً وتم حذفه من القائمة.")
+                    await event.edit("⚠️ لم يعد الوصول إلى هذا الحساب ممكنًا وتم حذفه من القائمة.")
                 finally:
                     await app.disconnect()
                 break
@@ -197,7 +187,7 @@ async def callback_handler(event):
                 app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
                 await app.connect()
                 code = await app.get_messages(777000, limit=1)
-                await event.edit(f"اخر كود تم استلامه: {code[0].message}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                await event.edit(f"آخر كود تم استلامه: {code[0].message}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
                 await app.disconnect()
 
     elif data.startswith("delete_chats_"):
@@ -206,51 +196,14 @@ async def callback_handler(event):
             if phone_number == i['phone_number']:
                 app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
                 await app.connect()
-
+                
                 total_deleted = 0
                 async for dialog in app.iter_dialogs():
                     await app.delete_dialog(dialog.id)
                     total_deleted += 1
-                    await event.edit(f"جاري المعالجة... تم حذف ({total_deleted}) محادثة حتى الآن.")
+                    await event.edit(f"جاري الحذف... تم حذف ({total_deleted}) محادثة حتى الآن.")
                 
                 await app.disconnect()
                 await event.edit(f"✅ تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-                break
-
-    elif data == "delete_groups":
-        await handle_delete(event, accounts, "group")
-
-    elif data == "delete_channels":
-        await handle_delete(event, accounts, "channel")
-
-    elif data == "delete_bots":
-        await handle_delete(event, accounts, "bot")
-
-async def handle_delete(event, accounts, item_type):
-    account_buttons = [[Button.inline(f"📱 {i['phone_number']}", data=f"delete_{item_type}_{i['phone_number']}")] for i in accounts]
-    account_buttons.append([Button.inline("🔙 رجوع", data="back")])
-    await event.edit(f"اختر الحساب الذي تود حذف {item_type}s منه:", buttons=account_buttons)
-
-    response = await event.get_response()
-    
-    if response.data.startswith("delete_"):
-        phone_number = response.data.split("_")[2]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-
-                total_deleted = 0
-                async for dialog in app.iter_dialogs():
-                    if (item_type == "group" and dialog.is_group) or \
-                       (item_type == "channel" and dialog.is_channel) or \
-                       (item_type == "bot" and dialog.is_bot):
-                        await app.delete_dialog(dialog.id)
-                        total_deleted += 1
-                        await event.edit(f"جاري المعالجة... تم حذف ({total_deleted}) {item_type} حتى الآن.")
-                
-                await app.disconnect()
-                await event.edit(f"✅ تم حذف جميع {item_type}s للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-                break
 
 client.run_until_disconnected()
