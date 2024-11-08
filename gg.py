@@ -32,6 +32,9 @@ db = uu('database/elhakem.ss', 'bot')
 if not db.exists("accounts"):
     db.set("accounts", [])
 
+if not db.exists("notifications"):
+    db.set("notifications", [])
+
 def update_main_buttons():
     accounts = db.get("accounts")
     accounts_count = len(accounts)
@@ -39,9 +42,16 @@ def update_main_buttons():
         [Button.inline("➕ إضافة حساب", data="add")],
         [Button.inline(f"📲 حساباتك ({accounts_count})", data="your_accounts")],
         [Button.inline("💾 نسخة احتياطية", data="backup")],
-        [Button.inline("📂 رفع نسخة احتياطية", data="restore")]
+        [Button.inline("📂 رفع نسخة احتياطية", data="restore")],
+        [Button.inline("📰 الأحداث", data="events")]
     ]
     return main_buttons
+
+async def notify_user(user_id, message):
+    await bot.send_message(user_id, message)
+    notifications = db.get("notifications")
+    notifications.append(message)
+    db.set("notifications", notifications)
 
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
@@ -88,9 +98,19 @@ async def callback_handler(event):
             try:
                 await app.sign_in(phone_number, code, password=None)
                 string_session = app.session.save()
-                data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
+
+                await x.send_message("🔑 إذا كان لديك تحقق بخطوتين مفعل، يرجى إدخال كلمة المرور. إذا لم يكن لديك، اكتب 'لا'")
+                password_response = await x.get_response()
+                password = password_response.text.strip()
+
+                if password.lower() != 'لا':
+                    await app.sign_in(password=password)
+
+                data = {"phone_number": phone_number, "two-step": password, "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
+
+                await notify_user(user_id, f"✅ تم إضافة حساب جديد برقم الهاتف: {phone_number}")
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             except (PhoneCodeInvalidError, PhoneCodeExpiredError):
                 await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
@@ -108,6 +128,7 @@ async def callback_handler(event):
                 data = {"phone_number": phone_number, "two-step": password, "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
+                await notify_user(user_id, f"✅ تم إضافة حساب جديد برقم الهاتف: {phone_number}")
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
     elif data == "your_accounts":
@@ -179,6 +200,7 @@ async def callback_handler(event):
                 accounts.remove(i)
                 db.set("accounts", accounts)
                 await event.edit(f"- تم تسجيل الخروج من الحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                await notify_user(user_id, f"🔒 تم تسجيل الخروج من الحساب: {phone_number}")
 
     elif data.startswith("code_"):
         phone_number = data.split("_")[1]
@@ -205,5 +227,14 @@ async def callback_handler(event):
                 
                 await app.disconnect()
                 await event.edit(f"✅ تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+
+    elif data == "events":
+        notifications = db.get("notifications")
+        if len(notifications) == 0:
+            await event.edit("📜 لا توجد أحداث مسجلة.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
+            return
+        
+        events_text = "\n".join(notifications)
+        await event.edit(f"📰 الأحداث:\n{events_text}", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
 client.run_until_disconnected()
