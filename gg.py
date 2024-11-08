@@ -233,23 +233,24 @@ async def handle_delete(event, accounts, item_type):
 
     response = await event.get_response()
     
-    phone_number = response.data.split("_")[2]
-    for i in accounts:
-        if phone_number == i['phone_number']:
-            app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-            await app.connect()
+    if response.data.startswith("delete_"):
+        phone_number = response.data.split("_")[2]
+        for i in accounts:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
 
-            total_deleted = 0
-            async for dialog in app.iter_dialogs():
-                if (item_type == "group" and dialog.is_group) or \
-                   (item_type == "channel" and dialog.is_channel) or \
-                   (item_type == "bot" and dialog.is_bot):
-                    await app.delete_dialog(dialog.id)
-                    total_deleted += 1
-                    await event.edit(f"جاري المعالجة... تم حذف ({total_deleted}) {item_type} حتى الآن.")
-            
-            await app.disconnect()
-            await event.edit(f"✅ تم حذف جميع {item_type}s للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-            break
+                total_deleted = 0
+                async for dialog in app.iter_dialogs():
+                    if (item_type == "group" and dialog.is_group) or \
+                       (item_type == "channel" and dialog.is_channel) or \
+                       (item_type == "bot" and dialog.is_bot):
+                        await app.delete_dialog(dialog.id)
+                        total_deleted += 1
+                        await event.edit(f"جاري المعالجة... تم حذف ({total_deleted}) {item_type} حتى الآن.")
+                
+                await app.disconnect()
+                await event.edit(f"✅ تم حذف جميع {item_type}s للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                break
 
 client.run_until_disconnected()
