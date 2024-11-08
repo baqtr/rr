@@ -160,7 +160,8 @@ async def callback_handler(event):
                     else:
                         account_action_buttons = [
                             [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}"), Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
-                            [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}"), Button.inline("🔙 رجوع", data="your_accounts")]
+                            [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}"), Button.inline("🔙 رجوع", data="your_accounts")],
+                            [Button.inline("🗑️ حذف الملصقات", data=f"delete_stickers_{phone_number}"), Button.inline("🗑️ حذف المتحركات", data=f"delete_gifs_{phone_number}")]
                         ]
 
                     await event.edit(text, buttons=account_action_buttons)
@@ -235,6 +236,38 @@ async def callback_handler(event):
                 
                 await app.disconnect()
                 await event.edit(f"✅ تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+
+    elif data.startswith("delete_stickers_"):
+        phone_number = data.split("_")[1]
+        for i in accounts:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
+
+                total_deleted = 0
+                async for sticker in app.iter_stickers():
+                    await app.delete_sticker(sticker.id)
+                    total_deleted += 1
+                    await event.edit(f"🗑️ جاري حذف الملصقات... تم حذف ({total_deleted}) ملصق حتى الآن.")
+
+                await app.disconnect()
+                await event.edit(f"✅ تم حذف جميع الملصقات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+
+    elif data.startswith("delete_gifs_"):
+        phone_number = data.split("_")[1]
+        for i in accounts:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
+
+                total_deleted = 0
+                async for gif in app.iter_gifs():
+                    await app.delete_gif(gif.id)
+                    total_deleted += 1
+                    await event.edit(f"🗑️ جاري حذف المتحركات... تم حذف ({total_deleted}) متحرك حتى الآن.")
+
+                await app.disconnect()
+                await event.edit(f"✅ تم حذف جميع المتحركات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
 
     elif data == "account_info":
         if len(accounts) == 0:
