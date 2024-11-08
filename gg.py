@@ -1,7 +1,10 @@
 import os
-import json
-from telethon import TelegramClient, events, Button
+from telethon.tl import functions
 from telethon.sessions import StringSession
+import asyncio, json, shutil
+from kvsqlite.sync import Client as uu
+from telethon import TelegramClient, events, Button
+from telethon.tl.types import DocumentAttributeFilename
 from telethon.errors import (
     ApiIdInvalidError,
     PhoneNumberInvalidError,
@@ -10,7 +13,6 @@ from telethon.errors import (
     SessionPasswordNeededError,
     PasswordHashInvalidError
 )
-from kvsqlite.sync import Client as uu
 
 if not os.path.isdir('database'):
     os.mkdir('database')
@@ -27,22 +29,28 @@ db = uu('database/elhakem.ss', 'bot')
 
 if not db.exists("accounts"):
     db.set("accounts", [])
-if not db.exists("security_mode"):
-    db.set("security_mode", False)
 
 def update_main_buttons():
     accounts = db.get("accounts")
     accounts_count = len(accounts)
-    security_mode = db.get("security_mode")
-    security_button_text = "🔒 الوضع الأمني: مفعل" if security_mode else "🔒 الوضع الأمني: معطل"
-    
     main_buttons = [
-        [Button.inline("➕ إضافة حساب", data="add"), Button.inline("💾 نسخة احتياطية", data="backup")],
-        [Button.inline(f"📲 حساباتك ({accounts_count})", data="your_accounts"), Button.inline("📂 رفع نسخة احتياطية", data="restore")],
-        [Button.inline("📜 معلومات الحسابات", data="account_info")],
-        [Button.inline(security_button_text, data="toggle_security_mode")]
+        [Button.inline("➕ إضافة حساب", data="add")],
+        [Button.inline(f"📲 حساباتك ({accounts_count})", data="your_accounts")],
+        [Button.inline("💾 نسخة احتياطية", data="backup")],
+        [Button.inline("📂 رفع نسخة احتياطية", data="restore")],
+        [Button.inline("⚙️ قسم التحكم", data="control_panel")]  # زر قسم التحكم
     ]
     return main_buttons
+
+def update_control_buttons():
+    control_buttons = [
+        [Button.inline("🗑️ حذف المجموعات", data="delete_groups")],
+        [Button.inline("🗑️ حذف القنوات", data="delete_channels")],
+        [Button.inline("🗑️ حذف البوتات", data="delete_bots")],
+        [Button.inline("🗑️ حذف المحادثات", data="delete_chats")],
+        [Button.inline("🔙 رجوع", data="back")]
+    ]
+    return control_buttons
 
 @client.on(events.NewMessage(pattern="/start", func=lambda x: x.is_private))
 async def start(event):
@@ -62,9 +70,12 @@ async def callback_handler(event):
     if data == "back":
         await event.edit("👋 مرحبًا بك في بوت إدارة الحسابات، اختر من الأزرار أدناه ما تود فعله.", buttons=update_main_buttons())
 
+    elif data == "control_panel":
+        await event.edit("⚙️ اختر العملية التي تود القيام بها:", buttons=update_control_buttons())
+
     elif data == "add":
         async with bot.conversation(user_id) as x:
-            await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال : +201000000000")
+            await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
             txt = await x.get_response()
             phone_number = txt.text.replace("+", "").replace(" ", "")
 
@@ -90,14 +101,6 @@ async def callback_handler(event):
                 data = {"phone_number": phone_number, "two-step": "لا يوجد", "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
-
-                # Create a backup if security mode is enabled
-                if db.get("security_mode"):
-                    backup_data = {"accounts": accounts}
-                    with open("database/backup.json", "w") as backup_file:
-                        json.dump(backup_data, backup_file)
-                    await bot.send_file(user_id, "database/backup.json", caption="✅ تم إنشاء نسخة احتياطية بنجاح.")
-
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
             except (PhoneCodeInvalidError, PhoneCodeExpiredError):
                 await x.send_message("❌ الكود المدخل غير صحيح أو منتهي الصلاحية.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
@@ -115,14 +118,6 @@ async def callback_handler(event):
                 data = {"phone_number": phone_number, "two-step": password, "session": string_session}
                 accounts.append(data)
                 db.set("accounts", accounts)
-
-                # Create a backup if security mode is enabled
-                if db.get("security_mode"):
-                    backup_data = {"accounts": accounts}
-                    with open("database/backup.json", "w") as backup_file:
-                        json.dump(backup_data, backup_file)
-                    await bot.send_file(user_id, "database/backup.json", caption="✅ تم إنشاء نسخة احتياطية بنجاح.")
-
                 await x.send_message("- تم حفظ الحساب بنجاح ✅", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
     elif data == "your_accounts":
@@ -145,17 +140,17 @@ async def callback_handler(event):
                     sessions = await app(functions.account.GetAuthorizationsRequest())
                     device_count = len(sessions.authorizations)
 
-                    text = f"📱 رقم الهاتف : {phone_number}\n" \
-                           f"👤 الاسم : {me.first_name} {me.last_name or ''}\n" \
-                           f"💻 عدد الاجهزة المتصلة : {device_count}\n" \
-                           f"🔒 التحقق بخطوتين : {i['two-step']}"
+                    text = f"• رقم الهاتف : {phone_number}\n" \
+                           f"- الاسم : {me.first_name} {me.last_name or ''}\n" \
+                           f"- عدد الاجهزة المتصلة : {device_count}\n" \
+                           f"- التحقق بخطوتين : {i['two-step']}"
 
                     account_action_buttons = [
-                        [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}"), Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}")],
-                        [Button.inline("🚫 حظر المستخدمين", data=f"block_users_{phone_number}"), Button.inline("🔓 فك الحظر عن المستخدمين", data=f"unblock_users_{phone_number}")],
+                        [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}")],
+                        [Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
+                        [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}")],
                         [Button.inline("🔙 رجوع", data="your_accounts")]
                     ]
-
                     await event.edit(text, buttons=account_action_buttons)
                 except Exception as e:
                     accounts.remove(i)
@@ -183,10 +178,6 @@ async def callback_handler(event):
                 await x.send_message("✅ تم استعادة النسخة الاحتياطية بنجاح", buttons=[[Button.inline("🔙 رجوع", data="back")]])
 
     elif data.startswith("logout_"):
-        if db.get("security_mode"):
-            await event.edit("❌ لا يمكن تسجيل الخروج أثناء تفعيل الوضع الأمني. يرجى تعطيله أولاً.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-            return
-        
         phone_number = data.split("_")[1]
         for i in accounts:
             if phone_number == i['phone_number']:
@@ -206,57 +197,59 @@ async def callback_handler(event):
                 app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
                 await app.connect()
                 code = await app.get_messages(777000, limit=1)
-                await event.edit(f"📬 اخر كود تم استلامه: {code[0].message}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                await event.edit(f"اخر كود تم استلامه: {code[0].message}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
                 await app.disconnect()
 
-    elif data.startswith("block_users_"):
+    elif data.startswith("delete_chats_"):
         phone_number = data.split("_")[1]
-        await event.edit("🚫 جاري حظر المستخدمين... يفضل الانتظار.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-        
-        app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-        await app.connect()
-        try:
+        for i in accounts:
+            if phone_number == i['phone_number']:
+                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+                await app.connect()
+
+                total_deleted = 0
+                async for dialog in app.iter_dialogs():
+                    await app.delete_dialog(dialog.id)
+                    total_deleted += 1
+                    await event.edit(f"جاري المعالجة... تم حذف ({total_deleted}) محادثة حتى الآن.")
+                
+                await app.disconnect()
+                await event.edit(f"✅ تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+                break
+
+    elif data == "delete_groups":
+        await handle_delete(event, accounts, "group")
+
+    elif data == "delete_channels":
+        await handle_delete(event, accounts, "channel")
+
+    elif data == "delete_bots":
+        await handle_delete(event, accounts, "bot")
+
+async def handle_delete(event, accounts, item_type):
+    account_buttons = [[Button.inline(f"📱 {i['phone_number']}", data=f"delete_{item_type}_{i['phone_number']}")] for i in accounts]
+    account_buttons.append([Button.inline("🔙 رجوع", data="back")])
+    await event.edit(f"اختر الحساب الذي تود حذف {item_type}s منه:", buttons=account_buttons)
+
+    response = await event.get_response()
+    
+    phone_number = response.data.split("_")[2]
+    for i in accounts:
+        if phone_number == i['phone_number']:
+            app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+            await app.connect()
+
+            total_deleted = 0
             async for dialog in app.iter_dialogs():
-                await app(functions.contacts.BlockRequest(dialog.sender_id))
-            await event.edit("✅ تم حظر جميع المستخدمين بنجاح.", buttons=update_main_buttons())
-        except Exception as e:
-            await event.edit(f"⚠️ حدث خطأ أثناء حظر المستخدمين: {e}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-        finally:
+                if (item_type == "group" and dialog.is_group) or \
+                   (item_type == "channel" and dialog.is_channel) or \
+                   (item_type == "bot" and dialog.is_bot):
+                    await app.delete_dialog(dialog.id)
+                    total_deleted += 1
+                    await event.edit(f"جاري المعالجة... تم حذف ({total_deleted}) {item_type} حتى الآن.")
+            
             await app.disconnect()
-
-    elif data.startswith("unblock_users_"):
-        phone_number = data.split("_")[1]
-        await event.edit("🔓 جاري فك حظر المستخدمين... يفضل الانتظار.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-        
-        app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-        await app.connect()
-        try:
-            async for dialog in app.iter_dialogs():
-                await app(functions.contacts.UnblockRequest(dialog.sender_id))
-            await event.edit("✅ تم فك حظر جميع المستخدمين بنجاح.", buttons=update_main_buttons())
-        except Exception as e:
-            await event.edit(f"⚠️ حدث خطأ أثناء فك حظر المستخدمين: {e}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-        finally:
-            await app.disconnect()
-
-    elif data == "account_info":
-        if len(accounts) == 0:
-            await event.edit("- لا توجد معلومات عن الحسابات.", buttons=[[Button.inline("🔙 رجوع", data="back")]])
-            return
-
-        info_text = "📜 معلومات الحسابات:\n"
-        for account in accounts:
-            info_text += f"📱 {account['phone_number']}: التحقق بخطوتين: {account['two-step']}\n"
-        await event.edit(info_text, buttons=[[Button.inline("🔙 رجوع", data="back")]])
-
-    elif data == "toggle_security_mode":
-        current_mode = db.get("security_mode")
-        db.set("security_mode", not current_mode)
-        new_mode_text = "🔒 الوضع الأمني: مفعل" if not current_mode else "🔒 الوضع الأمني: معطل"
-
-        if not current_mode:
-            await event.edit("✅ تم تفعيل الوضع الأمني.", buttons=update_main_buttons())
-        else:
-            await event.edit("❌ تم تعطيل الوضع الأمني.", buttons=update_main_buttons())
+            await event.edit(f"✅ تم حذف جميع {item_type}s للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+            break
 
 client.run_until_disconnected()
