@@ -243,7 +243,7 @@ async def callback_handler(event):
             if phone_number == i['phone_number']:
                 app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
                 await app.connect()
-
+                
                 total_deleted = 0
                 async for sticker in app.iter_stickers():
                     await app.delete_sticker(sticker.id)
