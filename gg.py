@@ -1,9 +1,7 @@
 import os
-from telethon.tl import functions
-from telethon.sessions import StringSession
-import asyncio, json
-from kvsqlite.sync import Client as uu
+import json
 from telethon import TelegramClient, events, Button
+from telethon.sessions import StringSession
 from telethon.errors import (
     ApiIdInvalidError,
     PhoneNumberInvalidError,
@@ -12,6 +10,7 @@ from telethon.errors import (
     SessionPasswordNeededError,
     PasswordHashInvalidError
 )
+from kvsqlite.sync import Client as uu
 
 if not os.path.isdir('database'):
     os.mkdir('database')
@@ -65,7 +64,7 @@ async def callback_handler(event):
 
     elif data == "add":
         async with bot.conversation(user_id) as x:
-            await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال :+201000000000")
+            await x.send_message("✔️الان ارسل رقمك مع رمز دولتك , مثال : +201000000000")
             txt = await x.get_response()
             phone_number = txt.text.replace("+", "").replace(" ", "")
 
@@ -151,18 +150,11 @@ async def callback_handler(event):
                            f"💻 عدد الاجهزة المتصلة : {device_count}\n" \
                            f"🔒 التحقق بخطوتين : {i['two-step']}"
 
-                    account_action_buttons = []
-                    if db.get("security_mode"):
-                        account_action_buttons = [
-                            [Button.inline("🔒 تسجيل خروج (ممنوع، الوضع الأمني مفعل)", data="not_allowed")],
-                            [Button.inline("🧹 حذف المحادثات (ممنوع، الوضع الأمني مفعل)", data="not_allowed")]
-                        ]
-                    else:
-                        account_action_buttons = [
-                            [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}"), Button.inline("🧹 حذف المحادثات", data=f"delete_chats_{phone_number}")],
-                            [Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}"), Button.inline("🔙 رجوع", data="your_accounts")],
-                            [Button.inline("🗑️ حذف الملصقات", data=f"delete_stickers_{phone_number}"), Button.inline("🗑️ حذف المتحركات", data=f"delete_gifs_{phone_number}")]
-                        ]
+                    account_action_buttons = [
+                        [Button.inline("🔒 تسجيل خروج", data=f"logout_{phone_number}"), Button.inline("📩 جلب اخر كود", data=f"code_{phone_number}")],
+                        [Button.inline("🚫 حظر المستخدمين", data=f"block_users_{phone_number}"), Button.inline("🔓 فك الحظر عن المستخدمين", data=f"unblock_users_{phone_number}")],
+                        [Button.inline("🔙 رجوع", data="your_accounts")]
+                    ]
 
                     await event.edit(text, buttons=account_action_buttons)
                 except Exception as e:
@@ -217,57 +209,35 @@ async def callback_handler(event):
                 await event.edit(f"📬 اخر كود تم استلامه: {code[0].message}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
                 await app.disconnect()
 
-    elif data.startswith("delete_chats_"):
-        if db.get("security_mode"):
-            await event.edit("❌ لا يمكن حذف المحادثات أثناء تفعيل الوضع الأمني. يرجى تعطيله أولاً.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-            return
+    elif data.startswith("block_users_"):
+        phone_number = data.split("_")[1]
+        await event.edit("🚫 جاري حظر المستخدمين... يفضل الانتظار.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
         
+        app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+        await app.connect()
+        try:
+            async for dialog in app.iter_dialogs():
+                await app(functions.contacts.BlockRequest(dialog.sender_id))
+            await event.edit("✅ تم حظر جميع المستخدمين بنجاح.", buttons=update_main_buttons())
+        except Exception as e:
+            await event.edit(f"⚠️ حدث خطأ أثناء حظر المستخدمين: {e}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+        finally:
+            await app.disconnect()
+
+    elif data.startswith("unblock_users_"):
         phone_number = data.split("_")[1]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                
-                total_deleted = 0
-                async for dialog in app.iter_dialogs():
-                    await app.delete_dialog(dialog.id)
-                    total_deleted += 1
-                    await event.edit(f"🗑️ جاري الحذف... تم حذف ({total_deleted}) محادثة حتى الآن.")
-                
-                await app.disconnect()
-                await event.edit(f"✅ تم حذف جميع المحادثات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-
-    elif data.startswith("delete_stickers_"):
-        phone_number = data.split("_")[1]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-                
-                total_deleted = 0
-                async for sticker in app.iter_stickers():
-                    await app.delete_sticker(sticker.id)
-                    total_deleted += 1
-                    await event.edit(f"🗑️ جاري حذف الملصقات... تم حذف ({total_deleted}) ملصق حتى الآن.")
-
-                await app.disconnect()
-                await event.edit(f"✅ تم حذف جميع الملصقات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
-
-    elif data.startswith("delete_gifs_"):
-        phone_number = data.split("_")[1]
-        for i in accounts:
-            if phone_number == i['phone_number']:
-                app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
-                await app.connect()
-
-                total_deleted = 0
-                async for gif in app.iter_gifs():
-                    await app.delete_gif(gif.id)
-                    total_deleted += 1
-                    await event.edit(f"🗑️ جاري حذف المتحركات... تم حذف ({total_deleted}) متحرك حتى الآن.")
-
-                await app.disconnect()
-                await event.edit(f"✅ تم حذف جميع المتحركات للحساب: {phone_number}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+        await event.edit("🔓 جاري فك حظر المستخدمين... يفضل الانتظار.", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+        
+        app = TelegramClient(StringSession(i['session']), API_ID, API_HASH)
+        await app.connect()
+        try:
+            async for dialog in app.iter_dialogs():
+                await app(functions.contacts.UnblockRequest(dialog.sender_id))
+            await event.edit("✅ تم فك حظر جميع المستخدمين بنجاح.", buttons=update_main_buttons())
+        except Exception as e:
+            await event.edit(f"⚠️ حدث خطأ أثناء فك حظر المستخدمين: {e}", buttons=[[Button.inline("🔙 رجوع", data="your_accounts")]])
+        finally:
+            await app.disconnect()
 
     elif data == "account_info":
         if len(accounts) == 0:
@@ -284,7 +254,6 @@ async def callback_handler(event):
         db.set("security_mode", not current_mode)
         new_mode_text = "🔒 الوضع الأمني: مفعل" if not current_mode else "🔒 الوضع الأمني: معطل"
 
-        # Show the status as an emoji
         if not current_mode:
             await event.edit("✅ تم تفعيل الوضع الأمني.", buttons=update_main_buttons())
         else:
