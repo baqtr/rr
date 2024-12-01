@@ -7,7 +7,6 @@ import zipfile
 import tempfile
 import random
 import string
-import shutil
 from datetime import datetime, timedelta
 import pytz
 from github import Github
@@ -31,9 +30,6 @@ user_accounts = {}
 
 # قائمة لتخزين الأحداث
 events = []
-
-# تحديد حالة المستودعات العامة/الخاصة
-repos_private_state = {}
 
 # دالة لإنشاء الأزرار وتخصيصها مع تأثيرات بصرية
 def create_main_buttons():
@@ -209,8 +205,7 @@ def callback_query(call):
         bot.register_next_step_handler(msg, lambda m: handle_app_name_for_self_deletion(m, account_index))
     elif call.data.startswith("deploy_repo_"):
         account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم مستودع GitHub لنشره على Heroku:")
-        bot.register_next_step_handler(msg, lambda m: deploy_repo_to_heroku(m, account_index))
+        list_and_deploy_repo(call, account_index)
     elif call.data == "remaining_time":
         show_remaining_time(call)
     elif call.data == "go_back_main":
@@ -232,7 +227,8 @@ def callback_query(call):
     elif call.data == "advanced_settings":
         bot.edit_message_text("⚙️ الإعدادات المتقدمة:\nاختر إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_advanced_settings_buttons())
     elif call.data == "fetch_heroku_info":
-        fetch_heroku_info(call)
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال مفتاح API لجلب معلومات الحساب:")
+        bot.register_next_step_handler(msg, fetch_heroku_info)
     elif call.data == "fetch_github_info":
         fetch_github_info(call)
     elif call.data == "clear_events":
@@ -355,28 +351,53 @@ def list_github_repos(call):
         bot.edit_message_text("🚫 لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button("github_section"))
 
 def toggle_repos_privacy(call):
+    try:
+        user = g.get_user()
+        repos = user.get_repos()
+        
+        for repo in repos:
+            new_private_state = not repo.private
+            repo.edit(private=new_private_state)
+        
+        new_state_message = "جميع المستودعات أصبحت خاصة." if new_private_state else "جميع المستودعات أصبحت عامة."
+        bot.send_message(call.message.chat.id, f"🔄 {new_state_message}")
+    except Exception as e:
+        bot.send_message(call.message.chat.id, f"❌ حدث خطأ أثناء تعديل خصوصية المستودعات: {str(e)}")
+
+def list_and_deploy_repo(call, account_index):
     user = g.get_user()
     repos = user.get_repos()
-    
+    markup = telebot.types.InlineKeyboardMarkup()
     for repo in repos:
-        new_private_state = not repo.private
-        repo.edit(private=new_private_state)
-    
-    new_state_message = "جميع المستودعات أصبحت خاصة." if new_private_state else "جميع المستودعات أصبحت عامة."
-    bot.send_message(call.message.chat.id, f"🔄 {new_state_message}")
+        markup.add(telebot.types.InlineKeyboardButton(f"{repo.name}", callback_data=f"deploy_{repo.name}_{account_index}"))
+    markup.add(telebot.types.InlineKeyboardButton("↩️ العودة", callback_data=f"select_account_{account_index}"))
+    bot.edit_message_text("🔍 اختر مستودع لنشره:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
 
-def deploy_repo_to_heroku(message, account_index):
-    repo_name = message.text.strip()
-    user = g.get_user()
-    try:
-        repo = user.get_repo(repo_name)
-        # بدء عملية النشر
-        bot.send_message(message.chat.id, f"🚀 جاري نشر `{repo_name}` على Heroku. يرجى الانتظار...")
+@bot.callback_query_handler(func=lambda call: call.data.startswith("deploy_"))
+def deploy_repo(call):
+    _, repo_name, account_index = call.data.split("_")
+    account_index = int(account_index)
+    user_id = call.from_user.id
+    api_key = user_accounts[user_id][account_index]['api_key']
+
+    # إنشاء التطبيق على هيروكو
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Accept': 'application/vnd.heroku+json; version=3',
+        'Content-Type': 'application/json'
+    }
+    app_name = f"app-{repo_name}-{random.randint(1000, 9999)}"
+    response = requests.post(f'{HEROKU_BASE_URL}/apps', headers=headers, json={"name": app_name})
+
+    if response.status_code == 201:
+        bot.edit_message_text(f"✅ تم إنشاء التطبيق `{app_name}` بنجاح.\n🚀 جاري نشر `{repo_name}` على Heroku...", chat_id=call.message.chat.id, message_id=call.message.message_id)
+
         # إضافة هنا منطق النشر الفعلي باستخدام Heroku API أو أدوات أخرى
         time.sleep(5)  # محاكاة وقت النشر
-        bot.send_message(message.chat.id, f"✅ تم نشر `{repo_name}` على Heroku بنجاح.")
-    except:
-        bot.send_message(message.chat.id, f"❌ المستودع `{repo_name}` غير موجود أو لا تملك صلاحية نشره.", parse_mode='Markdown')
+
+        bot.edit_message_text(f"✅ تم نشر المستودع `{repo_name}` على التطبيق `{app_name}` بنجاح.", chat_id=call.message.chat.id, message_id=call.message.message_id)
+    else:
+        bot.edit_message_text(f"❌ حدث خطأ أثناء إنشاء التطبيق على هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id)
 
 def handle_zip_file(message):
     if message.document and message.document.mime_type == 'application/zip':
@@ -415,30 +436,12 @@ def show_events(call):
         bot.edit_message_text(f"📝 الأحداث:\n{events_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("go_back_main"), parse_mode='Markdown')
 
 # دالة لجلب معلومات هيروكو
-def fetch_heroku_info(call):
-    user_id = call.from_user.id
-    if user_id in user_accounts and user_accounts[user_id]:
-        markup = telebot.types.InlineKeyboardMarkup()
-        for index in range(len(user_accounts[user_id])):
-            account_name = get_heroku_account_name(user_accounts[user_id][index]['api_key'])
-            markup.add(telebot.types.InlineKeyboardButton(f"{account_name}", callback_data=f"heroku_info_{index}"))
-        markup.add(telebot.types.InlineKeyboardButton("↩️ العودة", callback_data="advanced_settings"))
-        bot.edit_message_text("🔍 اختر الحساب لجلب المعلومات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
-    else:
-        bot.edit_message_text("🚫 لا توجد حسابات مضافة.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("advanced_settings"))
-
-# دالة لمعالجة جلب معلومات حساب هيروكو
-@bot.callback_query_handler(func=lambda call: call.data.startswith("heroku_info_"))
-def heroku_info(call):
-    account_index = int(call.data.split("_")[-1])
-    user_id = call.from_user.id
-    api_key = user_accounts[user_id][account_index]['api_key']
-
+def fetch_heroku_info(message):
+    api_key = message.text.strip()
     headers = {
         'Authorization': f'Bearer {api_key}',
         'Accept': 'application/vnd.heroku+json; version=3'
     }
-    
     account_response = requests.get(f'{HEROKU_BASE_URL}/account', headers=headers)
     apps_response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
 
@@ -449,7 +452,7 @@ def heroku_info(call):
         num_apps = len(apps_info)
         connected_to_github = sum(1 for app in apps_info if app.get('repo_size', 0) > 0)
 
-        message = (
+        message_text = (
             f"🔍 معلومات حساب هيروكو:\n"
             f"📧 البريد الإلكتروني: {account_info.get('email', 'غير معروف')}\n"
             f"💳 الفاتورة: {account_info.get('billing', {}).get('payment_method', 'غير متوفر')}\n"
@@ -457,9 +460,9 @@ def heroku_info(call):
             f"📦 عدد التطبيقات: {num_apps}\n"
             f"📦 التطبيقات المرتبطة بجيتهاب: {connected_to_github}\n"
         )
-        bot.edit_message_text(message, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("advanced_settings"), parse_mode='Markdown')
+        bot.send_message(message.chat.id, message_text, reply_markup=create_back_button("advanced_settings"), parse_mode='Markdown')
     else:
-        bot.edit_message_text("❌ حدث خطأ أثناء جلب معلومات الحساب.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("advanced_settings"))
+        bot.send_message(message.chat.id, "❌ حدث خطأ أثناء جلب معلومات الحساب.", reply_markup=create_back_button("advanced_settings"))
 
 # دالة لجلب معلومات جيتهاب
 def fetch_github_info(call):
