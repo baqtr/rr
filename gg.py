@@ -13,7 +13,7 @@ import pytz
 from github import Github
 
 # استيراد توكن البوت والرمز المميز لـ GitHub من المتغيرات البيئية
-bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20")
+bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "7913039979:AAFFCNwsBkxPUZNRKlf12reHl8T-d4X-xms")
 github_token = os.getenv("GITHUB_TOKEN", "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")
 
 # إنشاء كائن البوت
