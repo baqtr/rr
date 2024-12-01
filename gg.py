@@ -64,7 +64,6 @@ def create_github_control_buttons():
         telebot.types.InlineKeyboardButton("🗑️ حذف مستودع محدد", callback_data="delete_repo"),
         telebot.types.InlineKeyboardButton("📤 رفع ملف كمستودع", callback_data="upload_file"),
         telebot.types.InlineKeyboardButton("📂 عرض مستودعاتك", callback_data="list_github_repos"),
-        telebot.types.InlineKeyboardButton("🔄 تبديل حالة المستودعات", callback_data="toggle_repos_privacy"),
         telebot.types.InlineKeyboardButton("↩️ العودة للقائمة الرئيسية", callback_data="go_back_main")
     ]
     for button in buttons:
@@ -213,8 +212,6 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_zip_file)
     elif call.data == "list_github_repos":
         list_github_repos(call)
-    elif call.data == "toggle_repos_privacy":
-        toggle_repos_privacy(call)
     elif call.data == "delete_repo":
         msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم المستودع لحذفه.")
         bot.register_next_step_handler(msg, handle_repo_deletion)
@@ -339,26 +336,12 @@ def list_github_repos(call):
             visibility = "خاص" if repo.private else "عام"
             repo_list += f"📂 *اسم المستودع*: `{repo.name}`\n📁 *عدد الملفات*: {num_files}\n🔒 *الخصوصية*: {visibility}\n\n"
         except:
-            pass
+            repo_list += f"📂 *اسم المستودع*: `{repo.name}`\n🔒 *الخصوصية*: {'خاص' if repo.private else 'عام'}\n\n"
 
     if repo_list:
         bot.edit_message_text(f"📂 مستودعات GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button("github_section"))
     else:
         bot.edit_message_text("🚫 لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button("github_section"))
-
-def toggle_repos_privacy(call):
-    try:
-        user = g.get_user()
-        repos = user.get_repos()
-        
-        for repo in repos:
-            new_private_state = not repo.private
-            repo.edit(private=new_private_state)
-        
-        new_state_message = "جميع المستودعات أصبحت خاصة." if new_private_state else "جميع المستودعات أصبحت عامة."
-        bot.send_message(call.message.chat.id, f"🔄 {new_state_message}")
-    except Exception as e:
-        bot.send_message(call.message.chat.id, f"❌ حدث خطأ أثناء تعديل خصوصية المستودعات: {str(e)}")
 
 def handle_zip_file(message):
     if message.document and message.document.mime_type == 'application/zip':
