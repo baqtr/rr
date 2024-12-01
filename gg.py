@@ -12,8 +12,8 @@ import pytz
 from github import Github
 
 # استيراد توكن البوت والرمز المميز لـ GitHub من المتغيرات البيئية
-bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "7913039979:AAFFCNwsBkxPUZNRKlf12reHl8T-d4X-xms")
-github_token = os.getenv("GITHUB_TOKEN", "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")
+bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20")
+github_token = os.getenv("GITHUB_TOKEN", "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")
 
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
@@ -60,11 +60,11 @@ def create_advanced_settings_buttons():
 def create_github_control_buttons():
     markup = telebot.types.InlineKeyboardMarkup()
     buttons = [
-        telebot.types.InlineKeyboardButton("🗑️ حذف الكل", callback_data="delete_all_repos"),
-        telebot.types.InlineKeyboardButton("🗑️ حذف مستودع", callback_data="delete_repo"),
-        telebot.types.InlineKeyboardButton("📤 رفع ملف", callback_data="upload_file"),
-        telebot.types.InlineKeyboardButton("📂 عرض المستودعات", callback_data="list_github_repos"),
-        telebot.types.InlineKeyboardButton("🔄 تحويل حالة المستودعات", callback_data="toggle_repos_privacy"),
+        telebot.types.InlineKeyboardButton("🗑️ حذف جميع المستودعات", callback_data="delete_all_repos"),
+        telebot.types.InlineKeyboardButton("🗑️ حذف مستودع محدد", callback_data="delete_repo"),
+        telebot.types.InlineKeyboardButton("📤 رفع ملف كمستودع", callback_data="upload_file"),
+        telebot.types.InlineKeyboardButton("📂 عرض مستودعاتك", callback_data="list_github_repos"),
+        telebot.types.InlineKeyboardButton("🔄 تبديل حالة المستودعات", callback_data="toggle_repos_privacy"),
         telebot.types.InlineKeyboardButton("↩️ العودة للقائمة الرئيسية", callback_data="go_back_main")
     ]
     for button in buttons:
@@ -86,7 +86,6 @@ def create_account_control_buttons(account_index):
         telebot.types.InlineKeyboardButton("❌ حذف تطبيق", callback_data=f"delete_app_{account_index}"),
         telebot.types.InlineKeyboardButton("⏲️ الحذف الذاتي", callback_data=f"self_delete_app_{account_index}"),
         telebot.types.InlineKeyboardButton("⏳ الوقت المتبقي", callback_data="remaining_time"),
-        telebot.types.InlineKeyboardButton("🚀 نشر مستودع", callback_data=f"deploy_repo_{account_index}"),
         telebot.types.InlineKeyboardButton("↩️ العودة للحسابات", callback_data="list_accounts")
     ]
     for button in buttons:
@@ -101,14 +100,14 @@ def send_welcome(message):
         user_accounts[user_id] = []
         events.append(f"انضم مستخدم جديد: [{message.from_user.first_name}](tg://user?id={user_id})")
     welcome_text = (
-        "🌟 أهلاً وسهلاً بك في البوت! 🌟\n"
-        "اختر من بين الأزرار أدناه لتبدأ:"
+        "🌟 أهلاً بك في البوت! 🌟\n"
+        "يرجى اختيار أحد الخيارات من القائمة أدناه:"
     )
     bot.send_message(message.chat.id, welcome_text, reply_markup=create_main_buttons())
 
 # دالة لإضافة حساب جديد
 def add_account(call):
-    msg = bot.edit_message_text("يرجى إرسال مفتاح API الخاص بحساب Heroku:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("go_back_main"))
+    msg = bot.edit_message_text("🔑 يرجى إرسال مفتاح API الخاص بحساب Heroku:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("go_back_main"))
     bot.register_next_step_handler(msg, handle_new_account)
 
 def handle_new_account(message):
@@ -154,8 +153,8 @@ def get_heroku_account_name(api_key):
     }
     response = requests.get(f'{HEROKU_BASE_URL}/account', headers=headers)
     if response.status_code == 200:
-        return response.json().get('email', 'Unknown')
-    return 'Unknown'
+        return response.json().get('email', 'غير معروف')
+    return 'غير معروف'
 
 # دالة لجلب تطبيقات هيروكو
 def list_heroku_apps(call):
@@ -203,9 +202,6 @@ def callback_query(call):
         account_index = int(call.data.split("_")[-1])
         msg = bot.edit_message_text("يرجى إرسال اسم التطبيق للحذف الذاتي:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("list_accounts"))
         bot.register_next_step_handler(msg, lambda m: handle_app_name_for_self_deletion(m, account_index))
-    elif call.data.startswith("deploy_repo_"):
-        account_index = int(call.data.split("_")[-1])
-        list_and_deploy_repo(call, account_index)
     elif call.data == "remaining_time":
         show_remaining_time(call)
     elif call.data == "go_back_main":
@@ -213,7 +209,7 @@ def callback_query(call):
     elif call.data == "github_section":
         bot.edit_message_text("🛠️ قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
     elif call.data == "upload_file":
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال ملف مضغوط بصيغة ZIP.")
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال ملف مضغوط بصيغة ZIP لتحويله إلى مستودع.")
         bot.register_next_step_handler(msg, handle_zip_file)
     elif call.data == "list_github_repos":
         list_github_repos(call)
@@ -363,41 +359,6 @@ def toggle_repos_privacy(call):
         bot.send_message(call.message.chat.id, f"🔄 {new_state_message}")
     except Exception as e:
         bot.send_message(call.message.chat.id, f"❌ حدث خطأ أثناء تعديل خصوصية المستودعات: {str(e)}")
-
-def list_and_deploy_repo(call, account_index):
-    user = g.get_user()
-    repos = user.get_repos()
-    markup = telebot.types.InlineKeyboardMarkup()
-    for repo in repos:
-        markup.add(telebot.types.InlineKeyboardButton(f"{repo.name}", callback_data=f"deploy_{repo.name}_{account_index}"))
-    markup.add(telebot.types.InlineKeyboardButton("↩️ العودة", callback_data=f"select_account_{account_index}"))
-    bot.edit_message_text("🔍 اختر مستودع لنشره:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("deploy_"))
-def deploy_repo(call):
-    _, repo_name, account_index = call.data.split("_")
-    account_index = int(account_index)
-    user_id = call.from_user.id
-    api_key = user_accounts[user_id][account_index]['api_key']
-
-    # إنشاء التطبيق على هيروكو
-    headers = {
-        'Authorization': f'Bearer {api_key}',
-        'Accept': 'application/vnd.heroku+json; version=3',
-        'Content-Type': 'application/json'
-    }
-    app_name = f"app-{repo_name}-{random.randint(1000, 9999)}"
-    response = requests.post(f'{HEROKU_BASE_URL}/apps', headers=headers, json={"name": app_name})
-
-    if response.status_code == 201:
-        bot.edit_message_text(f"✅ تم إنشاء التطبيق `{app_name}` بنجاح.\n🚀 جاري نشر `{repo_name}` على Heroku...", chat_id=call.message.chat.id, message_id=call.message.message_id)
-
-        # إضافة هنا منطق النشر الفعلي باستخدام Heroku API أو أدوات أخرى
-        time.sleep(5)  # محاكاة وقت النشر
-
-        bot.edit_message_text(f"✅ تم نشر المستودع `{repo_name}` على التطبيق `{app_name}` بنجاح.", chat_id=call.message.chat.id, message_id=call.message.message_id)
-    else:
-        bot.edit_message_text(f"❌ حدث خطأ أثناء إنشاء التطبيق على هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id)
 
 def handle_zip_file(message):
     if message.document and message.document.mime_type == 'application/zip':
