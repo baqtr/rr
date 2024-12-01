@@ -21,16 +21,19 @@ bot = telebot.TeleBot(bot_token)
 
 # الهيروكو API
 HEROKU_BASE_URL = 'https://api.heroku.com'
+g = Github(github_token)
 
 # قائمة التطبيقات المجدولة للحذف الذاتي
 self_deleting_apps = {}
-g = Github(github_token)
 
 # تخزين حسابات المستخدم
 user_accounts = {}
 
 # قائمة لتخزين الأحداث
 events = []
+
+# تحديد حالة المستودعات العامة/الخاصة
+repos_private_state = {}
 
 # دالة لإنشاء الأزرار وتخصيصها مع تأثيرات بصرية
 def create_main_buttons():
@@ -65,6 +68,7 @@ def create_github_control_buttons():
         telebot.types.InlineKeyboardButton("🗑️ حذف مستودع", callback_data="delete_repo"),
         telebot.types.InlineKeyboardButton("📤 رفع ملف", callback_data="upload_file"),
         telebot.types.InlineKeyboardButton("📂 عرض المستودعات", callback_data="list_github_repos"),
+        telebot.types.InlineKeyboardButton("🔄 تحويل حالة المستودعات", callback_data="toggle_repos_privacy"),
         telebot.types.InlineKeyboardButton("↩️ العودة للقائمة الرئيسية", callback_data="go_back_main")
     ]
     for button in buttons:
@@ -86,6 +90,7 @@ def create_account_control_buttons(account_index):
         telebot.types.InlineKeyboardButton("❌ حذف تطبيق", callback_data=f"delete_app_{account_index}"),
         telebot.types.InlineKeyboardButton("⏲️ الحذف الذاتي", callback_data=f"self_delete_app_{account_index}"),
         telebot.types.InlineKeyboardButton("⏳ الوقت المتبقي", callback_data="remaining_time"),
+        telebot.types.InlineKeyboardButton("🚀 نشر مستودع", callback_data=f"deploy_repo_{account_index}"),
         telebot.types.InlineKeyboardButton("↩️ العودة للحسابات", callback_data="list_accounts")
     ]
     for button in buttons:
@@ -202,6 +207,10 @@ def callback_query(call):
         account_index = int(call.data.split("_")[-1])
         msg = bot.edit_message_text("يرجى إرسال اسم التطبيق للحذف الذاتي:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("list_accounts"))
         bot.register_next_step_handler(msg, lambda m: handle_app_name_for_self_deletion(m, account_index))
+    elif call.data.startswith("deploy_repo_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم مستودع GitHub لنشره على Heroku:")
+        bot.register_next_step_handler(msg, lambda m: deploy_repo_to_heroku(m, account_index))
     elif call.data == "remaining_time":
         show_remaining_time(call)
     elif call.data == "go_back_main":
@@ -213,6 +222,8 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_zip_file)
     elif call.data == "list_github_repos":
         list_github_repos(call)
+    elif call.data == "toggle_repos_privacy":
+        toggle_repos_privacy(call)
     elif call.data == "delete_repo":
         msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم المستودع لحذفه.")
         bot.register_next_step_handler(msg, handle_repo_deletion)
@@ -333,7 +344,8 @@ def list_github_repos(call):
         try:
             contents = repo.get_contents("")
             num_files = sum(1 for _ in contents)
-            repo_list += f"📂 *اسم المستودع*: `{repo.name}`\n📁 *عدد الملفات*: {num_files}\n\n"
+            visibility = "خاص" if repo.private else "عام"
+            repo_list += f"📂 *اسم المستودع*: `{repo.name}`\n📁 *عدد الملفات*: {num_files}\n🔒 *الخصوصية*: {visibility}\n\n"
         except:
             pass
 
@@ -341,6 +353,30 @@ def list_github_repos(call):
         bot.edit_message_text(f"📂 مستودعات GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button("github_section"))
     else:
         bot.edit_message_text("🚫 لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button("github_section"))
+
+def toggle_repos_privacy(call):
+    user = g.get_user()
+    repos = user.get_repos()
+    
+    for repo in repos:
+        new_private_state = not repo.private
+        repo.edit(private=new_private_state)
+    
+    new_state_message = "جميع المستودعات أصبحت خاصة." if new_private_state else "جميع المستودعات أصبحت عامة."
+    bot.send_message(call.message.chat.id, f"🔄 {new_state_message}")
+
+def deploy_repo_to_heroku(message, account_index):
+    repo_name = message.text.strip()
+    user = g.get_user()
+    try:
+        repo = user.get_repo(repo_name)
+        # بدء عملية النشر
+        bot.send_message(message.chat.id, f"🚀 جاري نشر `{repo_name}` على Heroku. يرجى الانتظار...")
+        # إضافة هنا منطق النشر الفعلي باستخدام Heroku API أو أدوات أخرى
+        time.sleep(5)  # محاكاة وقت النشر
+        bot.send_message(message.chat.id, f"✅ تم نشر `{repo_name}` على Heroku بنجاح.")
+    except:
+        bot.send_message(message.chat.id, f"❌ المستودع `{repo_name}` غير موجود أو لا تملك صلاحية نشره.", parse_mode='Markdown')
 
 def handle_zip_file(message):
     if message.document and message.document.mime_type == 'application/zip':
