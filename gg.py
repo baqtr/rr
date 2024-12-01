@@ -129,7 +129,7 @@ def validate_heroku_api_key(api_key):
         'Authorization': f'Bearer {api_key}',
         'Accept': 'application/vnd.heroku+json; version=3'
     }
-    response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
+    response = requests.get(f'{HEROKU_BASE_URL}/account', headers=headers)
     return response.status_code == 200
 
 # عرض حسابات المستخدم
