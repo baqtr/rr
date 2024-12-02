@@ -7,23 +7,23 @@ import zipfile
 import tempfile
 import random
 import string
+import shutil
 from datetime import datetime, timedelta
 import pytz
 from github import Github
 
-# استيراد توكن البوت والرمز المميز لـ GitHub من المتغيرات البيئية
-bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "7991924416:AAH9HBPDiQ7pM0cTJwQWFGTmC2-osnlf0rQ")
-github_token = os.getenv("GITHUB_TOKEN", "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")
-
+# استيراد توكن البوت من المتغيرات البيئية
+bot_token = "7991924416:AAH9HBPDiQ7pM0cTJwQWFGTmC2-osnlf0rQ"
+github_token = "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"
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
 
 # الهيروكو API
 HEROKU_BASE_URL = 'https://api.heroku.com'
-g = Github(github_token)
 
 # قائمة التطبيقات المجدولة للحذف الذاتي
 self_deleting_apps = {}
+g = Github(github_token)
 
 # تخزين حسابات المستخدم
 user_accounts = {}
@@ -31,93 +31,53 @@ user_accounts = {}
 # قائمة لتخزين الأحداث
 events = []
 
-# دالة لإنشاء الأزرار وتخصيصها مع تأثيرات بصرية
+# دالة لإنشاء الأزرار وتخصيصها
 def create_main_buttons():
     markup = telebot.types.InlineKeyboardMarkup()
-    buttons = [
-        telebot.types.InlineKeyboardButton("➕ إضافة حساب", callback_data="add_account"),
-        telebot.types.InlineKeyboardButton("🗂️ حساباتك", callback_data="list_accounts"),
-        telebot.types.InlineKeyboardButton("🛠️ قسم جيتهاب", callback_data="github_section"),
-        telebot.types.InlineKeyboardButton("🔄 الأحداث", callback_data="show_events"),
-        telebot.types.InlineKeyboardButton("⚙️ الإعدادات المتقدمة", callback_data="advanced_settings")
-    ]
-    for button in buttons:
-        markup.add(button)
-    return markup
-
-def create_advanced_settings_buttons():
-    markup = telebot.types.InlineKeyboardMarkup()
-    buttons = [
-        telebot.types.InlineKeyboardButton("📄 جلب معلومات حساب هيروكو", callback_data="fetch_heroku_info"),
-        telebot.types.InlineKeyboardButton("📄 جلب معلومات جيتهاب", callback_data="fetch_github_info"),
-        telebot.types.InlineKeyboardButton("🗑️ حذف الأحداث", callback_data="clear_events"),
-        telebot.types.InlineKeyboardButton("↩️ العودة للقائمة الرئيسية", callback_data="go_back_main")
-    ]
-    for button in buttons:
-        markup.add(button)
+    button1 = telebot.types.InlineKeyboardButton("إضافة حساب ➕", callback_data="add_account")
+    button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
+    button3 = telebot.types.InlineKeyboardButton("قسم جيتهاب 🛠️", callback_data="github_section")
+    button4 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
+    markup.add(button1)
+    markup.add(button2)
+    markup.add(button3)
+    markup.add(button4)
     return markup
 
 def create_github_control_buttons():
     markup = telebot.types.InlineKeyboardMarkup()
-    buttons = [
-        telebot.types.InlineKeyboardButton("🗑️ حذف جميع المستودعات", callback_data="delete_all_repos"),
-        telebot.types.InlineKeyboardButton("🗑️ حذف مستودع محدد", callback_data="delete_repo"),
-        telebot.types.InlineKeyboardButton("📤 رفع ملف كمستودع", callback_data="upload_file"),
-        telebot.types.InlineKeyboardButton("📂 عرض مستودعاتك", callback_data="list_github_repos"),
-        telebot.types.InlineKeyboardButton("➕ إنشاء مستودع جديد", callback_data="create_repo"),
-        telebot.types.InlineKeyboardButton("🔄 تحديث مستودع", callback_data="update_repo"),
-        telebot.types.InlineKeyboardButton("🔍 بحث عن مستودع", callback_data="search_repo"),
-        telebot.types.InlineKeyboardButton("📊 عرض إحصائيات مستودع", callback_data="repo_stats"),
-        telebot.types.InlineKeyboardButton("📦 إدارة الحزم", callback_data="manage_packages"),
-        telebot.types.InlineKeyboardButton("🔐 إدارة الأذونات", callback_data="manage_permissions"),
-        telebot.types.InlineKeyboardButton("📑 عرض ملفات README", callback_data="view_readme"),
-        telebot.types.InlineKeyboardButton("🔗 إدارة الفروع", callback_data="manage_branches"),
-        telebot.types.InlineKeyboardButton("🔀 إدارة الدمج", callback_data="manage_merge"),
-        telebot.types.InlineKeyboardButton("🔧 إعدادات المستودع", callback_data="repo_settings"),
-        telebot.types.InlineKeyboardButton("📈 عرض الرسوم البيانية", callback_data="view_graphs"),
-        telebot.types.InlineKeyboardButton("🔒 إدارة الأمن", callback_data="manage_security"),
-        telebot.types.InlineKeyboardButton("📆 عرض الإصدارات", callback_data="view_releases"),
-        telebot.types.InlineKeyboardButton("📂 إدارة الملفات", callback_data="manage_files"),
-        telebot.types.InlineKeyboardButton("📝 تحرير الملفات", callback_data="edit_files"),
-        telebot.types.InlineKeyboardButton("↩️ العودة للقائمة الرئيسية", callback_data="go_back_main")
-    ]
-    for button in buttons:
-        markup.add(button)
-    return markup
-
-def create_heroku_control_buttons(account_index):
-    markup = telebot.types.InlineKeyboardMarkup()
-    buttons = [
-        telebot.types.InlineKeyboardButton("📦 جلب تطبيقات هيروكو", callback_data=f"list_heroku_apps_{account_index}"),
-        telebot.types.InlineKeyboardButton("❌ حذف تطبيق", callback_data=f"delete_app_{account_index}"),
-        telebot.types.InlineKeyboardButton("⏲️ الحذف الذاتي", callback_data=f"self_delete_app_{account_index}"),
-        telebot.types.InlineKeyboardButton("⏳ الوقت المتبقي", callback_data="remaining_time"),
-        telebot.types.InlineKeyboardButton("🔄 إعادة تشغيل تطبيق", callback_data=f"restart_app_{account_index}"),
-        telebot.types.InlineKeyboardButton("📊 عرض إحصائيات التطبيق", callback_data=f"app_stats_{account_index}"),
-        telebot.types.InlineKeyboardButton("🔧 إعدادات التطبيق", callback_data=f"app_settings_{account_index}"),
-        telebot.types.InlineKeyboardButton("🔍 بحث عن تطبيق", callback_data=f"search_app_{account_index}"),
-        telebot.types.InlineKeyboardButton("📦 إدارة الحزم", callback_data=f"manage_app_packages_{account_index}"),
-        telebot.types.InlineKeyboardButton("🔐 إدارة الأذونات", callback_data=f"manage_app_permissions_{account_index}"),
-        telebot.types.InlineKeyboardButton("📂 إدارة الملفات", callback_data=f"manage_app_files_{account_index}"),
-        telebot.types.InlineKeyboardButton("📝 تحرير الملفات", callback_data=f"edit_app_files_{account_index}"),
-        telebot.types.InlineKeyboardButton("📈 عرض الرسوم البيانية", callback_data=f"view_app_graphs_{account_index}"),
-        telebot.types.InlineKeyboardButton("🔒 إدارة الأمن", callback_data=f"manage_app_security_{account_index}"),
-        telebot.types.InlineKeyboardButton("📆 عرض الإصدارات", callback_data=f"view_app_releases_{account_index}"),
-        telebot.types.InlineKeyboardButton("🔗 إدارة الفروع", callback_data=f"manage_app_branches_{account_index}"),
-        telebot.types.InlineKeyboardButton("🔀 إدارة الدمج", callback_data=f"manage_app_merge_{account_index}"),
-        telebot.types.InlineKeyboardButton("📆 جدولة المهام", callback_data=f"schedule_app_tasks_{account_index}"),
-        telebot.types.InlineKeyboardButton("🔄 تحديث التطبيق", callback_data=f"update_app_{account_index}"),
-        telebot.types.InlineKeyboardButton("↩️ العودة للحسابات", callback_data="list_accounts")
-    ]
-    for button in buttons:
-        markup.add(button)
+    delete_all_button = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
+    delete_repo_button = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
+    upload_file_button = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
+    list_repos_button = telebot.types.InlineKeyboardButton("عرض المستودعات 📂", callback_data="list_github_repos")
+    get_info_button = telebot.types.InlineKeyboardButton("جلب معلومات جيتهاب ℹ️", callback_data="get_github_info")
+    markup.add(delete_all_button)
+    markup.add(delete_repo_button)
+    markup.add(upload_file_button)
+    markup.add(list_repos_button)
+    markup.add(get_info_button)
+    markup.add(create_back_button())
     return markup
 
 # دالة لإنشاء زر العودة
-def create_back_button(callback_data="go_back_main"):
+def create_back_button():
     markup = telebot.types.InlineKeyboardMarkup()
-    back_button = telebot.types.InlineKeyboardButton("↩️ العودة", callback_data=callback_data)
+    back_button = telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back")
     markup.add(back_button)
+    return markup
+
+# دالة لإنشاء أزرار التحكم بالحسابات
+def create_account_control_buttons(account_index):
+    markup = telebot.types.InlineKeyboardMarkup()
+    button1 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو 📦", callback_data=f"list_heroku_apps_{account_index}")
+    button2 = telebot.types.InlineKeyboardButton("حذف تطبيق ❌", callback_data=f"delete_app_{account_index}")
+    button3 = telebot.types.InlineKeyboardButton("الحذف الذاتي ⏲️", callback_data=f"self_delete_app_{account_index}")
+    button4 = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
+    markup.add(button1) 
+    markup.add(button2)
+    markup.add(button3)
+    markup.add(button4)
+    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="list_accounts"))
     return markup
 
 # دالة لمعالجة الطلبات الواردة
@@ -127,28 +87,24 @@ def send_welcome(message):
     if user_id not in user_accounts:
         user_accounts[user_id] = []
         events.append(f"انضم مستخدم جديد: [{message.from_user.first_name}](tg://user?id={user_id})")
-    welcome_text = (
-        "🌟 أهلاً بك في البوت! 🌟\n"
-        "يرجى اختيار أحد الخيارات من القائمة أدناه:"
-    )
-    bot.send_message(message.chat.id, welcome_text, reply_markup=create_main_buttons())
+    bot.send_message(message.chat.id, "اهلا وسهلا نورتنا اختار من بين الازرار ماذا تريد", reply_markup=create_main_buttons())
 
 # دالة لإضافة حساب جديد
 def add_account(call):
-    msg = bot.edit_message_text("🔑 يرجى إرسال مفتاح API الخاص بحساب Heroku:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("go_back_main"))
+    msg = bot.edit_message_text("يرجى إرسال مفتاح API الخاص بحساب Heroku:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
     bot.register_next_step_handler(msg, handle_new_account)
 
 def handle_new_account(message):
     api_key = message.text.strip()
     user_id = message.from_user.id
     if api_key in [account['api_key'] for account in user_accounts[user_id]]:
-        bot.send_message(message.chat.id, "⚠️ هذا الحساب مضاف مسبقًا.", reply_markup=create_main_buttons())
+        bot.send_message(message.chat.id, "هذا الحساب مضاف مسبقًا.", reply_markup=create_main_buttons())
     elif validate_heroku_api_key(api_key):
         user_accounts[user_id].append({'api_key': api_key})
         events.append(f"أضاف [{message.from_user.first_name}](tg://user?id={user_id}) حساب جديد: `{api_key[:-4]}****`")
-        bot.send_message(message.chat.id, "✅ تمت إضافة حساب Heroku بنجاح!", reply_markup=create_main_buttons())
+        bot.send_message(message.chat.id, "تمت إضافة حساب Heroku بنجاح!", reply_markup=create_main_buttons())
     else:
-        bot.send_message(message.chat.id, "❌ مفتاح API غير صحيح. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons())
+        bot.send_message(message.chat.id, "مفتاح API غير صحيح. يرجى المحاولة مرة أخرى.", reply_markup=create_main_buttons())
 
 # التحقق من صحة مفتاح API
 def validate_heroku_api_key(api_key):
@@ -156,7 +112,7 @@ def validate_heroku_api_key(api_key):
         'Authorization': f'Bearer {api_key}',
         'Accept': 'application/vnd.heroku+json; version=3'
     }
-    response = requests.get(f'{HEROKU_BASE_URL}/account', headers=headers)
+    response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
     return response.status_code == 200
 
 # عرض حسابات المستخدم
@@ -168,10 +124,10 @@ def list_accounts(call):
         for index in range(len(user_accounts[user_id])):
             account_name = get_heroku_account_name(user_accounts[user_id][index]['api_key'])
             markup.add(telebot.types.InlineKeyboardButton(f"{account_name}", callback_data=f"select_account_{index}"))
-        markup.add(telebot.types.InlineKeyboardButton("↩️ العودة للقائمة الرئيسية", callback_data="go_back_main"))
-        bot.edit_message_text(f"🔐 حساباتك:\n{accounts_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup, parse_mode='Markdown')
+        markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
+        bot.edit_message_text(f"حساباتك:\n{accounts_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup, parse_mode='Markdown')
     else:
-        bot.edit_message_text("🚫 لا توجد حسابات مضافة.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("go_back_main"))
+        bot.edit_message_text("لا توجد حسابات مضافة.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
 
 # جلب اسم حساب هيروكو
 def get_heroku_account_name(api_key):
@@ -181,31 +137,32 @@ def get_heroku_account_name(api_key):
     }
     response = requests.get(f'{HEROKU_BASE_URL}/account', headers=headers)
     if response.status_code == 200:
-        return response.json().get('email', 'غير معروف')
-    return 'غير معروف'
+        return response.json().get('email', 'Unknown')
+    return 'Unknown'
 
 # دالة لجلب تطبيقات هيروكو
 def list_heroku_apps(call):
     account_index = int(call.data.split("_")[-1])
     user_id = call.from_user.id
     if not user_accounts[user_id]:
-        bot.edit_message_text("🚫 لا توجد حسابات مضافة. يرجى إضافة حساب أولاً.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("go_back_main"))
+        bot.edit_message_text("لا توجد حسابات مضافة. يرجى إضافة حساب أولاً.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
         return
 
     headers = {
         'Authorization': f'Bearer {user_accounts[user_id][account_index]["api_key"]}',
         'Accept': 'application/vnd.heroku+json; version=3'
     }
+    bot.edit_message_text("جلب التطبيقات... ⬛⬜ 0%", chat_id=call.message.chat.id, message_id=call.message.message_id)
+    time.sleep(2)
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
     if response.status_code == 200:
         apps = response.json()
-        markup = telebot.types.InlineKeyboardMarkup()
-        for app in apps:
-            markup.add(telebot.types.InlineKeyboardButton(app['name'], callback_data=f"select_app_{app['name']}_{account_index}"))
-        markup.add(telebot.types.InlineKeyboardButton("↩️ العودة", callback_data=f"select_account_{account_index}"))
-        bot.edit_message_text("📦 التطبيقات المتاحة في هيروكو:\nاختر التطبيق لإدارته:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
+        apps_list = "\n".join([f"`{app['name']}`" for app in apps])
+        bot.edit_message_text("جلب التطبيقات... ⬛⬛ 50%", chat_id=call.message.chat.id, message_id=call.message.message_id)
+        time.sleep(2)
+        bot.edit_message_text(f"التطبيقات المتاحة في هيروكو:\n{apps_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
     else:
-        bot.edit_message_text("❌ حدث خطأ في جلب التطبيقات من هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("list_accounts"))
+        bot.edit_message_text("حدث خطأ في جلب التطبيقات من هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
 
 # دالة لمعالجة النقرات على الأزرار
 @bot.callback_query_handler(func=lambda call: True)
@@ -218,23 +175,25 @@ def callback_query(call):
         show_events(call)
     elif call.data.startswith("select_account_"):
         account_index = int(call.data.split("_")[-1])
-        bot.edit_message_text(f"⚙️ إدارة حساب {account_index + 1}:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_heroku_control_buttons(account_index))
+        bot.edit_message_text(f"إدارة حساب {account_index + 1}:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_control_buttons(account_index))
     elif call.data.startswith("list_heroku_apps_"):
         list_heroku_apps(call)
     elif call.data.startswith("delete_app_"):
         account_index = int(call.data.split("_")[-1])
-        list_and_delete_apps(call, account_index)
+        msg = bot.edit_message_text("يرجى إرسال اسم التطبيق لحذفه:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+        bot.register_next_step_handler(msg, lambda m: handle_app_name_for_deletion(m, account_index))
     elif call.data.startswith("self_delete_app_"):
         account_index = int(call.data.split("_")[-1])
-        list_and_self_delete_apps(call, account_index)
+        msg = bot.edit_message_text("يرجى إرسال اسم التطبيق للحذف الذاتي:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+        bot.register_next_step_handler(msg, lambda m: handle_app_name_for_self_deletion(m, account_index))
     elif call.data == "remaining_time":
         show_remaining_time(call)
-    elif call.data == "go_back_main":
-        bot.edit_message_text("🌟 مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
+    elif call.data == "go_back":
+        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
     elif call.data == "github_section":
-        bot.edit_message_text("🛠️ قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
+        bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
     elif call.data == "upload_file":
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال ملف مضغوط بصيغة ZIP لتحويله إلى مستودع.")
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال ملف مضغوط بصيغة ZIP.")
         bot.register_next_step_handler(msg, handle_zip_file)
     elif call.data == "list_github_repos":
         list_github_repos(call)
@@ -243,120 +202,23 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_repo_deletion)
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
-    elif call.data == "advanced_settings":
-        bot.edit_message_text("⚙️ الإعدادات المتقدمة:\nاختر إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_advanced_settings_buttons())
-    elif call.data == "fetch_heroku_info":
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال مفتاح API لجلب معلومات الحساب:")
-        bot.register_next_step_handler(msg, fetch_heroku_info)
-    elif call.data == "fetch_github_info":
-        fetch_github_info(call)
-    elif call.data == "clear_events":
-        clear_events(call)
-    elif call.data.startswith("select_app_"):
-        _, app_name, account_index = call.data.split("_")
-        account_index = int(account_index)
-        delete_heroku_app(app_name, call.message, account_index)
-    elif call.data.startswith("restart_app_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإعادة تشغيله.")
-        bot.register_next_step_handler(msg, lambda m: restart_heroku_app(m, account_index))
-    elif call.data.startswith("app_stats_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لعرض إحصائياته.")
-        bot.register_next_step_handler(msg, lambda m: show_app_stats(m, account_index))
-    elif call.data.startswith("app_settings_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لعرض إعداداته.")
-        bot.register_next_step_handler(msg, lambda m: app_settings(m, account_index))
-    elif call.data.startswith("search_app_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق للبحث عنه.")
-        bot.register_next_step_handler(msg, lambda m: search_heroku_app(m, account_index))
-    elif call.data.startswith("manage_app_packages_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإدارة الحزم.")
-        bot.register_next_step_handler(msg, lambda m: manage_app_packages(m, account_index))
-    elif call.data.startswith("manage_app_permissions_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإدارة الأذونات.")
-        bot.register_next_step_handler(msg, lambda m: manage_app_permissions(m, account_index))
-    elif call.data.startswith("manage_app_files_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإدارة الملفات.")
-        bot.register_next_step_handler(msg, lambda m: manage_app_files(m, account_index))
-    elif call.data.startswith("edit_app_files_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لتحرير الملفات.")
-        bot.register_next_step_handler(msg, lambda m: edit_app_files(m, account_index))
-    elif call.data.startswith("view_app_graphs_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لعرض الرسوم البيانية.")
-        bot.register_next_step_handler(msg, lambda m: view_app_graphs(m, account_index))
-    elif call.data.startswith("manage_app_security_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإدارة الأمن.")
-        bot.register_next_step_handler(msg, lambda m: manage_app_security(m, account_index))
-    elif call.data.startswith("view_app_releases_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لعرض الإصدارات.")
-        bot.register_next_step_handler(msg, lambda m: view_app_releases(m, account_index))
-    elif call.data.startswith("manage_app_branches_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإدارة الفروع.")
-        bot.register_next_step_handler(msg, lambda m: manage_app_branches(m, account_index))
-    elif call.data.startswith("manage_app_merge_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإدارة الدمج.")
-        bot.register_next_step_handler(msg, lambda m: manage_app_merge(m, account_index))
-    elif call.data.startswith("schedule_app_tasks_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لجدولة المهام.")
-        bot.register_next_step_handler(msg, lambda m: schedule_app_tasks(m, account_index))
-    elif call.data.startswith("update_app_"):
-        account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لتحديثه.")
-        bot.register_next_step_handler(msg, lambda m: update_app(m, account_index))
+    elif call.data == "get_github_info":
+        get_github_info(call)
 
-def list_and_delete_apps(call, account_index):
-    user_id = call.from_user.id
-    headers = {
-        'Authorization': f'Bearer {user_accounts[user_id][account_index]["api_key"]}',
-        'Accept': 'application/vnd.heroku+json; version=3'
-    }
-    response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
-    if response.status_code == 200:
-        apps = response.json()
-        markup = telebot.types.InlineKeyboardMarkup()
-        for app in apps:
-            markup.add(telebot.types.InlineKeyboardButton(app['name'], callback_data=f"select_app_{app['name']}_{account_index}"))
-        markup.add(telebot.types.InlineKeyboardButton("↩️ العودة", callback_data=f"select_account_{account_index}"))
-        bot.edit_message_text("❌ اختر تطبيق لحذفه:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
-    else:
-        bot.edit_message_text("❌ حدث خطأ في جلب التطبيقات من هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("list_accounts"))
-
-def list_and_self_delete_apps(call, account_index):
-    user_id = call.from_user.id
-    headers = {
-        'Authorization': f'Bearer {user_accounts[user_id][account_index]["api_key"]}',
-        'Accept': 'application/vnd.heroku+json; version=3'
-    }
-    response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
-    if response.status_code == 200:
-        apps = response.json()
-        markup = telebot.types.InlineKeyboardMarkup()
-        for app in apps:
-            markup.add(telebot.types.InlineKeyboardButton(app['name'], callback_data=f"self_delete_{app['name']}_{account_index}"))
-        markup.add(telebot.types.InlineKeyboardButton("↩️ العودة", callback_data=f"select_account_{account_index}"))
-        bot.edit_message_text("⏲️ اختر تطبيق لتحديد وقت الحذف الذاتي:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
-    else:
-        bot.edit_message_text("❌ حدث خطأ في جلب التطبيقات من هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("list_accounts"))
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("self_delete_"))
-def handle_self_delete_selection(call):
-    _, app_name, account_index = call.data.split("_")
-    account_index = int(account_index)
-    msg = bot.send_message(call.message.chat.id, f"يرجى تحديد الوقت بالدقائق لحذف التطبيق `{app_name}`:")
-    bot.register_next_step_handler(msg, lambda m: handle_self_deletion_time(m, app_name, account_index))
+# دالة لجلب معلومات جيتهاب
+def get_github_info(call):
+    user = g.get_user()
+    repos = user.get_repos()
+    public_repos = user.public_repos
+    private_repos = user.total_private_repos
+    repo_count = repos.totalCount
+    info_message = (f"معلومات حساب جيتهاب:\n"
+                    f"عدد المستودعات: {repo_count}\n"
+                    f"عدد المستودعات العامة: {public_repos}\n"
+                    f"عدد المستودعات الخاصة: {private_repos}\n"
+                    f"اسم المستخدم: {user.login}\n"
+                    f"البريد الإلكتروني: {user.email or 'غير متوفر'}")
+    bot.edit_message_text(info_message, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
 # دالة الحذف
 def handle_app_name_for_deletion(message, account_index):
@@ -365,7 +227,7 @@ def handle_app_name_for_deletion(message, account_index):
     if validate_heroku_app(app_name, account_index, user_id):
         delete_heroku_app(app_name, message, account_index)
     else:
-        bot.send_message(message.chat.id, f"❌ اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
+        bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
 
 # تحقق من صحة اسم التطبيق
 def validate_heroku_app(app_name, account_index, user_id):
@@ -376,6 +238,19 @@ def validate_heroku_app(app_name, account_index, user_id):
     response = requests.get(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
     return response.status_code == 200
 
+# دالة لمعالجة اسم التطبيق للحذف الذاتي
+def handle_app_name_for_self_deletion(message, account_index):
+    app_name = message.text.strip()
+    user_id = message.from_user.id
+    if validate_heroku_app(app_name, account_index, user_id):
+        if app_name in self_deleting_apps:
+            bot.send_message(message.chat.id, f"تم وضع التطبيق `{app_name}` مسبقًا في قائمة الحذف الذاتي.", parse_mode='Markdown')
+        else:
+            msg = bot.send_message(message.chat.id, "يرجى إدخال الوقت المطلوب بالدقائق لحذف التطبيق:")
+            bot.register_next_step_handler(msg, lambda m: handle_self_deletion_time(m, app_name, account_index))
+    else:
+        bot.send_message(message.chat.id, f"اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
+
 # دالة لمعالجة الوقت للحذف الذاتي
 def handle_self_deletion_time(message, app_name, account_index):
     try:
@@ -383,16 +258,16 @@ def handle_self_deletion_time(message, app_name, account_index):
         if minutes <= 0:
             raise ValueError
         self_deleting_apps[app_name] = {'minutes': minutes, 'start_time': datetime.now(pytz.timezone('Asia/Baghdad'))}
-        bot.send_message(message.chat.id, f"⏳ سيتم حذف التطبيق `{app_name}` بعد {minutes} دقيقة.\n", reply_markup=create_remaining_time_button())
+        bot.send_message(message.chat.id, f"سيتم حذف التطبيق `{app_name}` بعد {minutes} دقيقة.\n", reply_markup=create_remaining_time_button())
         # بدء عملية الحذف الذاتي
         threading.Timer(minutes * 60, lambda: delete_and_remove_app(app_name, message, account_index)).start()
     except ValueError:
-        bot.send_message(message.chat.id, "❌ الرجاء إدخال عدد صحيح إيجابي للدقائق.")
+        bot.send_message(message.chat.id, "الرجاء إدخال عدد صحيح إيجابي للدقائق.")
 
 # زر عرض الوقت المتبقي
 def create_remaining_time_button():
     markup = telebot.types.InlineKeyboardMarkup()
-    button = telebot.types.InlineKeyboardButton("⏳ الوقت المتبقي", callback_data="remaining_time")
+    button = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
     markup.add(button)
     return markup
 
@@ -411,13 +286,13 @@ def delete_heroku_app(app_name, message, account_index):
     }
     response = requests.delete(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
     if response.status_code == 202:
-        bot.send_message(message.chat.id, f"✅ تم حذف التطبيق `{app_name}` بنجاح.", parse_mode='Markdown')
+        bot.send_message(message.chat.id, f"تم حذف التطبيق `{app_name}` بنجاح.", parse_mode='Markdown')
     else:
-        bot.send_message(message.chat.id, "❌ حدث خطأ أثناء محاولة حذف التطبيق.")
+        bot.send_message(message.chat.id, "حدث خطأ أثناء محاولة حذف التطبيق.")
 
 # عرض الوقت المتبقي للحذف الذاتي
 def show_remaining_time(call):
-    remaining_time_message = "⏳ التطبيقات المجدولة للحذف الذاتي:\n"
+    remaining_time_message = "التطبيقات المجدولة للحذف الذاتي:\n"
     for app_name, data in list(self_deleting_apps.items()):
         if app_name in self_deleting_apps:
             elapsed_time = (datetime.now(pytz.timezone('Asia/Baghdad')) - data['start_time']).total_seconds() // 60
@@ -425,7 +300,7 @@ def show_remaining_time(call):
             remaining_time_message += f"- {app_name}:\n  الوقت المتبقي: {format_remaining_time(remaining_minutes)}\n  تاريخ الحذف: {calculate_deletion_time(remaining_minutes)}\n"
         else:
             remaining_time_message += f"- {app_name}: تم حذفه."
-    bot.edit_message_text(remaining_time_message, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button("list_accounts"))
+    bot.edit_message_text(remaining_time_message, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
 # تنسيق الوقت المتبقي
 def format_remaining_time(minutes):
@@ -445,21 +320,20 @@ def list_github_repos(call):
     user = g.get_user()
     repos = user.get_repos()
     repo_list = ""
-    loading_message = bot.send_message(call.message.chat.id, "🔄 جارٍ جلب المستودعات، يرجى الانتظار...")
+    loading_message = bot.send_message(call.message.chat.id, "جارٍ جلب المستودعات، يرجى الانتظار...")
 
     for repo in repos:
         try:
             contents = repo.get_contents("")
             num_files = sum(1 for _ in contents)
-            visibility = "خاص" if repo.private else "عام"
-            repo_list += f"📂 *اسم المستودع*: `{repo.name}`\n📁 *عدد الملفات*: {num_files}\n🔒 *الخصوصية*: {visibility}\n\n"
+            repo_list += f"📂 *اسم المستودع*: `{repo.name}`\n📁 *عدد الملفات*: {num_files}\n\n"
         except:
-            repo_list += f"📂 *اسم المستودع*: `{repo.name}`\n🔒 *الخصوصية*: {'خاص' if repo.private else 'عام'}\n\n"
+            pass
 
     if repo_list:
-        bot.edit_message_text(f"📂 مستودعات GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button("github_section"))
+        bot.edit_message_text(f"مستودعات GitHub:\n{repo_list}", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
     else:
-        bot.edit_message_text("🚫 لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button("github_section"))
+        bot.edit_message_text("لا توجد مستودعات لعرضها.", chat_id=call.message.chat.id, message_id=loading_message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
 def handle_zip_file(message):
     if message.document and message.document.mime_type == 'application/zip':
@@ -485,72 +359,17 @@ def handle_zip_file(message):
                             repo.create_file(relative_path, f"Add {relative_path}", file_data.read())
                 
                 num_files = sum([len(files) for r, d, files in os.walk(temp_dir)])
-                bot.send_message(message.chat.id, f"✅ تم إنشاء المستودع بنجاح.\nاسم المستودع: `{repo_name}`\nعدد الملفات: {num_files}", parse_mode='Markdown')
+                bot.send_message(message.chat.id, f"تم إنشاء المستودع بنجاح.\nاسم المستودع: `{repo_name}`\nعدد الملفات: {num_files}", parse_mode='Markdown')
     else:
-        bot.send_message(message.chat.id, "❌ الملف الذي تم إرساله ليس ملف ZIP. يرجى المحاولة مرة أخرى.")
+        bot.send_message(message.chat.id, "الملف الذي تم إرساله ليس ملف ZIP. يرجى المحاولة مرة أخرى.")
 
 # دالة لعرض الأحداث
 def show_events(call):
     if not events:
-        bot.edit_message_text("🚫 لا توجد أحداث لعرضها.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("go_back_main"))
+        bot.edit_message_text("لا توجد أحداث لعرضها.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
     else:
         events_list = "\n".join(events)
-        bot.edit_message_text(f"📝 الأحداث:\n{events_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("go_back_main"), parse_mode='Markdown')
-
-# دالة لجلب معلومات هيروكو
-def fetch_heroku_info(message):
-    api_key = message.text.strip()
-    headers = {
-        'Authorization': f'Bearer {api_key}',
-        'Accept': 'application/vnd.heroku+json; version=3'
-    }
-    account_response = requests.get(f'{HEROKU_BASE_URL}/account', headers=headers)
-    apps_response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
-
-    if account_response.status_code == 200 and apps_response.status_code == 200:
-        account_info = account_response.json()
-        apps_info = apps_response.json()
-
-        num_apps = len(apps_info)
-        connected_to_github = sum(1 for app in apps_info if app.get('repo_size', 0) > 0)
-
-        message_text = (
-            f"🔍 معلومات حساب هيروكو:\n"
-            f"📧 البريد الإلكتروني: {account_info.get('email', 'غير معروف')}\n"
-            f"💳 الفاتورة: {account_info.get('billing', {}).get('payment_method', 'غير متوفر')}\n"
-            f"🔗 متصل بجيتهاب: {'نعم' if connected_to_github > 0 else 'لا'}\n"
-            f"📦 عدد التطبيقات: {num_apps}\n"
-            f"📦 التطبيقات المرتبطة بجيتهاب: {connected_to_github}\n"
-        )
-        bot.send_message(message.chat.id, message_text, reply_markup=create_back_button("advanced_settings"), parse_mode='Markdown')
-    else:
-        bot.send_message(message.chat.id, "❌ حدث خطأ أثناء جلب معلومات الحساب.", reply_markup=create_back_button("advanced_settings"))
-
-# دالة لجلب معلومات جيتهاب
-def fetch_github_info(call):
-    user = g.get_user()
-    repos = user.get_repos()
-
-    public_repos_count = user.public_repos
-    private_repos_count = user.total_private_repos
-
-    message = (
-        f"🔍 معلومات جيتهاب:\n"
-        f"👤 المستخدم: {user.login}\n"
-        f"📂 المستودعات العامة: {public_repos_count}\n"
-        f"🔒 المستودعات الخاصة: {private_repos_count}\n"
-    )
-
-    bot.edit_message_text(message, chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("advanced_settings"), parse_mode='Markdown')
-
-# دالة لحذف الأحداث
-def clear_events(call):
-    num_events = len(events)
-    if num_events > 0:
-        events.clear()
-        bot.edit_message_text(f"🗑️ تم حذف {num_events} حدث بنجاح.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("go_back_main"))
-    else:
-        bot.edit_message_text("🚫 لا توجد أحداث لحذفها.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("go_back_main"))
+        bot.edit_message_text(f"الأحداث:\n{events_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button(), parse_mode='Markdown')
 
 def handle_repo_deletion(message):
     repo_name = message.text.strip()
@@ -558,9 +377,9 @@ def handle_repo_deletion(message):
     try:
         repo = user.get_repo(repo_name)
         repo.delete()
-        bot.send_message(message.chat.id, f"🗑️ تم حذف المستودع `{repo_name}` بنجاح.", parse_mode='Markdown')
+        bot.send_message(message.chat.id, f"تم حذف المستودع `{repo_name}` بنجاح.", parse_mode='Markdown')
     except:
-        bot.send_message(message.chat.id, f"❌ المستودع `{repo_name}` غير موجود أو لا تملك صلاحية حذفه.", parse_mode='Markdown')
+        bot.send_message(message.chat.id, f"المستودع `{repo_name}` غير موجود أو لا تملك صلاحية حذفه.", parse_mode='Markdown')
 
 # دالة لحذف جميع المستودعات
 def delete_all_repos(call):
@@ -569,8 +388,8 @@ def delete_all_repos(call):
     repo_count = repos.totalCount
     for repo in repos:
         repo.delete()
-    bot.edit_message_text(f"🗑️ تم حذف جميع المستودعات بنجاح.\nعدد المستودعات المحذوفة: {repo_count}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button("github_section"))
+    bot.edit_message_text(f"تم حذف جميع المستودعات بنجاح.\nعدد المستودعات المحذوفة: {repo_count}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
-# تشغيل البوت
+# التشغيل
 if __name__ == "__main__":
     bot.polling()
