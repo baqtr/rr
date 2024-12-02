@@ -33,29 +33,22 @@ events = []
 
 # دالة لإنشاء الأزرار وتخصيصها
 def create_main_buttons():
-    markup = telebot.types.InlineKeyboardMarkup()
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
     button1 = telebot.types.InlineKeyboardButton("إضافة حساب ➕", callback_data="add_account")
     button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
     button3 = telebot.types.InlineKeyboardButton("قسم جيتهاب 🛠️", callback_data="github_section")
     button4 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
-    markup.add(button1)
-    markup.add(button2)
-    markup.add(button3)
-    markup.add(button4)
+    markup.add(button1, button2, button3, button4)
     return markup
 
 def create_github_control_buttons():
-    markup = telebot.types.InlineKeyboardMarkup()
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
     delete_all_button = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
     delete_repo_button = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
     upload_file_button = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
     list_repos_button = telebot.types.InlineKeyboardButton("عرض المستودعات 📂", callback_data="list_github_repos")
     get_info_button = telebot.types.InlineKeyboardButton("جلب معلومات جيتهاب ℹ️", callback_data="get_github_info")
-    markup.add(delete_all_button)
-    markup.add(delete_repo_button)
-    markup.add(upload_file_button)
-    markup.add(list_repos_button)
-    markup.add(get_info_button)
+    markup.add(delete_all_button, delete_repo_button, upload_file_button, list_repos_button, get_info_button)
     markup.add(create_back_button())
     return markup
 
@@ -68,16 +61,13 @@ def create_back_button():
 
 # دالة لإنشاء أزرار التحكم بالحسابات
 def create_account_control_buttons(account_index):
-    markup = telebot.types.InlineKeyboardMarkup()
+    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
     button1 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو 📦", callback_data=f"list_heroku_apps_{account_index}")
     button2 = telebot.types.InlineKeyboardButton("حذف تطبيق ❌", callback_data=f"delete_app_{account_index}")
     button3 = telebot.types.InlineKeyboardButton("الحذف الذاتي ⏲️", callback_data=f"self_delete_app_{account_index}")
     button4 = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
-    markup.add(button1) 
-    markup.add(button2)
-    markup.add(button3)
-    markup.add(button4)
-    markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="list_accounts"))
+    markup.add(button1, button2, button3, button4)
+    markup.add(create_back_button())
     return markup
 
 # دالة لمعالجة الطلبات الواردة
@@ -120,7 +110,7 @@ def list_accounts(call):
     user_id = call.from_user.id
     if user_id in user_accounts and user_accounts[user_id]:
         accounts_list = "\n".join([f"حساب {index + 1}: `{get_heroku_account_name(account['api_key'])}`" for index, account in enumerate(user_accounts[user_id])])
-        markup = telebot.types.InlineKeyboardMarkup()
+        markup = telebot.types.InlineKeyboardMarkup(row_width=1)
         for index in range(len(user_accounts[user_id])):
             account_name = get_heroku_account_name(user_accounts[user_id][index]['api_key'])
             markup.add(telebot.types.InlineKeyboardButton(f"{account_name}", callback_data=f"select_account_{index}"))
@@ -392,4 +382,4 @@ def delete_all_repos(call):
 
 # التشغيل
 if __name__ == "__main__":
-    bot.polling()
+    bot.polling(none_stop=True)
