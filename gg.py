@@ -91,7 +91,7 @@ def send_welcome(message):
 
 # دالة لإضافة حساب جديد
 def add_account(call):
-    msg = bot.edit_message_text("يرجى إرسال مفتاح API الخاص بحساب Heroku:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+    msg = bot.send_message(call.message.chat.id, "يرجى إرسال مفتاح API الخاص بحساب Heroku:")
     bot.register_next_step_handler(msg, handle_new_account)
 
 def handle_new_account(message):
@@ -124,7 +124,7 @@ def list_accounts(call):
         for index in range(len(user_accounts[user_id])):
             account_name = get_heroku_account_name(user_accounts[user_id][index]['api_key'])
             markup.add(telebot.types.InlineKeyboardButton(f"{account_name}", callback_data=f"select_account_{index}"))
-        markup.add(telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back"))
+        markup.add(create_back_button())
         bot.edit_message_text(f"حساباتك:\n{accounts_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup, parse_mode='Markdown')
     else:
         bot.edit_message_text("لا توجد حسابات مضافة.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
@@ -180,16 +180,16 @@ def callback_query(call):
         list_heroku_apps(call)
     elif call.data.startswith("delete_app_"):
         account_index = int(call.data.split("_")[-1])
-        msg = bot.edit_message_text("يرجى إرسال اسم التطبيق لحذفه:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لحذفه:")
         bot.register_next_step_handler(msg, lambda m: handle_app_name_for_deletion(m, account_index))
     elif call.data.startswith("self_delete_app_"):
         account_index = int(call.data.split("_")[-1])
-        msg = bot.edit_message_text("يرجى إرسال اسم التطبيق للحذف الذاتي:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق للحذف الذاتي:")
         bot.register_next_step_handler(msg, lambda m: handle_app_name_for_self_deletion(m, account_index))
     elif call.data == "remaining_time":
         show_remaining_time(call)
     elif call.data == "go_back":
-        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
+        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=create_main_buttons())
     elif call.data == "github_section":
         bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
     elif call.data == "upload_file":
