@@ -12,7 +12,7 @@ import pytz
 from github import Github
 
 # استيراد توكن البوت والرمز المميز لـ GitHub من المتغيرات البيئية
-bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "7913039979:AAFFCNwsBkxPUZNRKlf12reHl8T-d4X-xms")
+bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "7991924416:AAH9HBPDiQ7pM0cTJwQWFGTmC2-osnlf0rQ")
 github_token = os.getenv("GITHUB_TOKEN", "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")
 
 # إنشاء كائن البوت
@@ -167,15 +167,14 @@ def list_heroku_apps(call):
         'Authorization': f'Bearer {user_accounts[user_id][account_index]["api_key"]}',
         'Accept': 'application/vnd.heroku+json; version=3'
     }
-    bot.edit_message_text("⬛⬜ جلب التطبيقات... 0%", chat_id=call.message.chat.id, message_id=call.message.message_id)
-    time.sleep(2)
     response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
     if response.status_code == 200:
         apps = response.json()
-        apps_list = "\n".join([f"`{app['name']}`" for app in apps])
-        bot.edit_message_text("⬛⬛ جلب التطبيقات... 50%", chat_id=call.message.chat.id, message_id=call.message.message_id)
-        time.sleep(2)
-        bot.edit_message_text(f"📦 التطبيقات المتاحة في هيروكو:\n{apps_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("list_accounts"), parse_mode='Markdown')
+        markup = telebot.types.InlineKeyboardMarkup()
+        for app in apps:
+            markup.add(telebot.types.InlineKeyboardButton(app['name'], callback_data=f"select_app_{app['name']}_{account_index}"))
+        markup.add(telebot.types.InlineKeyboardButton("↩️ العودة", callback_data=f"select_account_{account_index}"))
+        bot.edit_message_text("📦 التطبيقات المتاحة في هيروكو:\nاختر التطبيق لإدارته:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
     else:
         bot.edit_message_text("❌ حدث خطأ في جلب التطبيقات من هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("list_accounts"))
 
@@ -195,12 +194,10 @@ def callback_query(call):
         list_heroku_apps(call)
     elif call.data.startswith("delete_app_"):
         account_index = int(call.data.split("_")[-1])
-        msg = bot.edit_message_text("يرجى إرسال اسم التطبيق لحذفه:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("list_accounts"))
-        bot.register_next_step_handler(msg, lambda m: handle_app_name_for_deletion(m, account_index))
+        list_and_delete_apps(call, account_index)
     elif call.data.startswith("self_delete_app_"):
         account_index = int(call.data.split("_")[-1])
-        msg = bot.edit_message_text("يرجى إرسال اسم التطبيق للحذف الذاتي:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("list_accounts"))
-        bot.register_next_step_handler(msg, lambda m: handle_app_name_for_self_deletion(m, account_index))
+        list_and_self_delete_apps(call, account_index)
     elif call.data == "remaining_time":
         show_remaining_time(call)
     elif call.data == "go_back_main":
@@ -226,6 +223,51 @@ def callback_query(call):
         fetch_github_info(call)
     elif call.data == "clear_events":
         clear_events(call)
+    elif call.data.startswith("select_app_"):
+        _, app_name, account_index = call.data.split("_")
+        account_index = int(account_index)
+        delete_heroku_app(app_name, call.message, account_index)
+
+def list_and_delete_apps(call, account_index):
+    user_id = call.from_user.id
+    headers = {
+        'Authorization': f'Bearer {user_accounts[user_id][account_index]["api_key"]}',
+        'Accept': 'application/vnd.heroku+json; version=3'
+    }
+    response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
+    if response.status_code == 200:
+        apps = response.json()
+        markup = telebot.types.InlineKeyboardMarkup()
+        for app in apps:
+            markup.add(telebot.types.InlineKeyboardButton(app['name'], callback_data=f"select_app_{app['name']}_{account_index}"))
+        markup.add(telebot.types.InlineKeyboardButton("↩️ العودة", callback_data=f"select_account_{account_index}"))
+        bot.edit_message_text("❌ اختر تطبيق لحذفه:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
+    else:
+        bot.edit_message_text("❌ حدث خطأ في جلب التطبيقات من هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("list_accounts"))
+
+def list_and_self_delete_apps(call, account_index):
+    user_id = call.from_user.id
+    headers = {
+        'Authorization': f'Bearer {user_accounts[user_id][account_index]["api_key"]}',
+        'Accept': 'application/vnd.heroku+json; version=3'
+    }
+    response = requests.get(f'{HEROKU_BASE_URL}/apps', headers=headers)
+    if response.status_code == 200:
+        apps = response.json()
+        markup = telebot.types.InlineKeyboardMarkup()
+        for app in apps:
+            markup.add(telebot.types.InlineKeyboardButton(app['name'], callback_data=f"self_delete_{app['name']}_{account_index}"))
+        markup.add(telebot.types.InlineKeyboardButton("↩️ العودة", callback_data=f"select_account_{account_index}"))
+        bot.edit_message_text("⏲️ اختر تطبيق لتحديد وقت الحذف الذاتي:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup)
+    else:
+        bot.edit_message_text("❌ حدث خطأ في جلب التطبيقات من هيروكو.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button("list_accounts"))
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("self_delete_"))
+def handle_self_delete_selection(call):
+    _, app_name, account_index = call.data.split("_")
+    account_index = int(account_index)
+    msg = bot.send_message(call.message.chat.id, f"يرجى تحديد الوقت بالدقائق لحذف التطبيق `{app_name}`:")
+    bot.register_next_step_handler(msg, lambda m: handle_self_deletion_time(m, app_name, account_index))
 
 # دالة الحذف
 def handle_app_name_for_deletion(message, account_index):
@@ -244,19 +286,6 @@ def validate_heroku_app(app_name, account_index, user_id):
     }
     response = requests.get(f'{HEROKU_BASE_URL}/apps/{app_name}', headers=headers)
     return response.status_code == 200
-
-# دالة لمعالجة اسم التطبيق للحذف الذاتي
-def handle_app_name_for_self_deletion(message, account_index):
-    app_name = message.text.strip()
-    user_id = message.from_user.id
-    if validate_heroku_app(app_name, account_index, user_id):
-        if app_name in self_deleting_apps:
-            bot.send_message(message.chat.id, f"⚠️ تم وضع التطبيق `{app_name}` مسبقًا في قائمة الحذف الذاتي.", parse_mode='Markdown')
-        else:
-            msg = bot.send_message(message.chat.id, "يرجى إدخال الوقت المطلوب بالدقائق لحذف التطبيق:")
-            bot.register_next_step_handler(msg, lambda m: handle_self_deletion_time(m, app_name, account_index))
-    else:
-        bot.send_message(message.chat.id, f"❌ اسم التطبيق `{app_name}` غير صحيح.", parse_mode='Markdown')
 
 # دالة لمعالجة الوقت للحذف الذاتي
 def handle_self_deletion_time(message, app_name, account_index):
