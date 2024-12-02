@@ -12,8 +12,8 @@ import pytz
 from github import Github
 
 # استيراد توكن البوت والرمز المميز لـ GitHub من المتغيرات البيئية
-bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "7991924416:AAH9HBPDiQ7pM0cTJwQWFGTmC2-osnlf0rQ")
-github_token = os.getenv("GITHUB_TOKEN", "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")
+bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "7031770762:AAEKh2HzaEn-mUm6YkqGm6qZA2JRJGOUQ20")
+github_token = os.getenv("GITHUB_TOKEN", "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")
 
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
@@ -64,7 +64,50 @@ def create_github_control_buttons():
         telebot.types.InlineKeyboardButton("🗑️ حذف مستودع محدد", callback_data="delete_repo"),
         telebot.types.InlineKeyboardButton("📤 رفع ملف كمستودع", callback_data="upload_file"),
         telebot.types.InlineKeyboardButton("📂 عرض مستودعاتك", callback_data="list_github_repos"),
+        telebot.types.InlineKeyboardButton("➕ إنشاء مستودع جديد", callback_data="create_repo"),
+        telebot.types.InlineKeyboardButton("🔄 تحديث مستودع", callback_data="update_repo"),
+        telebot.types.InlineKeyboardButton("🔍 بحث عن مستودع", callback_data="search_repo"),
+        telebot.types.InlineKeyboardButton("📊 عرض إحصائيات مستودع", callback_data="repo_stats"),
+        telebot.types.InlineKeyboardButton("📦 إدارة الحزم", callback_data="manage_packages"),
+        telebot.types.InlineKeyboardButton("🔐 إدارة الأذونات", callback_data="manage_permissions"),
+        telebot.types.InlineKeyboardButton("📑 عرض ملفات README", callback_data="view_readme"),
+        telebot.types.InlineKeyboardButton("🔗 إدارة الفروع", callback_data="manage_branches"),
+        telebot.types.InlineKeyboardButton("🔀 إدارة الدمج", callback_data="manage_merge"),
+        telebot.types.InlineKeyboardButton("🔧 إعدادات المستودع", callback_data="repo_settings"),
+        telebot.types.InlineKeyboardButton("📈 عرض الرسوم البيانية", callback_data="view_graphs"),
+        telebot.types.InlineKeyboardButton("🔒 إدارة الأمن", callback_data="manage_security"),
+        telebot.types.InlineKeyboardButton("📆 عرض الإصدارات", callback_data="view_releases"),
+        telebot.types.InlineKeyboardButton("📂 إدارة الملفات", callback_data="manage_files"),
+        telebot.types.InlineKeyboardButton("📝 تحرير الملفات", callback_data="edit_files"),
         telebot.types.InlineKeyboardButton("↩️ العودة للقائمة الرئيسية", callback_data="go_back_main")
+    ]
+    for button in buttons:
+        markup.add(button)
+    return markup
+
+def create_heroku_control_buttons(account_index):
+    markup = telebot.types.InlineKeyboardMarkup()
+    buttons = [
+        telebot.types.InlineKeyboardButton("📦 جلب تطبيقات هيروكو", callback_data=f"list_heroku_apps_{account_index}"),
+        telebot.types.InlineKeyboardButton("❌ حذف تطبيق", callback_data=f"delete_app_{account_index}"),
+        telebot.types.InlineKeyboardButton("⏲️ الحذف الذاتي", callback_data=f"self_delete_app_{account_index}"),
+        telebot.types.InlineKeyboardButton("⏳ الوقت المتبقي", callback_data="remaining_time"),
+        telebot.types.InlineKeyboardButton("🔄 إعادة تشغيل تطبيق", callback_data=f"restart_app_{account_index}"),
+        telebot.types.InlineKeyboardButton("📊 عرض إحصائيات التطبيق", callback_data=f"app_stats_{account_index}"),
+        telebot.types.InlineKeyboardButton("🔧 إعدادات التطبيق", callback_data=f"app_settings_{account_index}"),
+        telebot.types.InlineKeyboardButton("🔍 بحث عن تطبيق", callback_data=f"search_app_{account_index}"),
+        telebot.types.InlineKeyboardButton("📦 إدارة الحزم", callback_data=f"manage_app_packages_{account_index}"),
+        telebot.types.InlineKeyboardButton("🔐 إدارة الأذونات", callback_data=f"manage_app_permissions_{account_index}"),
+        telebot.types.InlineKeyboardButton("📂 إدارة الملفات", callback_data=f"manage_app_files_{account_index}"),
+        telebot.types.InlineKeyboardButton("📝 تحرير الملفات", callback_data=f"edit_app_files_{account_index}"),
+        telebot.types.InlineKeyboardButton("📈 عرض الرسوم البيانية", callback_data=f"view_app_graphs_{account_index}"),
+        telebot.types.InlineKeyboardButton("🔒 إدارة الأمن", callback_data=f"manage_app_security_{account_index}"),
+        telebot.types.InlineKeyboardButton("📆 عرض الإصدارات", callback_data=f"view_app_releases_{account_index}"),
+        telebot.types.InlineKeyboardButton("🔗 إدارة الفروع", callback_data=f"manage_app_branches_{account_index}"),
+        telebot.types.InlineKeyboardButton("🔀 إدارة الدمج", callback_data=f"manage_app_merge_{account_index}"),
+        telebot.types.InlineKeyboardButton("📆 جدولة المهام", callback_data=f"schedule_app_tasks_{account_index}"),
+        telebot.types.InlineKeyboardButton("🔄 تحديث التطبيق", callback_data=f"update_app_{account_index}"),
+        telebot.types.InlineKeyboardButton("↩️ العودة للحسابات", callback_data="list_accounts")
     ]
     for button in buttons:
         markup.add(button)
@@ -75,20 +118,6 @@ def create_back_button(callback_data="go_back_main"):
     markup = telebot.types.InlineKeyboardMarkup()
     back_button = telebot.types.InlineKeyboardButton("↩️ العودة", callback_data=callback_data)
     markup.add(back_button)
-    return markup
-
-# دالة لإنشاء أزرار التحكم بالحسابات
-def create_account_control_buttons(account_index):
-    markup = telebot.types.InlineKeyboardMarkup()
-    buttons = [
-        telebot.types.InlineKeyboardButton("📦 جلب تطبيقات هيروكو", callback_data=f"list_heroku_apps_{account_index}"),
-        telebot.types.InlineKeyboardButton("❌ حذف تطبيق", callback_data=f"delete_app_{account_index}"),
-        telebot.types.InlineKeyboardButton("⏲️ الحذف الذاتي", callback_data=f"self_delete_app_{account_index}"),
-        telebot.types.InlineKeyboardButton("⏳ الوقت المتبقي", callback_data="remaining_time"),
-        telebot.types.InlineKeyboardButton("↩️ العودة للحسابات", callback_data="list_accounts")
-    ]
-    for button in buttons:
-        markup.add(button)
     return markup
 
 # دالة لمعالجة الطلبات الواردة
@@ -189,7 +218,7 @@ def callback_query(call):
         show_events(call)
     elif call.data.startswith("select_account_"):
         account_index = int(call.data.split("_")[-1])
-        bot.edit_message_text(f"⚙️ إدارة حساب {account_index + 1}:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_account_control_buttons(account_index))
+        bot.edit_message_text(f"⚙️ إدارة حساب {account_index + 1}:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_heroku_control_buttons(account_index))
     elif call.data.startswith("list_heroku_apps_"):
         list_heroku_apps(call)
     elif call.data.startswith("delete_app_"):
