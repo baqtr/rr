@@ -256,6 +256,66 @@ def callback_query(call):
         _, app_name, account_index = call.data.split("_")
         account_index = int(account_index)
         delete_heroku_app(app_name, call.message, account_index)
+    elif call.data.startswith("restart_app_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإعادة تشغيله.")
+        bot.register_next_step_handler(msg, lambda m: restart_heroku_app(m, account_index))
+    elif call.data.startswith("app_stats_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لعرض إحصائياته.")
+        bot.register_next_step_handler(msg, lambda m: show_app_stats(m, account_index))
+    elif call.data.startswith("app_settings_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لعرض إعداداته.")
+        bot.register_next_step_handler(msg, lambda m: app_settings(m, account_index))
+    elif call.data.startswith("search_app_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق للبحث عنه.")
+        bot.register_next_step_handler(msg, lambda m: search_heroku_app(m, account_index))
+    elif call.data.startswith("manage_app_packages_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإدارة الحزم.")
+        bot.register_next_step_handler(msg, lambda m: manage_app_packages(m, account_index))
+    elif call.data.startswith("manage_app_permissions_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإدارة الأذونات.")
+        bot.register_next_step_handler(msg, lambda m: manage_app_permissions(m, account_index))
+    elif call.data.startswith("manage_app_files_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإدارة الملفات.")
+        bot.register_next_step_handler(msg, lambda m: manage_app_files(m, account_index))
+    elif call.data.startswith("edit_app_files_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لتحرير الملفات.")
+        bot.register_next_step_handler(msg, lambda m: edit_app_files(m, account_index))
+    elif call.data.startswith("view_app_graphs_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لعرض الرسوم البيانية.")
+        bot.register_next_step_handler(msg, lambda m: view_app_graphs(m, account_index))
+    elif call.data.startswith("manage_app_security_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإدارة الأمن.")
+        bot.register_next_step_handler(msg, lambda m: manage_app_security(m, account_index))
+    elif call.data.startswith("view_app_releases_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لعرض الإصدارات.")
+        bot.register_next_step_handler(msg, lambda m: view_app_releases(m, account_index))
+    elif call.data.startswith("manage_app_branches_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإدارة الفروع.")
+        bot.register_next_step_handler(msg, lambda m: manage_app_branches(m, account_index))
+    elif call.data.startswith("manage_app_merge_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لإدارة الدمج.")
+        bot.register_next_step_handler(msg, lambda m: manage_app_merge(m, account_index))
+    elif call.data.startswith("schedule_app_tasks_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لجدولة المهام.")
+        bot.register_next_step_handler(msg, lambda m: schedule_app_tasks(m, account_index))
+    elif call.data.startswith("update_app_"):
+        account_index = int(call.data.split("_")[-1])
+        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لتحديثه.")
+        bot.register_next_step_handler(msg, lambda m: update_app(m, account_index))
 
 def list_and_delete_apps(call, account_index):
     user_id = call.from_user.id
@@ -511,6 +571,6 @@ def delete_all_repos(call):
         repo.delete()
     bot.edit_message_text(f"🗑️ تم حذف جميع المستودعات بنجاح.\nعدد المستودعات المحذوفة: {repo_count}", chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button("github_section"))
 
-# التشغيل
+# تشغيل البوت
 if __name__ == "__main__":
     bot.polling()
