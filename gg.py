@@ -13,7 +13,7 @@ import pytz
 from github import Github
 
 # استيراد توكن البوت من المتغيرات البيئية
-bot_token = "7991924416:AAH9HBPDiQ7pM0cTJwQWFGTmC2-osnlf0rQ"
+bot_token = "7315494223:AAGCDCZWzda-Rx5RONpflvZcwX_Jza6Un60"
 github_token = "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"
 # إنشاء كائن البوت
 bot = telebot.TeleBot(bot_token)
@@ -33,41 +33,47 @@ events = []
 
 # دالة لإنشاء الأزرار وتخصيصها
 def create_main_buttons():
-    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
-    button1 = telebot.types.InlineKeyboardButton("إضافة حساب ➕", callback_data="add_account")
-    button2 = telebot.types.InlineKeyboardButton("حساباتك 🗂️", callback_data="list_accounts")
-    button3 = telebot.types.InlineKeyboardButton("قسم جيتهاب 🛠️", callback_data="github_section")
-    button4 = telebot.types.InlineKeyboardButton("الأحداث 🔄", callback_data="show_events")
-    markup.add(button1, button2, button3, button4)
+    markup = telebot.types.InlineKeyboardMarkup()
+    button1 = telebot.types.InlineKeyboardButton("إضافة حساب جديد 📥", callback_data="add_account")
+    button2 = telebot.types.InlineKeyboardButton("عرض الحسابات الخاصة بك 🗂️", callback_data="list_accounts")
+    button3 = telebot.types.InlineKeyboardButton("إدارة جيتهاب 🔧", callback_data="github_section")
+    button4 = telebot.types.InlineKeyboardButton("عرض الأحداث 📜", callback_data="show_events")
+    markup.add(button1, button2)
+    markup.add(button3)
+    markup.add(button4)
     return markup
 
 def create_github_control_buttons():
-    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
-    delete_all_button = telebot.types.InlineKeyboardButton("حذف الكل 🗑️", callback_data="delete_all_repos")
-    delete_repo_button = telebot.types.InlineKeyboardButton("حذف مستودع 🗑️", callback_data="delete_repo")
-    upload_file_button = telebot.types.InlineKeyboardButton("رفع ملف 📤", callback_data="upload_file")
-    list_repos_button = telebot.types.InlineKeyboardButton("عرض المستودعات 📂", callback_data="list_github_repos")
-    get_info_button = telebot.types.InlineKeyboardButton("جلب معلومات جيتهاب ℹ️", callback_data="get_github_info")
-    markup.add(delete_all_button, delete_repo_button, upload_file_button, list_repos_button, get_info_button)
-    markup.add(create_back_button())
+    markup = telebot.types.InlineKeyboardMarkup()
+    delete_all_button = telebot.types.InlineKeyboardButton("حذف جميع المستودعات 🗑️", callback_data="delete_all_repos")
+    delete_repo_button = telebot.types.InlineKeyboardButton("حذف مستودع محدد ❌", callback_data="delete_repo")
+    upload_file_button = telebot.types.InlineKeyboardButton("رفع ملف إلى مستودع 📤", callback_data="upload_file")
+    list_repos_button = telebot.types.InlineKeyboardButton("عرض المستودعات الحالية 📂", callback_data="list_github_repos")
+    markup.row(delete_all_button, delete_repo_button)
+    markup.row(upload_file_button)
+    markup.add(list_repos_button)
+    markup.add(telebot.types.InlineKeyboardButton("العودة إلى القائمة الرئيسية ↩️", callback_data="go_back"))
     return markup
 
 # دالة لإنشاء زر العودة
 def create_back_button():
     markup = telebot.types.InlineKeyboardMarkup()
-    back_button = telebot.types.InlineKeyboardButton("العودة ↩️", callback_data="go_back")
+    back_button = telebot.types.InlineKeyboardButton("العودة إلى القائمة السابقة ↩️", callback_data="go_back")
     markup.add(back_button)
     return markup
 
 # دالة لإنشاء أزرار التحكم بالحسابات
 def create_account_control_buttons(account_index):
-    markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+    markup = telebot.types.InlineKeyboardMarkup()
     button1 = telebot.types.InlineKeyboardButton("جلب تطبيقات هيروكو 📦", callback_data=f"list_heroku_apps_{account_index}")
-    button2 = telebot.types.InlineKeyboardButton("حذف تطبيق ❌", callback_data=f"delete_app_{account_index}")
-    button3 = telebot.types.InlineKeyboardButton("الحذف الذاتي ⏲️", callback_data=f"self_delete_app_{account_index}")
-    button4 = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
-    markup.add(button1, button2, button3, button4)
-    markup.add(create_back_button())
+    button2 = telebot.types.InlineKeyboardButton("حذف تطبيق هيروكو ❌", callback_data=f"delete_app_{account_index}")
+    button3 = telebot.types.InlineKeyboardButton("إعداد حذف ذاتي ⏲️", callback_data=f"self_delete_app_{account_index}")
+    button4 = telebot.types.InlineKeyboardButton("عرض الوقت المتبقي ⏳", callback_data="remaining_time")
+    markup.add(button1) 
+    markup.add(button2)
+    markup.add(button3)
+    markup.add(button4)
+    markup.add(telebot.types.InlineKeyboardButton("العودة إلى الحسابات الخاصة بك 🗂️", callback_data="list_accounts"))
     return markup
 
 # دالة لمعالجة الطلبات الواردة
@@ -77,11 +83,11 @@ def send_welcome(message):
     if user_id not in user_accounts:
         user_accounts[user_id] = []
         events.append(f"انضم مستخدم جديد: [{message.from_user.first_name}](tg://user?id={user_id})")
-    bot.send_message(message.chat.id, "اهلا وسهلا نورتنا اختار من بين الازرار ماذا تريد", reply_markup=create_main_buttons())
+    bot.send_message(message.chat.id, "مرحبًا بك! اختر خيارًا من الأزرار أدناه:", reply_markup=create_main_buttons())
 
 # دالة لإضافة حساب جديد
 def add_account(call):
-    msg = bot.send_message(call.message.chat.id, "يرجى إرسال مفتاح API الخاص بحساب Heroku:")
+    msg = bot.edit_message_text("يرجى إرسال مفتاح API الخاص بحساب Heroku:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
     bot.register_next_step_handler(msg, handle_new_account)
 
 def handle_new_account(message):
@@ -110,11 +116,11 @@ def list_accounts(call):
     user_id = call.from_user.id
     if user_id in user_accounts and user_accounts[user_id]:
         accounts_list = "\n".join([f"حساب {index + 1}: `{get_heroku_account_name(account['api_key'])}`" for index, account in enumerate(user_accounts[user_id])])
-        markup = telebot.types.InlineKeyboardMarkup(row_width=1)
+        markup = telebot.types.InlineKeyboardMarkup()
         for index in range(len(user_accounts[user_id])):
             account_name = get_heroku_account_name(user_accounts[user_id][index]['api_key'])
             markup.add(telebot.types.InlineKeyboardButton(f"{account_name}", callback_data=f"select_account_{index}"))
-        markup.add(create_back_button())
+        markup.add(telebot.types.InlineKeyboardButton("العودة إلى القائمة الرئيسية ↩️", callback_data="go_back"))
         bot.edit_message_text(f"حساباتك:\n{accounts_list}", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=markup, parse_mode='Markdown')
     else:
         bot.edit_message_text("لا توجد حسابات مضافة.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
@@ -170,18 +176,18 @@ def callback_query(call):
         list_heroku_apps(call)
     elif call.data.startswith("delete_app_"):
         account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق لحذفه:")
+        msg = bot.edit_message_text("يرجى إرسال اسم التطبيق لحذفه:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
         bot.register_next_step_handler(msg, lambda m: handle_app_name_for_deletion(m, account_index))
     elif call.data.startswith("self_delete_app_"):
         account_index = int(call.data.split("_")[-1])
-        msg = bot.send_message(call.message.chat.id, "يرجى إرسال اسم التطبيق للحذف الذاتي:")
+        msg = bot.edit_message_text("يرجى إرسال اسم التطبيق للحذف الذاتي:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_back_button())
         bot.register_next_step_handler(msg, lambda m: handle_app_name_for_self_deletion(m, account_index))
     elif call.data == "remaining_time":
         show_remaining_time(call)
     elif call.data == "go_back":
-        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=create_main_buttons())
+        bot.edit_message_text("مرحبًا بك! اضغط على الأزرار أدناه لتنفيذ الإجراءات.", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_main_buttons())
     elif call.data == "github_section":
-        bot.edit_message_text("قسم جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
+        bot.edit_message_text("إدارة مستودعات جيتهاب:\nيرجى اختيار إحدى الخيارات:", chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=create_github_control_buttons())
     elif call.data == "upload_file":
         msg = bot.send_message(call.message.chat.id, "يرجى إرسال ملف مضغوط بصيغة ZIP.")
         bot.register_next_step_handler(msg, handle_zip_file)
@@ -192,23 +198,6 @@ def callback_query(call):
         bot.register_next_step_handler(msg, handle_repo_deletion)
     elif call.data == "delete_all_repos":
         delete_all_repos(call)
-    elif call.data == "get_github_info":
-        get_github_info(call)
-
-# دالة لجلب معلومات جيتهاب
-def get_github_info(call):
-    user = g.get_user()
-    repos = user.get_repos()
-    public_repos = user.public_repos
-    private_repos = user.total_private_repos
-    repo_count = repos.totalCount
-    info_message = (f"معلومات حساب جيتهاب:\n"
-                    f"عدد المستودعات: {repo_count}\n"
-                    f"عدد المستودعات العامة: {public_repos}\n"
-                    f"عدد المستودعات الخاصة: {private_repos}\n"
-                    f"اسم المستخدم: {user.login}\n"
-                    f"البريد الإلكتروني: {user.email or 'غير متوفر'}")
-    bot.edit_message_text(info_message, chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='Markdown', reply_markup=create_back_button())
 
 # دالة الحذف
 def handle_app_name_for_deletion(message, account_index):
@@ -257,7 +246,7 @@ def handle_self_deletion_time(message, app_name, account_index):
 # زر عرض الوقت المتبقي
 def create_remaining_time_button():
     markup = telebot.types.InlineKeyboardMarkup()
-    button = telebot.types.InlineKeyboardButton("الوقت المتبقي ⏳", callback_data="remaining_time")
+    button = telebot.types.InlineKeyboardButton("عرض الوقت المتبقي ⏳", callback_data="remaining_time")
     markup.add(button)
     return markup
 
@@ -382,4 +371,4 @@ def delete_all_repos(call):
 
 # التشغيل
 if __name__ == "__main__":
-    bot.polling(none_stop=True)
+    bot.polling()
